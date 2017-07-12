@@ -252,11 +252,7 @@ linear class Supervisor[sharable k,sharable v]
                 var index = 0
                 var iterator = pairs.iterator()
                 while iterator.has_next() do
-                    match (iterator.next()) with
-                        case Just(v) =>
-                            result(index) = v.value
-                        end
-                    end
+                    result(index) = iterator.next()
                     index += 1
                 end
                 this.workers(id) ! pairsExtend(result)
