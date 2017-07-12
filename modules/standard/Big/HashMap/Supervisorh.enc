@@ -1,7 +1,7 @@
 
 module Supervisorh
 
-import SiphashM
+import Hash.Siphash
 import Workerh
 
 import Big.HashMap.HashMap

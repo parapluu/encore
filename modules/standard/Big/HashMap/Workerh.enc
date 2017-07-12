@@ -6,7 +6,7 @@ import Framework.MapReduce.Combiner
 
 import Big.HashMap.HashMap
 import Collections.Mutable.LinkedList
-import SiphashM
+import Hash.Siphash
 
 active class Worker[k,v]
     var id : int
