@@ -22,7 +22,7 @@ local class StringBuffer
     var index = 0
     val iter = this.strings.iterator()
     while iter.has_next() do
-      val s = unjust(iter.next())
+      val s = iter.next()
       EMBED (unit)
         for (int i = 0; i < #{s.length}; ++i)
           {
