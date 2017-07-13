@@ -2,7 +2,7 @@ active class Main
   def main(args : [String]) : unit
     match Nothing with
       case Nothing =>
-        println("Until the typechecker gets clever enough, this won't compile")
+        println("This now compiles.")
       end
     end
   end

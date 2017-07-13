@@ -54,7 +54,6 @@ import AST.AST as AST
 import Data.List
 import Data.Maybe
 import Text.Printf (printf)
-import Debug.Trace
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Arrow(second)
@@ -379,7 +378,7 @@ subtypeOf sub super
     | isUnionType super = do
         let members2 = unionMembers super
         anyM (sub `subtypeOf`) members2
-    | isBottomType sub && (not . isBottomType $ super) = return True
+    | isBottomType sub = return True
     | isNumeric sub && isNumeric super =
         return $ sub `numericSubtypeOf` super
     | isTypeVar sub && not (isTypeVar super)
@@ -654,6 +653,8 @@ doUnifyTypes inter args@(ty:tys)
         doUnifyTypes inter tys
     | isBottomType ty =
         doUnifyTypes inter tys
+    | isBottomType inter =
+        doUnifyTypes ty tys
     | isClassType ty =
         if ty == inter
         then doUnifyTypes inter tys

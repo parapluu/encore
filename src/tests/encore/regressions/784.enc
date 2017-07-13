@@ -1,0 +1,30 @@
+active class Base
+  def base() : int
+    42
+  end
+end
+
+active class Bar
+  def bar() : int
+    24
+  end
+end
+
+active class Foo
+  def foo(b : bool) : int
+    val arg1 = (new Bar) ! bar()
+    val arg2 = (new Base) ! base()
+    forward(if b then
+              forward(arg1)
+            else
+              arg2
+            end)
+  end
+end
+
+active class Main
+  def main() : unit
+    println("{}", get((new Foo) ! foo(true)))
+    println("{}", get((new Foo) ! foo(false)))
+  end
+end
