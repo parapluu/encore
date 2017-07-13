@@ -1,0 +1,50 @@
+
+-- Word Counting algorithm
+-- Using Big hashmaps and a Mapreduce Framework
+-- Counts the occurrence of words in a text.
+
+import Framework.MapReduce.MapReduce
+import Big.HashMap.HashMap
+
+import ExampleText
+
+active class Main
+    def main() : unit
+        var input = randomText().split("\n")
+        var graph = new Bighash[int,String](intID)
+
+        repeat i <- |input| do
+            graph.put(i,input(i))
+        end
+
+        var mapReduce = new MapReduce[int,String,String,int](stringID)
+        var graph = mapReduce.run(consume graph, map, reduce)
+
+        printHash(consume graph)
+    end
+end
+
+fun map(key:int,value:String) : [(String,int)]
+    var words = value.to_lower().split(" ")
+    var result = new[(String,int)](|words|)
+    repeat i <- |words| do
+        result(i) = (words(i),1)
+    end
+    result
+end
+
+fun reduce(key:String,values:[int]) : (String,int)
+    var sum = 0
+    for value <- values do
+        sum += value
+    end
+    (key,sum)
+end
+
+fun printHash(result:Bighash[String,int]): unit
+    var keys = result.keys()
+    for key <- keys do
+        var value = result.getValues(key)
+        println("Word: {}   Count: {}",key,value(0))
+    end
+end
