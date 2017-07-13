@@ -2,7 +2,7 @@
 module HashMap
 
 import Supervisorh
-import LinkedList
+import Collections.Mutable.LinkedList
 
 linear class Bighash[k,v]
     var supervisor : Supervisor[k,v]

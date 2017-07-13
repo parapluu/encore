@@ -119,7 +119,7 @@ BODY
     }
 END
 
-local class Siphash : Hasher
+subord class Siphash : Hasher
   def hash(id : uint) : uint
     EMBED (uint)
       // Hashing-key, can be any random bytes

@@ -3,7 +3,7 @@ module Supervisor
 
 import Worker
 
-local class Supr[t]
+local class Supr[sharable t]
     var size : int
     var numOfWorkers: int
     var workers : [(Worker[t],int,int)]
