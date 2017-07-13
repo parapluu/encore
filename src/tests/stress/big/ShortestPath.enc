@@ -20,7 +20,8 @@ active class Main
         this.mp = new MapReduce[int,Node,int,Node](nodeID)
         graph = this.iterate(25,consume graph)
 
-        printResult(consume graph)
+        -- printResult(consume graph)  -- uncomment for results
+        println("Done")
     end
 
     def iterate(max:int, graph:Bighash[int,Node]) : Bighash[int,Node]

@@ -68,3 +68,9 @@ stress/savina/13.SleepingBarber/FiFoBoundedList
 stress/savina/13.SleepingBarber/FiFoList
 
 stress/savina/14.CigaretteSmokers/CigaretteSmokers
+
+# Module used by 'big' tests are not tests
+#
+stress/big/input-data/ExampleText
+stress/big/input-data/GraphFunctions
+stress/big/input-data/InputGraphs.enc
