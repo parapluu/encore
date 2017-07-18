@@ -113,8 +113,10 @@ pp' (StatAsExpr n s) = "({" <> pp' s <+> pp' n <> ";})"
 pp' (If c t e) =
   "if" <+> parens  (pp' c) $+$
     bracedBlock (pp' t) $+$
-  "else" $+$
-    bracedBlock (pp' e)
+  maybeElse e
+  where
+    maybeElse Skip = empty
+    maybeElse e    = "else" $+$ bracedBlock (pp' e)
 pp' (Ternary c t e) = pp' c <> "?" <+> pp' t <> ":" <+> pp' e
 pp' (Return e) = "return" <+> pp' e <> ";"
 pp' (Break) = "break;"
