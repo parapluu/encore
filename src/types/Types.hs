@@ -26,6 +26,7 @@ module Types(
             ,traitType
             ,isRefType
             ,isFromADT
+            ,setFromADT
             ,isTraitType
             ,isAbstractTraitType
             ,isClassType
@@ -307,7 +308,8 @@ data InnerType =
           -- parameters that have the type @T@ from the included
           -- trait @T@, which might have been extended with
           -- additional attributes.
-        | AbstractTraitType{refInfo :: RefInfo}
+        | AbstractTraitType{refInfo :: RefInfo
+                           ,fromADT :: Bool}
         | ClassType{refInfo :: RefInfo
                    ,fromADT :: Bool}
         | AdtType{refInfo :: RefInfo}--TODO: Add more stuff
@@ -852,8 +854,8 @@ traitType name parameters =
 -- | Calling @abstractTraitFromTraitType ty@ returns the *trait
 -- type* @ty@ as an *abstract* trait type. See the definition of
 -- @AbstractTraitType@ for more details.
-abstractTraitFromTraitType ty@Type{inner = TraitType{refInfo}} =
-  ty{inner = AbstractTraitType{refInfo}}
+abstractTraitFromTraitType ty@Type{inner = TraitType{refInfo, fromADT}} =
+  ty{inner = AbstractTraitType{refInfo, fromADT}}
 abstractTraitFromTraitType ty@Type{inner = AbstractTraitType{}} = ty
 abstractTraitFromTraitType ty =
   error $ "Types.hs: Can't form abstract trait from " ++ showWithKind ty
@@ -881,7 +883,13 @@ isUnresolved _ = False
 
 isFromADT Type{inner = TraitType{fromADT}} = fromADT
 isFromADT Type{inner = ClassType{fromADT}} = fromADT
+isFromADT Type{inner = AbstractTraitType{fromADT}} = fromADT
 isFromADT _ = False
+
+setFromADT ty@Type{inner = t@TraitType{}} bool = ty{inner = t{fromADT = bool}}
+setFromADT ty@Type{inner = t@ClassType{}} bool = ty{inner = t{fromADT = bool}}
+setFromADT ty@Type{inner = t@AbstractTraitType{}} bool = ty{inner = t{fromADT = bool}}
+setFromADT ty _ = ty
 
 isTraitType Type{inner = TraitType{}} = True
 isTraitType Type{inner = AbstractTraitType{}} = True
