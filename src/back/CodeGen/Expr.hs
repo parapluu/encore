@@ -832,11 +832,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 let tagAssignment = Assign (Var tagPointer) argDecls
                 return (argDecls, Seq $ theCall:[tagAssignment])
               else do
-                tmp <- Ctx.genNamedSym "expectedTag"
                 (argDecls, theCall) <-
                     passiveMethodCall argName argty (ID.Name "_getTag") noArgs Ty.intType
-                let theAssign = Assign (Decl (int, Var tmp)) theCall
-                return (Var tmp, Seq $ argDecls ++ [theAssign])
+                let theAssign = Assign (Var tagPointer) theCall
+                return (Var tagPointer, Seq $ argDecls ++ [theAssign])
 
           (nActualTagCall, tActualTagCall) <-
               if Ty.isCapabilityType argty ||
