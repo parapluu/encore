@@ -40,6 +40,8 @@ static pony_type_t *ENCORE_PRIMITIVE = (pony_type_t *)1;
 typedef struct encore_actor_t encore_actor_t;
 typedef struct encore_oneway_msg encore_oneway_msg_t;
 typedef struct encore_fut_msg encore_fut_msg_t;
+typedef struct encore_vanilla_fut_msg encore_vanilla_fut_msg_t;
+typedef struct encore_poly_vanilla_fut_msg encore_poly_vanilla_fut_msg_t;
 
 typedef struct pony_main_msg_t
 {
@@ -85,6 +87,18 @@ struct encore_fut_msg
 {
   encore_oneway_msg_t pad;
   future_t    *_fut;
+};
+
+struct encore_vanilla_fut_msg
+{
+  encore_oneway_msg_t pad;
+  vanilla_future_t    *_fut;
+};
+
+struct encore_poly_vanilla_fut_msg
+{
+  encore_oneway_msg_t pad;
+  poly_vanilla_future_t    *_fut;
 };
 
 typedef struct stack_page {
@@ -139,10 +153,9 @@ void *encore_realloc(pony_ctx_t *ctx, void *p, size_t s);
 /// The starting point of all Encore programs
 int encore_start(int argc, char** argv, pony_type_t *type);
 
-void actor_unlock(encore_actor_t *actor);
 bool encore_actor_run_hook(encore_actor_t *actor);
 bool encore_actor_handle_message_hook(encore_actor_t *actor, pony_msg_t* msg);
-void actor_block(pony_ctx_t **ctx, encore_actor_t *actor);
+void actor_block(pony_ctx_t **ctx, encore_actor_t *actor, void * info_node);
 void actor_set_resume(encore_actor_t *actor);
 
 #ifndef LAZY_IMPL
@@ -150,7 +163,7 @@ void actor_set_run_to_completion(encore_actor_t *actor);
 bool actor_run_to_completion(encore_actor_t *actor);
 #endif
 void actor_suspend();
-void actor_await(pony_ctx_t **ctx, ucontext_t *uctx);
+void actor_await(pony_ctx_t **ctx, ucontext_t *uctx, void * info_node);
 
 /// calls the pony's respond with the current object's scheduler
 void call_respond_with_current_scheduler();

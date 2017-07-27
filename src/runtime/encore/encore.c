@@ -32,7 +32,7 @@ static void actor_resume_context(encore_actor_t *actor, ucontext_t *ctx);
 static void actor_resume_context(encore_actor_t *actor, ucontext_t *ctx);
 #endif
 
-extern void public_run(pony_actor_t *actor);
+extern void public_run(pony_actor_t *actor, void * info_node);
 
 extern bool pony_system_actor(pony_actor_t *actor);
 static void pony_sendargs(pony_ctx_t *ctx, pony_actor_t* to, uint32_t id,
@@ -52,17 +52,6 @@ static __pony_thread_local unsigned int available_context = 0;
 
 __pony_thread_local context *root_context;
 __pony_thread_local context *this_context;
-
-void actor_unlock(encore_actor_t *actor)
-{
-  if (!pony_system_actor((pony_actor_t*) actor)) {
-    if (actor->lock) {
-      pthread_mutex_t *lock = actor->lock;
-      actor->lock = NULL;
-      pthread_mutex_unlock(lock);
-    }
-  }
-}
 
 #ifndef LAZY_IMPL
 
@@ -121,7 +110,7 @@ bool actor_run_to_completion(encore_actor_t *actor)
 
 #ifdef LAZY_IMPL
 
-static context *pop_context(encore_actor_t *actor)
+static context *pop_context(encore_actor_t *actor, void * info_node)
 {
   context *c;
   if (available_context == 0) {
@@ -142,7 +131,7 @@ static context *pop_context(encore_actor_t *actor)
     context_pool->uctx.uc_stack.ss_flags = 0;
 #endif
   }
-  makecontext(&context_pool->uctx, (void(*)(void))public_run, 1, actor);
+  makecontext(&context_pool->uctx, (void(*)(void))public_run, 2, actor, info_node);
   c = context_pool;
   context_pool = c->next;
   return c;
@@ -198,7 +187,7 @@ static void force_thread_local_variable_access(context *old_this_context,
 #endif
 
 void actor_save_context(pony_ctx_t **ctx, encore_actor_t *actor,
-        ucontext_t *uctx)
+        ucontext_t *uctx, void * info_node)
 {
 #ifndef LAZY_IMPL
 
@@ -221,7 +210,7 @@ void actor_save_context(pony_ctx_t **ctx, encore_actor_t *actor,
   context *old_this_context = this_context;
   context *old_root_context = root_context;
   encore_actor_t *old_actor = actor;
-  this_context = pop_context(actor);
+  this_context = pop_context(actor, info_node);
   assert_swap(uctx, &this_context->uctx);
 #if defined(PLATFORM_IS_MACOSX)
   force_thread_local_variable_access(old_this_context, old_root_context);
@@ -235,14 +224,14 @@ void actor_save_context(pony_ctx_t **ctx, encore_actor_t *actor,
   *ctx = pony_ctx(); // Context might have gone stale, update it
 }
 
-void actor_block(pony_ctx_t **ctx, encore_actor_t *actor)
+void actor_block(pony_ctx_t **ctx, encore_actor_t *actor, void * info_node)
 {
 
 #ifndef LAZY_IMPL
-  actor_save_context(ctx, actor, &actor->uctx);
+  actor_save_context(ctx, actor, &actor->uctx, info_node);
 #else
   actor->saved = &this_context->uctx;
-  actor_save_context(ctx, actor, actor->saved);
+  actor_save_context(ctx, actor, actor->saved, info_node);
 #endif
 
 }
@@ -255,18 +244,18 @@ void actor_suspend(pony_ctx_t **ctx)
   ucontext_t uctx;
   pony_sendp(*ctx, (pony_actor_t*) actor, _ENC__MSG_RESUME_SUSPEND, &uctx);
 
-  actor_save_context(ctx, actor, &uctx);
+  actor_save_context(ctx, actor, &uctx, NULL);
 
   actor->suspend_counter--;
   assert(actor->suspend_counter >= 0);
 }
 
-void actor_await(pony_ctx_t **ctx, ucontext_t *uctx)
+void actor_await(pony_ctx_t **ctx, ucontext_t *uctx, void * info_node)
 {
   encore_actor_t *actor = (encore_actor_t*)(*ctx)->current;
   actor->await_counter++;
 
-  actor_save_context(ctx, actor, uctx);
+  actor_save_context(ctx, actor, uctx, info_node);
 
   actor->await_counter--;
 
