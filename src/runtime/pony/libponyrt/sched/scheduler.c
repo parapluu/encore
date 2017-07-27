@@ -9,6 +9,7 @@
 #include "../gc/cycle.h"
 #include "../asio/asio.h"
 #include "../mem/pool.h"
+#include "ponyassert.h"
 #include <dtrace.h>
 #include <string.h>
 #include <stdio.h>
@@ -64,10 +65,7 @@ static void push(scheduler_t* sched, pony_actor_t* actor)
  */
 static pony_actor_t* pop_global(scheduler_t* sched)
 {
-  // The global queue is empty most of the time. We use pop_bailout_immediate
-  // to avoid unnecessary synchronisation in that common case.
-  pony_actor_t* actor =
-    (pony_actor_t*)ponyint_mpmcq_pop_bailout_immediate(&inject);
+  pony_actor_t* actor = (pony_actor_t*)ponyint_mpmcq_pop(&inject);
 
   if(actor != NULL)
     return actor;
@@ -238,9 +236,9 @@ static pony_actor_t* steal(scheduler_t* sched, pony_actor_t* prev)
     scheduler_t* victim = choose_victim(sched);
 
     if(victim == NULL)
-      victim = sched;
-
-    actor = pop_global(victim);
+      actor = (pony_actor_t*)ponyint_mpmcq_pop(&inject);
+    else
+      actor = pop_global(victim);
 
     if(actor != NULL)
     {
@@ -291,7 +289,7 @@ static void run(scheduler_t* sched)
       if(actor == NULL)
       {
         // Termination.
-        assert(pop(sched) == NULL);
+        pony_assert(pop(sched) == NULL);
         return;
       }
       DTRACE2(ACTOR_SCHEDULED, (uintptr_t)sched, (uintptr_t)actor);
@@ -408,6 +406,7 @@ static void *run_thread(void *arg)
 
   getcontext(origin);
   if (__atomic_load_n(&context_waiting, __ATOMIC_RELAXED) == scheduler_count) {
+    ponyint_pool_thread_cleanup();
     return NULL;
   }
 #endif
@@ -422,6 +421,7 @@ static void *run_thread(void *arg)
   jump_origin();
 #endif
 
+  ponyint_pool_thread_cleanup();
   return NULL;
 }
 
@@ -432,7 +432,7 @@ static void ponyint_sched_shutdown()
   start = 0;
 
   for(uint32_t i = start; i < scheduler_count; i++) {
-    pony_thread_join(scheduler[i].tid);
+    ponyint_thread_join(scheduler[i].tid);
     assert(pop_global(&scheduler[i]) == NULL);
   }
   assert(pop_global(&scheduler[0]) == NULL);
@@ -460,6 +460,8 @@ static void ponyint_sched_shutdown()
 pony_ctx_t* ponyint_sched_init(uint32_t threads, bool noyield, bool nopin,
   bool pinasio)
 {
+  pony_register_thread();
+
   use_yield = !noyield;
 
   // If no thread count is specified, use the available physical core count.
@@ -482,16 +484,15 @@ pony_ctx_t* ponyint_sched_init(uint32_t threads, bool noyield, bool nopin,
     ponyint_mpmcq_init(&scheduler[i].q);
   }
 
-  this_scheduler = &scheduler[0];
   ponyint_mpmcq_init(&inject);
   ponyint_asio_init(asio_cpu);
 
-  return &scheduler[0].ctx;
+  return pony_ctx();
 }
 
 bool ponyint_sched_start(bool library)
 {
-  this_scheduler = NULL;
+  pony_register_thread();
 
   if(!ponyint_asio_start())
     return false;
@@ -501,14 +502,9 @@ bool ponyint_sched_start(bool library)
   DTRACE0(RT_START);
   uint32_t start = 0;
 
-  if(library)
-  {
-    pony_register_thread();
-  }
-
   for(uint32_t i = start; i < scheduler_count; i++)
   {
-    if(!pony_thread_create(&scheduler[i].tid, run_thread, scheduler[i].cpu,
+    if(!ponyint_thread_create(&scheduler[i].tid, run_thread, scheduler[i].cpu,
       &scheduler[i]))
       return false;
   }
@@ -544,7 +540,7 @@ uint32_t ponyint_sched_cores()
   return scheduler_count;
 }
 
-void pony_register_thread()
+PONY_API void pony_register_thread()
 {
   if(this_scheduler != NULL)
     return;
@@ -552,10 +548,21 @@ void pony_register_thread()
   // Create a scheduler_t, even though we will only use the pony_ctx_t.
   this_scheduler = POOL_ALLOC(scheduler_t);
   memset(this_scheduler, 0, sizeof(scheduler_t));
-  this_scheduler->tid = pony_thread_self();
+  this_scheduler->tid = ponyint_thread_self();
 }
 
-pony_ctx_t* pony_ctx()
+PONY_API void pony_unregister_thread()
+{
+  if(this_scheduler == NULL)
+    return;
+
+  POOL_FREE(scheduler_t, this_scheduler);
+  this_scheduler = NULL;
+
+  ponyint_pool_thread_cleanup();
+}
+
+PONY_API pony_ctx_t* pony_ctx()
 {
   return &this_scheduler->ctx;
 }

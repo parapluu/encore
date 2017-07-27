@@ -1,0 +1,406 @@
+module LinkedList
+
+import Data.Either
+import Data.Maybe
+import Collections.Mutable.Collection
+-- import Collections.Mutable.Iterable
+
+local class LinkedNode[t] : Id
+  var value : t
+  var prev : Maybe[LinkedNode[t]]
+  var next : Maybe[LinkedNode[t]]
+  def init(value : t, prev : Maybe[LinkedNode[t]], next : Maybe[LinkedNode[t]]) : unit
+    this.value = value
+    this.prev = prev
+    this.next = next
+  end
+end
+
+local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id
+  var first : Maybe[LinkedNode[t]]
+  var last  : Maybe[LinkedNode[t]]
+  var size  : int
+
+  def init() : unit
+    this.first = Nothing : Maybe[LinkedNode[t]]
+    this.last  = Nothing : Maybe[LinkedNode[t]]
+    this.size  = 0
+  end
+
+  {-
+    Performs a shallow clone of the list.
+    Complexity: O(N)
+  -}
+  def clone() : LinkedList[t]
+    val list = new LinkedList[t]()
+
+    var cursor = this.first
+    while cursor != Nothing do
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+
+      list.append(current.value)
+      cursor = current.next
+    end
+
+    return list
+  end
+
+  {-
+    Appends the given value to the back of the list.
+    Complexity: O(1)
+  -}
+  def append(value : t) : unit
+    val new_node = Just(new LinkedNode[t](value, this.last, Nothing))
+
+    if this.last != Nothing then
+      match this.last with
+        case Just(node) => node.next = new_node
+      end
+    end
+
+    if this.first == Nothing then
+      this.first = new_node
+    end
+
+    this.last = new_node
+    this.size = this.size + 1
+  end
+
+  {-
+    Appends entire given array to back of the list.
+    Complexity: O(1)
+  -}
+  def append_all(value : [t]) : unit
+    for v <- value do
+      this.append(v)
+    end
+  end
+
+  {-
+    Checks if the list contains the given value.
+    Complexity: O(N)
+  -}
+  def contains(value : t) : bool
+    var cursor = this.first
+    while cursor != Nothing do
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+
+      if current.value == value then
+        return true
+      end
+
+      cursor = current.next
+    end
+
+    return false
+  end
+
+  {-
+    Retrieves the value at the given index in the list.
+    If the index is unreachable it will return Nothing.
+    Otherwise it will return Just(value).
+
+    Complexity: O(N)
+  -}
+  def element_at(index : int) : Maybe[t]
+    var i = 0
+    var cursor   = this.first
+
+    while cursor != Nothing && i <= index do
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+
+      if i == index then
+        return Just(current.value)
+      end
+
+      cursor = current.next
+      i = i + 1
+    end
+
+    return Nothing
+  end
+
+  {-
+    Inserts the given value to the given index in the list.
+    If the index is unreachable, it will append the value to the end
+    of the list.
+
+    Complexity: O(N)
+  -}
+  def insert(value : t, index : int) : Either[String,unit]
+    var inserted = false
+    var counter  = 0
+    var cursor   = this.first
+
+    while cursor != Nothing && not inserted do
+      -- Extract cursor
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+
+      -- Insert a new node between previous and current node, shifting tail to the right.
+      if counter == index then
+        val new_node = new LinkedNode[t](value, current.prev, cursor)
+
+        match current.prev with
+          case Just(p) => p.next = Just(new_node)
+          case Nothing => ()
+        end
+
+        current.prev = Just(new_node)
+
+        inserted = true
+      end
+
+      cursor = current.next
+      counter = counter + 1
+    end
+
+    -- If the loop couldn't insert the value insert it in the end of the list.
+    if not inserted then
+      this.append(value)
+    end
+
+    -- Indicate success.
+    return Right[String,unit](())
+  end
+
+  {-
+    Similar to LinkedList::element_at(index).
+    However it also attempts to unwrap the
+    returned Maybe.
+
+    Note: This may result in a runtime error if the index
+    is unreachable.
+
+    Complexity: O(N)
+  -}
+  def nth(index : int) : t
+    match this.element_at(index) with
+      case Just(v) => v
+    end
+  end
+
+  {-
+    Prepends the given value to the front of the list.
+    Complexity: O(1)
+  -}
+  def prepend(value : t) : unit
+    val new_node = Just(new LinkedNode[t](value, Nothing, this.first))
+
+    if this.first != Nothing then
+      match this.first with
+        case Just(node) => node.prev = new_node
+      end
+    end
+
+    if this.last == Nothing then
+      this.last = new_node
+    end
+
+    this.first = new_node
+    this.size = this.size + 1
+  end
+
+  {-
+    Prepends each element in given array to the front of the list.
+    Complexity: O(N)
+  -}
+  def prepend_all(value : [t]) : unit
+    for v <- value do
+      this.prepend(v)
+    end
+  end
+
+  {-
+    Removes the element at the given index from
+    the list and returns it to the caller.
+
+    If the index is unreachable it will return Nothing.
+
+    Complexity: O(N)
+  -}
+  def remove(index : int) : Maybe[t]
+    var counter = 0
+    var cursor = this.first
+    while cursor != Nothing do
+      val current = unjust(cursor)
+
+      if counter == index then
+        this.drop(current)
+        return Just(current.value)
+      end
+
+      cursor = current.next
+      counter += 1
+    end
+
+    Nothing
+  end
+
+  def remove_all(value : t) : unit
+    var cursor = this.first
+    while cursor != Nothing do
+      -- Extract cursor.
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+
+      -- Get the next node before the list is altered.
+      cursor = current.next
+
+      -- Drop node if matching.
+      if current.value == value then
+        this.drop(current)
+      end
+    end
+  end
+
+  def remove_back() : Maybe[t]
+    match this.last with
+      case Just(l) =>
+        this.drop(l)
+        return Just(l.value)
+      end
+      case Nothing => return Nothing
+    end
+  end
+
+  def remove_front() : Maybe[t]
+    match this.first with
+      case Just(f) =>
+        this.drop(f)
+        return Just(f.value)
+      end
+      case Nothing => return Nothing
+    end
+  end
+
+  def private drop(node : LinkedNode[t]) : unit
+    match node.prev with
+      case Just(n) => n.next = node.next
+      case Nothing =>
+        -- This is the first node in the list.
+        this.first = node.next
+      end
+    end
+
+    match node.next with
+      case Just(n) => n.prev = node.prev
+      case Nothing =>
+        -- This is the last node in the list.
+        this.last = node.prev
+      end
+    end
+
+    this.size = this.size - 1
+  end
+
+  def size() : int
+    this.size
+  end
+
+  def iterator() : LinkedListIterator[t]
+    new LinkedListIterator[t](this)
+  end
+
+  {-
+    Methods for for-comprehensions
+  -}
+
+  def foreach(f : local ((t) -> unit)) : unit
+    var cursor = this.first
+    while cursor != Nothing do
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+      f(current.value)
+      cursor = current.next
+    end
+  end
+
+  def map[u](f : t -> u) : LinkedList[u]
+    val result = new LinkedList[u]()
+
+    -- Iterate over list, perform f() on each value, put result in new list.
+    var cursor = this.first
+    while cursor != Nothing do
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+      result.append(f(current.value))
+      cursor = current.next
+    end
+    return result
+  end
+
+  def filter(f : t -> bool) : LinkedList[t]
+    val result = new LinkedList[t]()
+
+    var cursor = this.first
+    while cursor != Nothing do
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+
+      if f(current.value) then
+        result.append(current.value)
+      end
+
+      cursor = current.next
+    end
+    return result
+  end
+
+  def flatMap[u](f : t -> LinkedList[u]) : LinkedList[u]
+    val result = new LinkedList[u]()
+
+    var cursor = this.first
+    while cursor != Nothing do
+      val current = match cursor with
+                      case Just(n) => n
+                    end
+
+      val es = f(current.value)
+      es.foreach(fun (x:u)
+                   result.append(x)
+                 end)
+
+      cursor = current.next
+    end
+    return result
+  end
+end
+
+local class LinkedListIterator[t]
+  val internal_list : LinkedList[t]
+  var next_node     : Maybe[LinkedNode[t]]
+
+  def init(list: LinkedList[t]) : unit
+    this.internal_list = list.clone()
+    this.next_node     = this.internal_list.first
+  end
+
+  def has_next() : bool
+    return this.next_node != Nothing
+  end
+
+  def next() : t
+    match this.next_node with
+      case Just(n) =>
+        val next = this.next_node
+        this.next_node = n.next
+        match next with
+          case Just(n) => return n.value
+        end
+      end
+    end
+    abort("No next element")
+  end
+end

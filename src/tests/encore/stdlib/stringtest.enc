@@ -59,8 +59,8 @@ read class Test
     println("Format passed")
     this.test_substring()
     println("Substring passed")
-    this.test_equals()
-    println("Equals passed")
+    this.test_eq()
+    println("Eq passed")
     this.test_occurrences()
     println("Occurrences passed")
     this.test_split()
@@ -224,9 +224,9 @@ read class Test
 
                end)
   end
-  def test_equals() : unit
-    assertTrue(("foo").equals("foo"))
-    assertFalse(("foo").equals("foo1"))
+  def test_eq() : unit
+    assertTrue(("foo").eq("foo"))
+    assertFalse(("foo").eq("foo1"))
   end
   def test_occurrences() : unit
     let
@@ -245,7 +245,7 @@ read class Test
     in
       assertTrue(arraycmp(s.split("lorem"), ["", " ipsum dolor ", ""]))
       assertTrue(arraycmp(s.split(" "), ["lorem", "ipsum", "dolor", "lorem"]))
-      assertTrue(s.equals(("").join(s.split(""))))
+      assertTrue(s.eq(("").join(s.split(""))))
       assertTrue(arraycmp(s.split(""), ["l", "o", "r", "e", "m", " ", "i", "p", "s", "u", "m", " ", "d", "o", "l", "o", "r", " ", "l", "o", "r", "e", "m"]))
     end
   end
@@ -369,15 +369,15 @@ read class Test
       s2 = string_from_array(arr)
       empty = string_from_array(new [char](0))
     in
-      assertTrue(s1.equals(s2))
-      assertTrue(empty.equals(""))
+      assertTrue(s1.eq(s2))
+      assertTrue(empty.eq(""))
     end
   end
   def test_from_char() : unit
     let
       s = string_from_char('A')
     in
-      assertTrue(s.equals("A"))
+      assertTrue(s.eq("A"))
     end
   end
   def test_string_from_int() : unit
@@ -386,9 +386,9 @@ read class Test
       s2 = string_from_int(-(42))
       s3 = string_from_int(0)
     in
-      assertTrue(s1.equals("123456789"))
-      assertTrue(s2.equals("-42"))
-      assertTrue(s3.equals("0"))
+      assertTrue(s1.eq("123456789"))
+      assertTrue(s2.eq("-42"))
+      assertTrue(s3.eq("0"))
     end
   end
   def test_to_int() : unit

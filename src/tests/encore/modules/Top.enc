@@ -1,10 +1,10 @@
--- This file was automatically converted by encorec
 
 module Top
+
 fun top() : int
   10
 end
-fun id[a](x : a) : a
+
+fun sid[t](x : t) : t
   x
 end
-

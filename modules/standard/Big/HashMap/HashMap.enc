@@ -1,0 +1,113 @@
+
+module HashMap
+
+import Supervisorh
+import Collections.Mutable.LinkedList
+
+linear class Bighash[k,v]
+    var supervisor : Supervisor[k,v]
+    var f : k -> uint
+
+    def init(f: k -> uint) : unit
+        this.f = f
+        this.supervisor = new Supervisor[k,v](f)
+    end
+
+    def copy() : Bighash[k,v]
+        var bighash = new Bighash[k,v](this.f)
+        bighash.supervisor = this.supervisor.copy()
+        consume bighash
+    end
+
+    def hashFunction() : k -> uint
+        this.f
+    end
+
+    def put(key:k,value:v) : unit
+        this.supervisor.put(key,value)
+    end
+
+    def putManyAndBatch(pairs:[(k,v)]) : unit
+        this.supervisor.putManyAndBatch(pairs)
+    end
+
+    def get(key:k) : v
+        this.supervisor.get(key)
+    end
+
+    -- def remove(key:k) : unit
+    --     get(this.supervisor.remove(key))
+    -- end
+
+    def getMany(keys:[k]) : [v]
+        this.supervisor.getMany(keys)
+    end
+
+    def elements() : [v]
+        this.supervisor.elements()
+    end
+
+    def removeMany(keys:[k]) : unit
+        this.supervisor.removeMany(keys)
+    end
+
+    def keys() : [k]
+        this.supervisor.keys()
+    end
+
+    def clear() : unit
+        this.supervisor.clear()
+    end
+
+    def rehash() : unit
+        this.supervisor.rehash()
+    end
+
+    def hasKey(key:k) : bool
+        this.supervisor.hasKey(key)
+    end
+
+    def contains(value:v) : bool
+        this.supervisor.contains(value)
+    end
+
+    def changeNodeDistribution(num: int,size:int) : unit
+        this.changeNodeDistribution(num,size)
+    end
+
+    def getInfo() : unit
+        this.supervisor.getInfo()
+    end
+
+    def getSizing() : (int,int)
+        this.supervisor.getSizing()
+    end
+
+    ---------------- MapReduce functions -----------------
+
+    def extend(key:k, value:v) : unit
+        this.supervisor.extend(key,value)
+    end
+
+    def extendAll(key:k, values:[v]) : unit
+        this.supervisor.extendAll(key,values)
+    end
+
+    def getValues(key:k) : [v]
+        this.supervisor.getValues(key)
+    end
+
+    def sortedExtend(pairs:[LinkedList[(k,v,uint)]]) : unit
+        this.supervisor.sortedExtend(pairs)
+    end
+
+    def mapper[k2,v2](m:(k,v)->[(k2,v2)],r:(k2,[v2]) -> (k2,v2),b:Bighash[k2,v2]) : unit
+        var c = b.copy()
+        this.supervisor.mapper[k2,v2](m,r,consume c)
+    end
+
+    def reducer(r:(k,[v]) -> (k,v),b:Bighash[k,v]) : unit
+        var c = b.copy()
+        this.supervisor.reducer(r,consume c)
+    end
+end

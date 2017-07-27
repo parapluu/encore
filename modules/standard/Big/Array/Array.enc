@@ -1,0 +1,120 @@
+
+module Array
+
+import Supervisor
+import Random
+
+local class Bigvar[t]
+    var size : int
+    var supervisors : [(Supr[t],int,int)]
+
+    def init(array:[t]) : unit
+        this.size = |array|
+        var suprvisor = new Supr[t](array)
+        this.supervisors = [(suprvisor,0,this.size-1)]
+    end
+
+    def size() : int
+        this.size
+    end
+
+    def supr() : Supr[t]
+        this.supervisors(0).0
+    end
+
+    def array() : [t]
+        this.supr().array()
+    end
+
+    def update(f : t -> t) : unit
+        this.supr().update(f)
+    end
+
+    def filter(f: t->bool) : Bigvar[t]
+        new Bigvar[t](this.supr().filter(f))
+    end
+
+    def print(f: t->String) : unit
+        this.supr().print(f)
+    end
+
+    def insert(index: int, value: t): unit
+        this.size = this.size + 1
+        this.supr().insert(index,value)
+    end
+
+    -- def delete(index: int): unit
+    --     this.size -= 1
+    --     this.supr().delete(index)
+    -- end
+
+    def push(value: t) : unit
+        this.size = this.size + 1
+        this.supr().push(value)
+    end
+
+    def at(index: int) : t
+      this.abortIfOutOfBounds(index)
+      this.owner(index).at(index)
+    end
+
+    -- If we have more supr change this
+    def owner(index: int) : Supr[t]
+        this.supr()
+    end
+
+    def applyto(index:int, f : t -> t) : unit
+      this.abortIfOutOfBounds(index)
+      this.owner(index).applyto(index,f)
+    end
+
+    def getstringdata(f: t -> String) : Bigvar[String]
+        new Bigvar[String](this.supr().getStringData(f))
+    end
+
+    def printinfo() : unit
+        this.supr().printinfo()
+    end
+
+    def abortIfOutOfBounds(i: int) : unit
+        if ((i > this.size-1) || (i < 0)) then
+            println("index: {}",i)
+            abort("index is out of bounds")
+        end
+    end
+
+end
+
+fun randombigvar(size:int, max: int) : Bigvar[int]
+    var values = new[int](size)
+    repeat i <- size do
+        values(i) = random(max)
+    end
+    new Bigvar[int](values)
+end
+
+fun zerobigvar(size:int) : Bigvar[int]
+    var values = new[int](size)
+    repeat i <- size do
+        values(i) = 0
+    end
+    new Bigvar[int](values)
+end
+
+fun onesbigvar(size:int) : Bigvar[int]
+    var values = new[int](size)
+    repeat i <- size do
+        values(i) = 1
+    end
+    new Bigvar[int](values)
+end
+
+fun rangebigvar(l1:int, l2:int) : Bigvar[int]
+    var values = new[int](l2-l1)
+    var counter = 0
+    repeat i <- l2-l1 do
+        values(i) = l1+counter
+        counter += 1
+    end
+    new Bigvar[int](values)
+end

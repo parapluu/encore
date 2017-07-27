@@ -1,0 +1,109 @@
+module Maybe
+
+import qualified Data.Array as A
+
+-- This package implements common functions for operating on 
+-- Maybe types. It is inspired heavily by Data.Maybe in Haskell.
+
+-- unjust :: Maybe[a] -> a 
+-- unjust(mval) eliminates the Just constructor, assuming that the 
+-- mval is Just(x). Results in an error otherwise
+fun unjust[a](mval : Maybe[a]) : a
+  match mval with
+    case Just(y) => y
+    case Nothing =>
+      exit(0)
+      unjust(mval)  -- a hack to get the types right
+    end
+  end
+end
+
+-- unjust_with_default :: (a, Maybe[a]) -> a 
+-- unjust_with_default(default, mval) eliminates the Just constructor from mval, 
+-- assuming that the input value is Just(x). Results in an default, otherwise
+fun unjust_with_default[a](default : a, mval : Maybe[a]) : a
+  maybe(default, id[a], mval)
+end
+
+-- maybe :: (b, a -> b, Maybe[a]) -> b
+-- maybe(default,fun) applies function fun to value under Just and returns
+-- the result, otherwise it returns the default
+fun maybe[a,b](default : b, f : a -> b, mval : Maybe[a]) : b
+  match mval with
+    case Just(y) => f(y)
+    case Nothing => default
+  end
+end
+
+
+-- map :: (a -> b, Maybe[a]) -> Maybe[b]
+-- map(f,mval) applies function f to the value under Just,
+-- otherwise returns Nothing
+fun map[a,b](f : a -> b, mval : Maybe[a]) : Maybe[b]
+  match mval with
+    case Just(y) => Just(f(y))
+    case Nothing => Nothing
+  end
+end
+
+-- is_just :: Maybe[a] -> bool
+-- is_just(mval) is true whenever mval is Just(_)
+fun is_just[a](mval : Maybe[a]) : bool
+  match mval with
+    case Just(ice) => true  -- why can't I use _?
+    case Nothing => false
+  end
+end
+  
+-- is_nothing :: Maybe[a] -> bool
+-- is_nothing(mval) is true whenever mval is Nothing
+fun is_nothing[a](mval : Maybe[a]) : bool
+  match mval with
+    case Nothing => true
+    case Just(x) => false
+  end
+end
+
+-- array_to_maybe :: [a] -> Maybe[a]
+-- array_to_maybe(arr) is Nothing if the array is empty and Just(arr(0))
+-- otherwise
+fun array_to_maybe[a](arr : [a]) : Maybe[a]
+  if |arr| == 0 then
+    Nothing
+  else
+    Just(arr(0))
+  end
+end
+
+-- maybe_to_array :: Maybe[a] -> [a]
+-- maybe_to_array(mval) converts mval to either an empty or singleton array
+-- depending on whether mval is Nothing or Just(_)
+fun maybe_to_array[a](mval : Maybe[a]) : [a]
+  match mval with
+    case Nothing => new [a](0)  -- why can't I write []?
+    case Just(x) => [x]
+  end
+end
+
+-- cat_maybes :: [Maybe[a]] -> [a]
+-- cat_maybes(marr) takes produces an array containing only the elements
+-- Just(_) of the original array, with the Just constructor removed.
+fun cat_maybes[a](marr : [Maybe[a]]) : [a]
+  val arr = new [a](A.count(is_just[a], marr))  -- why do I need [a]?
+  var count = 0
+  for a <- marr do
+    if is_just(a) then
+      arr(count) = unjust(a)
+      count += 1
+    end
+  end
+  arr
+end
+
+-- map_maybe :: (a -> Maybe[a], [a]) -> [b]
+-- map_maybe(f, arr) maps the function f on the array producing a new array, 
+-- filtering out elements that result in Nothing
+fun map_maybe[a,b](f : a -> Maybe[b], arr : [a]) : [b]
+  cat_maybes[b](A.map[a, Maybe[b]](f, arr))
+end
+

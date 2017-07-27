@@ -1,0 +1,11 @@
+read trait T
+  def foo(x : int) : int
+    x
+  end
+end
+
+class C : T
+  def foo(x : int) : String
+    string_from_int(x)
+  end
+end

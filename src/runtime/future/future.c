@@ -54,6 +54,7 @@ typedef struct actor_list {
   struct actor_list *next;
 } actor_list;
 
+
 static inline void future_block_actor(pony_ctx_t **ctx, future_t *fut);
 static void future_finalizer(future_t *fut);
 static inline void future_chain(pony_ctx_t **ctx, future_t *fut,
@@ -66,7 +67,8 @@ static inline closure_entry_t * chain_treiber_stack_pop(closure_entry_t **head);
 pony_type_t future_type = {
   .id = ID_FUTURE,
   .size = sizeof(struct future),
-  .trace = &future_trace
+  .trace = &future_trace,
+  .final = (void*)&future_finalizer,
 };
 
 pony_type_t *future_get_type(future_t *fut){
@@ -106,9 +108,9 @@ static inline closure_entry_t * chain_treiber_stack_pop(closure_entry_t **head) 
       }   
       newhead = oldhead->next;
   }
-
   return oldhead;
 }
+
 
 static inline void chain_treiber_stack_push(closure_entry_t **head, closure_entry_t *newhead) {
   closure_entry_t * oldhead = __atomic_load_n(head, __ATOMIC_SEQ_CST); 

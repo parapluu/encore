@@ -1,0 +1,100 @@
+
+module Worker
+
+active class Worker[t]
+  var data : [t]
+  var size : int
+
+  def init(data:[t]) : unit
+    this.data = data
+    this.size = |data|
+  end
+
+  def array() : [t]
+      this.data
+  end
+
+  def at(index: int) : t
+      this.data(index)
+  end
+
+  def update(f: t->t) : unit
+    repeat i <- this.size do
+      this.data(i) = f(this.data(i))
+    end
+  end
+
+  def filter(f: t->bool) : [t]
+      var resultsize = 0
+      repeat i <- this.size do
+          if (f(this.data(i))) then
+              resultsize += 1
+          end
+      end
+
+      var resultarray = new[t](resultsize)
+      var resultindex = 0
+      repeat i <- this.size do
+          if (f(this.data(i))) then
+              resultarray(resultindex) = this.data(i)
+              resultindex += 1
+          end
+      end
+      resultarray
+  end
+
+  def insert(index: int, value: t) : unit
+      this.size = this.size + 1
+      var newarray = new[t](this.size)
+
+      var oldi = 0
+      repeat i <- this.size do
+          if(i == index) then
+              newarray(i) = value
+          else
+              newarray(i) = this.data(oldi)
+              oldi +=1
+          end
+      end
+
+      this.data = newarray
+  end
+
+  def delete(index: int) : unit
+      this.size = this.size - 1
+      var newarray = new[t](this.size)
+
+      var oldi = 0
+      repeat i <- this.size do
+          if(i == index) then
+              oldi +=1
+              newarray(i) = this.data(oldi)
+          else
+              newarray(i) = this.data(oldi)
+          end
+          oldi +=1
+      end
+
+      this.data = newarray
+  end
+
+  def push(value:t) : unit
+      this.size = this.size + 1
+      var newarray = new[t](this.size)
+
+      repeat i <- this.size do
+          if(i == this.size-1) then
+              newarray(i) = value
+          else
+              newarray(i) = this.data(i)
+          end
+      end
+
+      this.data = newarray
+  end
+
+  def applyto(index:int, f : t -> t) : unit
+      this.data(index) = f(this.data(index))
+  end
+
+end

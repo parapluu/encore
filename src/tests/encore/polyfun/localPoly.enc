@@ -1,4 +1,3 @@
--- This file was automatically converted by encorec
 
 fun foo() : int
   13 + 14 + id(15)
@@ -7,7 +6,7 @@ where
     x
   end
 end
-fun id[a](x : a) : a
+fun mid[a](x : a) : a
   myOtherId(myId(x))
 where
   fun myId(x : a) : a
@@ -19,6 +18,6 @@ where
 end
 active class Main
   def main() : unit
-    println(id(foo()))
+    println(mid(foo()))
   end
 end

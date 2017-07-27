@@ -1,0 +1,33 @@
+import ForkJoinConfig
+import ForkJoinActor
+
+fun getFromMaybe(x: Maybe[int]): int
+  match x with
+    case Just(i) => i
+    case Nothing => abort("Error: no value in maybe type")
+  end
+end
+
+active class Main
+  def parseArgs(args: [String]): ForkJoinConfig
+    if |args| > 1 then
+      return new ForkJoinConfig(getFromMaybe(args(1).to_int()), getFromMaybe(args(2).to_int()))
+    else
+      return new ForkJoinConfig(40000, 1)
+    end
+  end
+
+  def runIteration(config: ForkJoinConfig): unit
+    var i = 0
+    while i < config.N do
+      (new ForkJoinActor)!process(config)
+      i += 1
+    end
+    println("Success") -- Encore specific
+  end
+
+  def main(args: [String]): unit
+    val config = this.parseArgs(args)
+    this.runIteration(config)
+  end
+end

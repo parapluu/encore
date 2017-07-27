@@ -1,7 +1,7 @@
 -- This file was automatically converted by encorec
 
 module Utils
-fun id(x : String) : String
+fun sid(x : String) : String
   x
 end
 

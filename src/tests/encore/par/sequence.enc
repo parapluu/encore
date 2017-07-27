@@ -1,7 +1,7 @@
 import ParT.ParT
 
 fun assertEqualsPassive(p : PObject, tag : String) : unit
-  assertTrue(p.tag.equals(tag))
+  assertTrue(p.tag.eq(tag))
 end
 
 fun inc(i : int) : int

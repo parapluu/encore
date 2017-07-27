@@ -1,8 +1,4 @@
--- This file was automatically converted by encorec
 
-fun id[a](item : a) : a
-  item
-end
 fun compose[s, t, u](f : s -> t, g : t -> u) : s -> u
   fun (x : s) => g(apply(f, x))
 end

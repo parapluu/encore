@@ -1,0 +1,15 @@
+module Tuple
+
+-- Common operations on tuples
+
+fun fst[a,b](x : (a,b)) : a
+  x.1
+end
+
+fun snd[a,b](x : (a,b)) : b
+  x.2
+end
+
+fun map2[a,b,c,d](x : (a,b), f : a -> c, g : b -> d) : (c,d)
+  (f(a),g(b))
+end

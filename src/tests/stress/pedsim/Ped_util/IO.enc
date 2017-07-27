@@ -12,7 +12,7 @@ local class File
     this.mode = mode
   end
   def open(fin : String, mode : String) : unit
-    this.mode = if mode.equals("") then
+    this.mode = if mode.eq("") then
                   "w+r+a"
                 else
                   mode

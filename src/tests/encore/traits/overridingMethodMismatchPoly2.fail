@@ -1,0 +1,1 @@
+Overridden method 'foo' does not have the expected type '\\[t\\](t -> t)' required by trait 'T'

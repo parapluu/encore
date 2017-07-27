@@ -1,0 +1,102 @@
+module File
+
+import Data.StringBuffer
+
+typedef FilePath = String
+
+typedef FILE = EMBED FILE* END
+
+
+local class File
+  var file : FILE              -- convert to Maybe to avoid using null pointer under the hood
+  val file_name : String
+  val mode : String            -- replace by IOMode ADT
+
+  def init(fname : FilePath, mode : String) : unit  -- use default parameters
+    this.file_name = fname
+    this.mode = if mode.eq("") then "w+r+a" else mode end
+    this.open()
+  end
+
+  def private open() : unit
+    this.file = EMBED (FILE)
+                  FILE *file = fopen(#{this.file_name.data}, #{this.mode.data});
+                  file;
+                END
+    if not this.valid() then
+      abort("Cannot open file, exiting.")
+    end
+  end
+
+  def close() : unit
+    if not this.valid() then
+      abort("Cannot close file, exiting.\n")
+    end
+    this.file = EMBED (FILE)
+                  fclose(#{this.file});
+                  (FILE*)NULL;
+                END
+  end
+
+
+  -- write a string
+  def write(content:String) : unit
+    if not this.valid() then
+        abort("Cannot open file, exiting.")
+    end
+    EMBED (unit)
+      fprintf(#{this.file}, #{content.data});
+    END
+  end
+
+  def private valid() : bool
+    EMBED (bool) (bool)#{this.file}; END
+  end
+  
+  -- read a line
+  def readline() : String
+    var line = EMBED (CString)
+                 char* line = encore_alloc(*_ctx,1024);
+                 fgets(line, 1024, #{this.file});
+                 line;
+               END
+    new String(line)
+  end
+  
+  def eof() : bool
+    EMBED (bool) feof(#{this.file}); END
+  end
+end
+
+
+fun with_file[t](fname : FilePath, f : File -> t, mode : String = "r") : t
+  val file  = new File(fname, mode)
+  val res = f(file)
+  file.close()
+  res
+end
+
+-- this is a bad idea for large files because file is read in totality into memory
+-- a lazy approach is required. 
+fun read_file(fname : FilePath) : String
+  val file = new File(fname, "r")
+  val sb = new StringBuffer()
+  while not file.eof() do
+    sb.add(file.readline())
+  end
+  file.close()
+  sb.build()
+end
+
+fun write_file(fname : FilePath, str : String) : unit
+  val file : File = new File(fname, "w")
+  file.write(str)
+  file.close()
+end
+
+
+fun append_file(fname : FilePath, str : String) : unit
+  val file : File = new File(fname, "a")
+  file.write(str)
+  file.close()
+end

@@ -1,0 +1,166 @@
+-- https://github.com/shamsimam/savina/blob/master/src/main/java/edu/rice/habanero/benchmarks/concsll/SortedLinkedList.java
+-- https://github.com/shamsimam/savina/blob/master/src/main/scala/edu/rice/habanero/benchmarks/concsll/SortedListAkkaActorBenchmark.scala
+-- Sequential sorted linked list ported from the first file, then it's wrapped
+-- inside an actor just like how it's done in the second file
+
+import Random
+
+read class Integer : Ord[Integer](i)
+  val i:int
+
+  def init(i:int) : unit
+    this.i = i
+  end
+
+  def compare(other:Integer) : int
+    this.i - other.i
+  end
+end
+
+subord class Node : Id
+  val elem : Integer
+  var next : Node
+
+  def init(i:int) : unit
+    this.elem = new Integer(i)
+  end
+end
+
+local class SortedList
+  var head : Node
+  def init() : unit
+    ()
+  end
+
+  def size() : int
+    var i = 0
+    var cur = this.head
+    while cur != (null : Node) do
+      cur = cur.next
+      i += 1
+    end
+    i
+  end
+
+  def add(i:int) : unit
+    if this.head == (null : Node) then
+      this.head = new Node(i)
+    else
+      val n = new Node(i)
+      if n.elem.compare(this.head.elem) <= 0 then
+        n.next = this.head
+        this.head = n
+      else
+        var before = this.head
+        var after = this.head.next
+        while after != (null : Node) do
+          if n.elem.compare(after.elem) <= 0 then
+            break
+          end
+          before = after
+          after = after.next
+        end
+        n.next = before.next
+        before.next = n
+      end
+    end
+  end
+
+  def contains(i:int) : bool
+    val n = new Node(i)
+    var cur = this.head
+    while cur != (null : Node) do
+      if cur.elem.compare(n.elem) == 0 then
+        return true
+      end
+      cur = cur.next
+    end
+    false
+  end
+
+end
+
+active class ConcurrentSortedList
+  var list:SortedList
+
+  def init() : unit
+    this.list = new SortedList
+  end
+
+  def size() : int
+    this.list.size()
+  end
+
+  def add(x:int) : unit
+    this.list.add(x)
+  end
+
+  def contains(x:int) : bool
+    this.list.contains(x)
+  end
+end
+
+active class Worker
+  var db:ConcurrentSortedList
+  var write_percent:int
+  var size_percent:int
+  var r:Random
+
+  def init(n_msg:int, write_percent:int, size_percent:int) : unit
+    this.db = new ConcurrentSortedList
+    this.write_percent = write_percent
+    this.size_percent = size_percent
+    this.r = new Random(0)
+    this!loop(n_msg)
+  end
+
+  def loop(n:int) : unit
+    if n == 0 then
+      ()
+    else
+      val uint_max = 4294967295
+      var x = this.r.random(100)
+      if x <= this.size_percent then
+        this.db!size()
+        ()
+      else if x <= this.size_percent + this.write_percent then
+        this.db!add(this.r.random(uint_max))
+        ()
+      else
+        this.db!contains(this.r.random(uint_max))
+        ()
+      end
+      this!loop(n-1)
+    end
+  end
+
+end
+
+active class Main
+
+  def to_int(s:String) : int
+    match s.to_int() with
+      case Just(x) => x
+      case Nothing => -1
+    end
+  end
+
+  def main(args: [String]) : unit
+    var n_workers = 20
+    var msg_per_worker = 8*1000
+    var write_percent = 10
+    var size_percent = 1
+    if |args| == 5 then
+      n_workers = this.to_int(args(1))
+      msg_per_worker = this.to_int(args(2))
+      write_percent = this.to_int(args(3))
+      size_percent = this.to_int(args(4))
+    end
+
+    for i <- [0 .. n_workers-1] do
+      new Worker(msg_per_worker, write_percent, size_percent)
+    end
+
+    println("done")
+  end
+end

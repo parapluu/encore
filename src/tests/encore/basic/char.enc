@@ -1,8 +1,4 @@
--- This file was automatically converted by encorec
 
-fun id(c : char) : char
-  c
-end
 active class Main
   def main() : unit
     let

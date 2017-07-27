@@ -368,7 +368,7 @@ int encore_start(int argc, char** argv, pony_type_t *type)
   pony_actor_t* actor = (pony_actor_t *)encore_create(ctx, type);
   pony_sendargs(ctx, actor, _ENC__MSG_MAIN, argc, argv);
 
-  return pony_start(false);
+  return pony_start(false, false);
 }
 
 bool encore_actor_run_hook(encore_actor_t *actor)

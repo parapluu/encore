@@ -1,0 +1,41 @@
+module CounterActor
+
+import Print
+import Barber -- needed to avoid futures
+
+active class CounterActor
+   var i : int
+
+   def init() : unit
+     this.i = 0
+   end
+
+   def add(j : int ) : unit
+      this.i = this.i+j
+   end
+
+   def incr() : unit
+       this.i = this.i+1
+   end
+
+   def get_value( ) : int
+       this.i
+   end
+
+   def incr_and_get() : int
+         this.i = this.i+1
+         this.i
+   end
+
+   -- the following is here in order to avoid futures
+   def makeCustomer(room:WaitingRoom,generator:CustomerGenerator) : unit
+     val customer = new Customer(room,generator,this.incr_and_get())
+     generator!sendCustomerToRoom(customer)
+   end
+
+   -- the following is here also in order to avoid futures
+   def printNumberOfAttempts() : unit
+     pprintln( ("total attempts ").concatenate(string_from_int(this.get_value())) )
+     println("Done")
+   end
+end

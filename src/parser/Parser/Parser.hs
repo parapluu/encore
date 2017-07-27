@@ -185,10 +185,6 @@ buildMeta = meta . newPos <$> getPosition
 reservedNames =
     ["EMBED"
     ,"END"
-    ,"Fut"
-    ,"Maybe"
-    ,"Par"
-    ,"Stream"
     ,"active"
     ,"and"
     ,"bool"
@@ -546,7 +542,8 @@ optionalTypeParameters = option [] (brackets $ commaSep1 modedTypeVar)
     modedTypeVar = do
       setMode <- option id mode
       typeVar <- typeVariable
-      return $ setMode typeVar
+      bound   <- optional (colon >> typ)
+      return $ setBound bound $ setMode typeVar
 
 typedef :: EncParser Typedef
 typedef = do

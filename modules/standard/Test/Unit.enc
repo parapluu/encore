@@ -1,0 +1,108 @@
+module Unit
+
+fun assert(name: String, success: bool) : bool
+  if not success then
+    println("\t{}: FAILURE!", name)
+    return false
+  end
+  true
+end
+
+fun test_optional[a](message : String, option : Maybe[a], expected : a) : bool
+  match option with
+    case Just(value) when value == expected => true
+    case Just(value) =>
+      println("\t{} failed! Expected \"Just x\" got \"Just y\".", message)
+      false
+    end
+    case Nothing =>
+      println("\t{} failed! Expected \"Just x\" got \"Nothing\".", message)
+      false
+    end
+  end
+end
+
+fun test_nothing[a](message : String, option : Maybe[a]) : bool
+  match option with
+    case Nothing => true
+    case Just(x) =>
+      println("\t{} failed! Expected value to be nothing!", message)
+      false
+    end
+  end
+end
+
+local class TestCase
+  var name : String
+  var f : () -> bool
+  var expected : bool
+
+  def init(n : String, f : () -> bool, e : bool) : unit
+    this.name = n
+    this.f = f
+    this.expected = e
+  end
+
+  def perform() : bool
+    let
+      f = this.f
+    in
+      print("Running test \"{}\":\n", this.name)
+      f()
+    end
+  end
+end
+
+local class TestSuite
+  var suite_name : String
+  var test_cases : [TestCase]
+  var counter : int
+
+  def init(name : String, test_amount : int) : unit
+    this.test_cases = new [TestCase](test_amount)
+    this.suite_name = name
+    this.counter = 0
+  end
+
+  def assert_bool(name : String, function : () -> bool, expected : bool) : unit
+    (this.test_cases)(this.counter) = new TestCase(name, function, expected)
+    this.counter = this.counter + 1
+  end
+
+  def assert_true(name : String, function : () -> bool) : unit
+    this.assert_bool(name, function, true)
+  end
+
+  def assert_false(name : String, function : () -> bool) : unit
+    this.assert_bool(name, function, false)
+  end
+
+  def assert_int(name : String, function : () -> int, expected : int) : unit
+    this.assert_true(name, fun ()
+                             function() == expected
+                           end)
+  end
+
+  def run() : unit
+    println("\nEUnit testsuite \"{}\" running {} test(s)...", this.suite_name, this.counter)
+
+    var finished = 0
+    repeat i <- this.counter do
+      let
+        test = (this.test_cases)(i) : TestCase
+        value = test.perform() : bool
+      in
+        if value != test.expected then
+          println("\tFailure!")
+        else
+          println("\tSuccess!")
+          finished = finished + 1
+        end
+      end
+    end
+
+    println("\nEUnit testsuite \"{}\" completed.", this.suite_name)
+    println("{}/{} tests completed successfully!", finished, this.counter)
+  end
+end
+

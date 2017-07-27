@@ -1,0 +1,18 @@
+read trait T
+end
+
+read trait S[t]
+end
+
+class C[t : T, s : S[t]]
+end
+
+fun foo[t : T, s : S[t]](x : C[t, s]) : unit
+  ()
+end
+
+active class Main
+  def main(args : [String]) : unit
+    println("I compile and run!")
+  end
+end

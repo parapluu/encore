@@ -1,0 +1,31 @@
+
+read class Config
+  def notbroke() : int
+    if true then
+      return 10
+    else
+      return 11
+    end
+  end
+  
+  def fixed() : int
+    match Nothing : Maybe[int] with
+      case Nothing => return 10
+      case Just(ice) => return 11
+    end
+  end
+
+  -- works
+  def other(x : bool) : int
+    match x with
+      case true => return 10
+      case false => return 11
+    end
+  end
+end
+
+active class Main
+  def main() : unit
+    println("{}",(new Config).notbroke())
+  end
+end

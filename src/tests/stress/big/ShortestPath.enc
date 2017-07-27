@@ -1,0 +1,78 @@
+
+-- Parallel breadth-first shortest-path algorithm
+-- Using Big hashmaps and a mapreduce Framework
+-- Results is a Big hashmap where each node is mapped
+-- to how many jumps it is from the starting node in a graph.
+
+import Framework.MapReduce.MapReduce
+import Big.HashMap.HashMap
+
+import InputGraphs
+import GraphFunctions
+
+active class Main
+    var mp : MapReduce[int,Node,int,Node]
+
+    def main() : unit
+        var graph = generateNodes(Graph_2000())
+        graph = setStartNode(7,consume graph)
+
+        this.mp = new MapReduce[int,Node,int,Node](nodeID)
+        graph = this.iterate(25,consume graph)
+
+        -- printResult(consume graph)  -- uncomment for results
+        println("Done")
+    end
+
+    def iterate(max:int, graph:Bighash[int,Node]) : Bighash[int,Node]
+        var result = graph.copy()
+        repeat i <- max do
+            var graphCopy = graph.copy()
+            if stillUnvisitedNodes(consume graphCopy) then
+                result = this.mp.run(consume result, map, reduce)
+            else
+                break
+            end
+        end
+        consume result
+    end
+end
+
+fun map(key:int,value:Node) : [(int, Node)]
+    if value.color == 1 then
+        value.color = 0
+        var adjList = value.adjList
+        var result = new[(int,Node)](|adjList|+1)
+        val d = value.distance
+        repeat i <- |adjList| do
+            var id = adjList(i).id
+            var dist = new Node(-1) -- distance Node
+            dist.distance = d+1
+            dist.color = 1
+            result(i) = (id,dist)
+        end
+        result(|adjList|) = (key,value)
+        result
+    else
+        [(key,value)]
+    end
+end
+
+fun reduce(key:int, values:[Node]) : (int, Node)
+    var dmin = 100
+    var node = new Node(-1)
+    var color = 2
+    for d <- values do
+        if d.id >= 0 then
+            node = d
+        else
+            if d.distance < dmin then
+                dmin = d.distance
+            end
+        end
+        if d.color < color then color = d.color end
+    end
+    if node.distance > dmin then node.distance = dmin end
+    node.color = color
+    (key,node)
+end

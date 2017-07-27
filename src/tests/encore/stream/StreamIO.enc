@@ -1,6 +1,6 @@
--- This file was automatically converted by encorec
 
 module StreamIO
+
 active class StreamIO
   stream produceInt(n : int) : int
     var i = n
@@ -9,6 +9,7 @@ active class StreamIO
       i = i - 1
     end
   end
+  
   stream produceReal(n : int) : real
     var i = n
     while i > 0 do
@@ -16,6 +17,7 @@ active class StreamIO
       i = i - 1
     end
   end
+  
   def printStreamReal(sr : Stream[real]) : unit
     var str = sr
     while not(eos(str)) do
@@ -23,6 +25,7 @@ active class StreamIO
       str = getNext(str)
     end
   end
+  
   def printStreamInt(si : Stream[int]) : unit
     var str = si
     while not(eos(str)) do

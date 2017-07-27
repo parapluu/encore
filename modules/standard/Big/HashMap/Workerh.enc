@@ -1,0 +1,269 @@
+
+module Workerh
+
+import HashEntry
+import Framework.MapReduce.Combiner
+
+import Big.HashMap.HashMap
+import Collections.Mutable.LinkedList
+import Hash.Siphash
+
+active class Worker[k,v]
+    var id : int
+    var tableSize : int
+    var filledEntries: int
+    var table : [HashEntry[k,v]]
+    var hashFunction : k -> uint
+
+    def init(size: int, id:int, f:k -> uint) : unit
+        this.hashFunction = f
+        this.filledEntries = 0
+        this.tableSize = size
+        this.id = id
+        this.initTable()
+    end
+
+    def initTable() : unit
+        this.table = new [HashEntry[k,v]](this.tableSize)
+        repeat i <- this.tableSize do
+            this.table(i) = new HashEntry[k,v]()
+        end
+    end
+
+    def get(key:k,hashValue:uint) : v
+        this.getEntry(hashValue).getValue()
+    end
+
+    def remove(key:k,hashValue:uint) : unit
+        var hashentry = this.getEntry(hashValue)
+
+        repeat i <- this.tableSize do
+            if this.table(i).getHash() == hashValue then
+                this.table(i) = new HashEntry[k,v]()
+                this.filledEntries -= 1
+            end
+        end
+    end
+
+    def putMany(pairs:[(k,v,uint)]) : unit
+        for pair <- pairs do
+            this.put(pair.0,pair.1,pair.2)
+        end
+    end
+
+    def put(key:k,value:v,hashValue:uint) : unit
+        this.resizeIfNeeded()
+        var hashentry = this.getEntry(hashValue)
+        if (hashentry.hasEntry == false) then this.filledEntries += 1 end
+        hashentry.add(key,value,hashValue)
+    end
+
+    def hasKey(key:k, hashValue:uint) : bool
+        var result = false
+        var hashentry = this.getEntry(hashValue)
+        if hashentry.notEmpty() then
+            result = true
+        end
+        result
+    end
+
+    def elements() : [v]
+        var result = new [v](this.filledEntries)
+        var index = 0
+        repeat i <- this.tableSize do
+            if this.table(i).notEmpty() then
+                result(index) = this.table(i).getValue()
+                index += 1
+            end
+        end
+        result
+    end
+
+    def keys() : [k]
+        var count = 0
+        repeat i <- this.tableSize do
+            if this.table(i).notEmpty() then
+                count += 1
+            end
+        end
+
+        var result = new [k](count)
+        var index = 0
+        repeat i <- this.tableSize do
+            if this.table(i).notEmpty() then
+                result(index) = this.table(i).getKey()
+                index += 1
+            end
+        end
+        result
+    end
+
+    def clear() : unit
+        this.filledEntries = 0
+        var newTable = new [HashEntry[k,v]](this.tableSize)
+        repeat i <- this.tableSize do
+            newTable(i) = new HashEntry[k,v]()
+        end
+        this.table = newTable
+    end
+
+    def extend(key:k,value:v,hashValue:uint) : unit
+        this.resizeIfNeeded()
+        var hashentry = this.getEntry(hashValue)
+        if (hashentry.hasEntry == false) then this.filledEntries += 1 end
+        hashentry.extend(key,value,hashValue)
+    end
+
+    def extendAll(key:k, values:[v],hashValue:uint) : unit
+        var hashentry = this.getEntry(hashValue)
+        if (hashentry.hasEntry == false) then this.filledEntries += 1 end
+        hashentry.extendAll(key,values,hashValue)
+    end
+
+    def getValues(key:k,hashValue:uint) : [v]
+        var hashentry = this.getEntry(hashValue)
+        hashentry.getValues()
+    end
+
+    def getEntry(hashValue:uint) : HashEntry[k,v]
+        var entryID = this.modulo(hashValue,this.tableSize)
+        var hashentry = this.table(entryID)
+        while ((hashentry.notEmpty()) && (hashentry.getHash() != hashValue)) do
+            entryID = this.modulo(entryID+1,this.tableSize)
+            hashentry = this.table(entryID)
+        end
+        hashentry
+    end
+
+    def resizeIfNeeded() : unit
+        if (this.tableSize - this.filledEntries < this.tableSize/4) then
+            this.rehash()
+        end
+    end
+
+    def rehash() : unit
+        var oldTable = this.table
+        this.table = this.newTable()
+
+        repeat i <- |oldTable| do
+            if oldTable(i).notEmpty() then
+                var oldEntry = oldTable(i)
+                this.replace(oldEntry)
+            end
+        end
+    end
+
+    def replace(oldEntry : HashEntry[k,v]) : unit
+        var hashValue = oldEntry.getHash()
+        var entryID = this.modulo(hashValue,this.tableSize)
+        var hashentry = this.table(entryID)
+        while ((hashentry.notEmpty()) && (hashentry.getHash() != hashValue)) do
+            entryID = this.modulo(entryID+1,this.tableSize)
+            hashentry = this.table(entryID)
+        end
+
+        this.table(entryID) = oldEntry
+    end
+
+    def newTable() : [HashEntry[k,v]]
+        this.tableSize = this.tableSize*2
+        var newTable = new [HashEntry[k,v]](this.tableSize)
+        repeat i <- this.tableSize do
+            newTable(i) = new HashEntry[k,v]()
+        end
+        newTable
+    end
+
+    def modulo(value : uint, mod : uint) : uint
+      EMBED (uint)
+        uint64_t value = (uint64_t) #{value};
+              uint64_t mod   = (uint64_t) #{mod};
+              (value % mod);
+      END
+    end
+
+    def getInfo() : unit
+        println("w: {} has: {}/{}", this.id, this.filledEntries, this.tableSize)
+    end
+
+    ----- MapReduce functions ------
+    def mapper[k2,v2](m:(k,v)->[(k2,v2)],r:(k2,[v2]) -> (k2,v2),bighash:Bighash[k2,v2]) : unit
+        var result = bighash.copy()
+        var combinerSize = result.getSizing().1 * 3
+        var combiner = new Combiner[k2,v2](combinerSize,consume result,r)
+
+        repeat i <- this.tableSize do
+            if this.table(i).notEmpty() then
+                var mapresult = this.table(i).map[k2,v2](m)
+                for pair <- mapresult do
+                    var hashfunction = bighash.hashFunction()
+                    var hash = hashfunction(pair.0)
+                    combiner.extend(pair.0,pair.1,hash)
+                end
+            end
+        end
+        combiner.combine()
+    end
+
+    def reducer(r:(k,[v]) -> (k,v),bighash:Bighash[k,v]) : unit
+        repeat i <- this.tableSize do
+            if this.table(i).notEmpty() then
+                var result = this.table(i).reduce(r)
+                bighash.put(result.0,result.1)
+            end
+        end
+    end
+
+    def reducerOptimzed(r:(k,[v]) -> (k,v),bighash:Bighash[k,v]) : unit
+        var array = new[(k,v)](this.filledEntries)
+        var index = 0
+        repeat i <- this.tableSize do
+            if this.table(i).notEmpty() then
+                var result = this.table(i).reduce(r)
+                array(index) = (result.0,result.1)
+                index += 1
+            end
+        end
+        bighash.putManyAndBatch(array)
+    end
+
+    def mapperNoCombiner[k2,v2](m:(k,v)->[(k2,v2)],r:(k2,[v2]) -> (k2,v2), bighash:Bighash[k2,v2]) : unit
+        repeat i <- this.tableSize do
+            if this.table(i).notEmpty() then
+                for result <- this.table(i).map[k2,v2](m) do
+                    bighash.extend(result.0,result.1)
+                end
+            end
+        end
+    end
+
+    -- Trying to decrease the amount of message sent
+    def mapperOptimized[k2,v2](m:(k,v)->[(k2,v2)],r:(k2,[v2]) -> (k2,v2), bighash:Bighash[k2,v2]) : unit
+        var sizeOfNextLevel = bighash.getSizing().0
+
+        var result = new [LinkedList[(k2,v2,uint)]](sizeOfNextLevel)
+        repeat i <- sizeOfNextLevel do
+            result(i) = new LinkedList[(k2,v2,uint)]()
+        end
+
+        val hasher = new Siphash()
+        val toUint = bighash.hashFunction()
+
+        repeat i <- this.tableSize do
+            if this.table(i).notEmpty() then
+                for pair <- this.table(i).map[k2,v2](m) do
+                    val hash = hasher.hash(toUint(pair.0))
+                    val workerID = this.modulo(hash,sizeOfNextLevel)
+                    result(workerID).append((pair.0,pair.1,hash))
+                end
+            end
+        end
+        bighash.sortedExtend(result)
+    end
+
+    def pairsExtend(pairs:[(k,v,uint)]) : unit
+        for pair <- pairs do
+            this.extend(pair.0,pair.1,pair.2)
+        end
+    end
+end

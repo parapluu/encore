@@ -4,10 +4,6 @@ fun pCreateTuple[v, k](key : k, value : v) : (k, v)
   (key, value)
 end
 
-fun id[a](item : a) : a
-  item
-end
-
 fun constInt[b](x : b) : int
   30
 end

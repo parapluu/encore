@@ -1,0 +1,226 @@
+
+module Supervisor
+
+import Worker
+
+local class Supr[sharable t]
+    var size : int
+    var numOfWorkers: int
+    var workers : [(Worker[t],int,int)]
+
+    def init(data:[t]) : unit
+        this.numOfWorkers = 4
+        this.workers = this.distributeArray(data)
+    end
+
+    def distributeArray(data: [t]) : [(Worker[t],int,int)]
+        var numOfSplits = this.numOfWorkers
+        this.size = |data|
+        var rest = this.size % numOfSplits
+        var splitSize = (this.size  - rest) / numOfSplits
+
+        var splits = new [(Worker[t],int,int)](numOfSplits)
+        var indexToGetExtra = |splits|-rest
+        var shift = 0
+
+        repeat i <- |splits| do
+            var first = splitSize*i
+            var last = splitSize*(i+1)-1
+            if i < indexToGetExtra then
+                splits(i) = this.createWorkers(data,first,last)
+            else
+                if i == indexToGetExtra then
+                    splits(i) = this.createWorkers(data,first,last+1)
+                    shift += 1
+                else
+                    splits(i) = this.createWorkers(data,first+shift,last+shift+1)
+                    shift += 1
+                end
+            end
+        end
+        splits
+    end
+
+    def createWorkers(data:[t],start:int,last:int) : (Worker[t],int,int)
+        var splitSize = last-start+1
+        var split = new [t](splitSize)
+        repeat index <- splitSize do
+            split(index) = data(start+index)
+        end
+        var worker = new Worker[t](split)
+        (worker,start,last)
+    end
+
+    def at(index: int) : t
+        var owner = this.ownerinfo(index)
+        var worker = owner.0
+        get(worker ! at(index-owner.1))
+    end
+
+    def update(f : t -> t) : unit
+      for worker <- this.workers do
+        var w = worker.0
+        w ! update(f)
+      end
+    end
+
+    -- Todo: add futures here
+    def array() : [t]
+        var array = new[t](this.size)
+        var workerarrays = new[[t]](|this.workers|)
+        repeat i <- |this.workers| do
+            var worker = this.workers(i).0
+            workerarrays(i) = get(worker ! array())
+        end
+
+        var arrayindex = 0
+        repeat j <- |workerarrays| do
+            var workerarray = workerarrays(j)
+            repeat i <- |workerarray| do
+                array(arrayindex) = workerarray(i)
+                arrayindex += 1
+            end
+        end
+        array
+    end
+
+    def print(f:t->String) : unit
+        var result = "["
+        var array = this.array()
+        repeat i <- |array| do
+            if (i != |array|-1) then
+                result = result.concatenate(f(array(i))).concatenate(",")
+            else
+                result = result.concatenate(f(array(i)))
+            end
+        end
+        result = result.concatenate("]")
+        println(result)
+    end
+
+    def insert(index: int, value: t): unit
+        this.size += 1
+        var workerIndex = this.getIndexOfWorkerHolding(index)
+
+        repeat i <- |this.workers| do
+            var workerInfo = this.workers(i)
+            if(i == workerIndex) then
+                this.workers(i) = (workerInfo.0,workerInfo.1,workerInfo.2+1)
+            else if(i > workerIndex) then
+                this.workers(i) = (workerInfo.0,workerInfo.1+1,workerInfo.2+1)
+            end
+        end
+
+        var workerInfo = this.workers(workerIndex)
+        var localIndex = this.localIndex(index,workerInfo)
+        var worker = workerInfo.0
+
+        worker ! insert(localIndex,value)
+    end
+
+    def delete(index: int): unit
+        this.size -= 1
+        var workerIndex = this.getIndexOfWorkerHolding(index)
+
+        repeat i <- |this.workers| do
+            var workerInfo = this.workers(i)
+            if ((workerInfo.2-workerInfo.1)> 0) then
+                if(i == workerIndex) then
+                    this.workers(i) = (workerInfo.0,workerInfo.1,workerInfo.2-1)
+                else if(i > workerIndex) then
+                    this.workers(i) = (workerInfo.0,workerInfo.1-1,workerInfo.2-1)
+                end
+            end
+        end
+        var workerInfo = this.workers(workerIndex)
+        var localIndex = this.localIndex(index,workerInfo)
+        var worker = workerInfo.0
+
+        worker ! delete(localIndex)
+    end
+
+    def push(value: t) : unit
+        this.size += 1
+        var workerInfo = this.workers(|this.workers|-1)
+        this.workers(|this.workers|-1) = (workerInfo.0,workerInfo.1,workerInfo.2+1)
+
+        var worker = workerInfo.0
+        worker ! push(value)
+    end
+
+    def filter(f: t -> bool) : [t]
+        var result = new[Fut[[t]]](this.numOfWorkers)
+
+        repeat i <- this.numOfWorkers do
+            var worker = this.workers(i).0
+            result(i) = worker ! filter(f)
+        end
+
+        var totalsize = 0
+        var workerResult = new[[t]](|this.workers|)
+        repeat i <- |this.workers| do
+            workerResult(i) = get(result(i))
+            totalsize += |workerResult(i)|
+        end
+
+        var finalResult = new[t](totalsize)
+        var arrayindex = 0
+        repeat w <- |workerResult| do
+            var workerarray = workerResult(w)
+            repeat i <- |workerarray| do
+                finalResult(arrayindex) = workerarray(i)
+                arrayindex += 1
+            end
+        end
+
+        finalResult
+    end
+
+    def applyto(index:int, f : t -> t) : unit
+        var workerInfo = this.ownerinfo(index)
+        var worker = workerInfo.0
+        worker ! applyto(this.localIndex(index,workerInfo),f)
+    end
+
+    def getStringData(f: t -> String) : [String]
+        var values = new[String](this.size)
+        var array = this.array()
+        repeat i <- |array| do
+            values(i) = f(array(i))
+        end
+        values
+    end
+
+    def getIndexOfWorkerHolding(index: int) : int
+        var workerIndex = -1
+        repeat i <- |this.workers| do
+            if(index >= this.workers(i).1) && (index <= this.workers(i).2) then
+                workerIndex = i
+                break
+            end
+        end
+        workerIndex
+    end
+
+    def printinfo() : unit
+        println("Total number of elements: {}", this.size)
+        repeat i <- |this.workers| do
+            var w = this.workers(i)
+            println("Worker {}: index {}-{} : [{}]",i+1,w.1, w.2, (w.2-w.1+1))
+        end
+    end
+
+    def ownerinfo(index: int) : (Worker[t],int,int)
+        var workerIndex = -1
+        repeat i <- |this.workers| do
+            if(index >= this.workers(i).1) && (index <= this.workers(i).2) then
+                workerIndex = i
+            end
+        end
+        this.workers(workerIndex)
+    end
+
+    def localIndex(i:int, w:(Worker[t],int,int)) : int
+      i - w.1
+    end
+end

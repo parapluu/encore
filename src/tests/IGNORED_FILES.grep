@@ -58,4 +58,19 @@ encore/stream/StreamIO
 # Module used by 'stress' tests
 # Should not be considered as a test
 #
-stress/savina/7.Chameneos/List.enc
+stress/savina/7.Chameneos/List
+
+stress/savina/13.SleepingBarber/Barber
+stress/savina/13.SleepingBarber/MainTestBoundedFifo
+stress/savina/13.SleepingBarber/CounterActor
+stress/savina/13.SleepingBarber/Print
+stress/savina/13.SleepingBarber/FiFoBoundedList
+stress/savina/13.SleepingBarber/FiFoList
+
+stress/savina/14.CigaretteSmokers/CigaretteSmokers
+
+# Module used by 'big' tests are not tests
+#
+stress/big/input-data/ExampleText
+stress/big/input-data/GraphFunctions
+stress/big/input-data/InputGraphs.enc

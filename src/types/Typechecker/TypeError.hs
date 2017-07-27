@@ -173,7 +173,10 @@ refTypeName ty
     | isTraitType ty = "trait '" ++ getId ty ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | isUnionType ty = "union '" ++ show ty ++ "'"
-    | otherwise = error $ "Util.hs: No refTypeName for " ++
+    | isTypeVar ty
+    , Just bound <- getBound ty
+      = refTypeName bound
+    | otherwise = error $ "TypeError.hs: No refTypeName for " ++
                           showWithKind ty
 
 -- | The data type for a type checking error. Showing it will
@@ -204,7 +207,7 @@ data Error =
   | CovarianceViolationError FieldDecl Type Type
   | RequiredFieldMismatchError FieldDecl Type Type Bool
   | NonDisjointConjunctionError Type Type FieldDecl
-  | OverriddenMethodTypeError Name Type Type
+  | OverriddenMethodTypeError Name Type Type Type
   | OverriddenMethodError Name Type Error
   | IncludedMethodConflictError Name Type Type
   | MissingMethodRequirementError FunctionHeader Type
@@ -213,6 +216,7 @@ data Error =
   | UnknownTraitError Type
   | UnknownRefTypeError Type
   | MalformedCapabilityError Type
+  | MalformedBoundError Type
   | RecursiveTypesynonymError Type
   | DuplicateThingError String String
   | PassiveStreamingMethodError
@@ -327,6 +331,7 @@ data Error =
   | ActiveTraitError Type Type
   | NewWithModeError
   | UnsafeTypeArgumentError Type Type
+  | OverlapWithBuiltins
   | SimpleError String
   ----------------------------
   -- Capturechecking errors --
@@ -390,10 +395,11 @@ instance Show Error where
         printf
           "Conjunctive traits '%s' and '%s' cannot share mutable field '%s'"
            (show left) (show right) (show field)
-    show (OverriddenMethodTypeError name expected trait) =
+    show (OverriddenMethodTypeError name expected trait actual) =
         printf ("Overridden method '%s' does not " ++
-                "have the expected type '%s' required by %s")
-               (show name) (show expected) (refTypeName trait)
+                "have the expected type '%s' required by %s.\n" ++
+                "Actual type is '%s'")
+               (show name) (show expected) (refTypeName trait) (show actual)
     show (OverriddenMethodError name trait err) =
         case err of
           FieldNotFoundError f _ ->
@@ -458,6 +464,8 @@ instance Show Error where
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
     show (MalformedCapabilityError ty) =
         printf "Cannot form capability with %s" (showWithKind ty)
+    show (MalformedBoundError bound) =
+        printf "Cannot use %s as bound (must have trait)" (showWithKind bound)
     show (RecursiveTypesynonymError ty) =
         printf "Type synonyms cannot be recursive. One of the culprits is %s"
                (getId ty)
@@ -510,7 +518,8 @@ instance Show Error where
         printf "Unbound function variable '%s'" (show name)
     show (NonFunctionTypeError ty) =
         printf "Cannot use value of type '%s' as a function" (show ty)
-    show BottomTypeInferenceError = "Cannot infer type of 'Nothing'"
+    show BottomTypeInferenceError = "Not enough information to infer the type.\n" ++ 
+        "Try adding more type information."
     show IfInferenceError = "Cannot infer result type of if-statement"
     show (IfBranchMismatchError ty1 ty2) =
         "Type mismatch in different branches of if-statement:\n" ++
@@ -601,14 +610,18 @@ instance Show Error where
     show (CannotBeNullError ty) =
         printf ("Null valued expression cannot have type '%s' " ++
                 "(must have reference type)") (show ty)
-    show (TypeMismatchError actual expected) =
-        if isArrowType actual && isArrowType expected &&
-           actual `withModeOf` expected == expected
-        then printf ("Closure of type '%s' captures %s state and cannot " ++
-                     "be used as type '%s'")
-                     (show actual) (showModeOf actual) (show expected)
-        else printf "Type '%s' does not match expected type '%s'"
-                    (show actual) (show expected)
+    show (TypeMismatchError actual expected)
+      | isTypeVar actual && isJust (getBound actual) =
+          printf "Type '%s' with bound '%s' does not match expected type '%s'"
+                  (show actual) (show . fromJust $ getBound actual) (show expected)
+      | isArrowType actual
+      , isArrowType expected
+      , actual `withModeOf` expected == expected =
+          printf ("Closure of type '%s' captures %s state and cannot " ++
+                  "be used as type '%s'")
+                 (show actual) (showModeOf actual) (show expected)
+      | otherwise =  printf "Type '%s' does not match expected type '%s'"
+                            (show actual) (show expected)
     show (TypeWithCapabilityMismatchError actual cap expected) =
         printf "Type '%s' with capability '%s' does not match expected type '%s'%s"
                (show actual) (show cap) (show expected) pointer
@@ -862,8 +875,11 @@ instance Show Error where
     show (UnsafeTypeArgumentError formal ty) =
         if isModeless ty then
           -- TODO: Could be more precise (e.g. distinguish between linear/subord)
-          printf "Cannot use non-aliasable type '%s' as type argument"
-                 (show ty)
+          printf ("Cannot use non-aliasable type '%s' as type argument. " ++
+                  "Type parameter '%s' requires the type to have %s mode")
+                 (show ty) (getId formal) (if isModeless formal
+                                           then "an aliasable"
+                                           else showModeOf formal)
         else
           printf ("Cannot use %s type '%s' as type argument. " ++
                   "Type parameter '%s' requires the type to have %s mode")
@@ -871,6 +887,8 @@ instance Show Error where
                  (getId formal) (if isModeless formal
                                  then "an aliasable"
                                  else showModeOf formal)
+    show OverlapWithBuiltins =
+      printf ("Types Maybe, Fut, Stream, and Par are built-in and cannot be redefined.")
     show (SimpleError msg) = msg
     ----------------------------
     -- Capturechecking errors --

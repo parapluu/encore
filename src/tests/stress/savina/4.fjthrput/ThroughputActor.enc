@@ -1,0 +1,18 @@
+module ThroughputActor
+
+import ThroughputConfig
+
+active class ThroughputActor
+  var messagesProcessed: uint
+  val totalMessages : uint
+
+  def init(totalMessages: int): unit
+    this.messagesProcessed = 0
+    this.totalMessages = totalMessages
+  end
+
+  def process(config: ThroughputConfig): unit
+    this.messagesProcessed += 1
+    config.performComputation(37.2)
+  end
+end

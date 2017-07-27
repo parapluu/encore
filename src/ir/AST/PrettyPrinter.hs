@@ -119,7 +119,11 @@ ppTypeParams :: [Type] -> Doc
 ppTypeParams params =
   if null params
   then empty
-  else brackets (commaSep $ map ppType params)
+  else brackets (commaSep $ map ppTypeParam params)
+  where
+  ppTypeParam ty
+    | Just bound <- getBound ty = ppType ty <+> ":" <+> ppType bound
+    | otherwise = ppType ty
 
 ppFunctionHelper :: FunctionHeader -> Expr -> [Function] -> Doc
 ppFunctionHelper funheader funbody [] =
