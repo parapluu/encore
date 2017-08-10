@@ -500,24 +500,83 @@ end
 -- loop :: Par[t] -> (t -> t') -> (t' -> bool) -> Par[t']
 --
 -- loops the items in the ParT until all items satisfy the exit condition.
--- it is assumed that the parametric argument `t` is not a val object, as it
--- prevents mutating its state. Ideally, it should be a `linear t`, but this
--- is left open until I can proof its usefulness. Beware of data races!
+-- NOTE:
+-- the parametric argument `t` should not be a val object nor a primitive type.
+-- If not, the function that returns a `t'` would never exist.
+-- Ideally, it should be a `linear t`, but this is left open until I can proof its usefulness.
 --
 fun loop[t, t'](p: Par[t], fn: t -> Par[t'], exitCondition: t' -> bool): Par[t']
-  bind(fun (x: t) => loopF(x, fn, exitCondition), p)
+  val tp = new TaskPool(4)
+  bind(fun (x: t) => loopF(x, fn, exitCondition, tp), p)
 end
 
 
 -- private function
-fun loopF[t, t'](item: t, fn: t -> Par[t'], exitCondition: t' -> bool): Par[t']
+fun loopF[t, t'](item: t,
+                 fn: t -> Par[t'],
+                 exitCondition: t' -> bool,
+                 pool: TaskPool): Par[t']
+  -- TODO: this looping design may actually create many Fut[Par[t]], which are
+  --       not the most efficient ParTs to deal with, because of the wrapping and
+  --       and unwrapping.
   bind(fun (x: t')
          if exitCondition(x) then
            liftv(x)
          else
-           join(liftf(async(loopF(item, fn, exitCondition))))
+           -- TODO: Evaluate alternative:
+           --   1. Task pool
+           join(liftf(pool.execute(fun () => loopF(item, fn, exitCondition, pool))))
+           --   2. Creation of a short-lived actor for each iteration
+           -- join(liftf(async(loopF(item, fn, exitCondition, pool))))
          end
        end, fn(item))
+end
+
+active class Worker
+  val id: uint
+
+  def init(id : uint) : unit
+    this.id = id
+  end
+
+  def start[sharable a](fn: () -> a): a
+    fn()
+  end
+end
+
+
+read class TaskPool
+  val numberWorkers : uint = 4
+  val workers : [Worker]
+  val index : uint = 0
+
+  def init(numberWorkers : uint): unit
+    this.numberWorkers = numberWorkers
+    this.workers = new [Worker](numberWorkers)
+    repeat i <- numberWorkers do
+      this.workers(i) = new Worker(i)
+    end
+  end
+
+  def execute[sharable t](fn: () -> t): Fut[t]
+    val index = EMBED (uint)
+                  uint64_t current = __atomic_load_n(&#{this.index}, __ATOMIC_RELAXED);
+                  uint64_t next = (current + 1) % #{this.numberWorkers};
+
+                  while (!__atomic_compare_exchange_n(&#{this.index},
+                                                      &current,
+                                                      next,
+                                                      false,
+                                                      __ATOMIC_RELAXED,
+                                                      __ATOMIC_RELAXED))
+                  {
+                    current = __atomic_load_n(&#{this.index}, __ATOMIC_RELAXED);
+                    next = (current + 1) % #{this.numberWorkers};
+                  }
+                  current;
+                END
+    this.workers(index)!start(fun () => fn())
+  end
 end
 
 -- local class MyObject
