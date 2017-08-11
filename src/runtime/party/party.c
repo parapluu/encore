@@ -460,6 +460,7 @@ static inline size_t party_get_final_size(pony_ctx_t **ctx, par_t const * p)
         array_t* ar_p = party_get_array(p);
         size_t size_p = array_size(ar_p);
         i += size_p;
+        // TODO: shouldn't we pop now?
         break;
       }
       default: exit(-1);
