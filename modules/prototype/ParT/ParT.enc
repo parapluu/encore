@@ -492,7 +492,9 @@ end
 
 
 fun prune[t, t'](fn: Fut[Maybe[t]] -> Par[t'], p: Par[t]): Par[t']
-  empty[t']()
+  EMBED (Par[t'])
+    party_prune(_ctx, #{fn}, #{p}, _enc__type_t, _enc__t__type_t_prime);
+  END
 end
 
 
@@ -579,36 +581,36 @@ read class TaskPool
   end
 end
 
--- local class MyObject
---   var x : int
---   val id : int = 0
---   val infinite : bool = false
+local class MyObject
+  var x : int
+  val id : int = 0
+  val infinite : bool = false
 
---   def init(id: int, x: int): unit
---     this.id = id
---     this.x = x
---     if this.id == 1 then
---       this.infinite = true
---     end
---   end
+  def init(id: int, x: int): unit
+    this.id = id
+    this.x = x
+    if this.id == 1 then
+      this.infinite = true
+    end
+  end
 
--- end
+end
 
 
--- active class Main
---   def main(): unit
---     val p = liftv(new MyObject(0, 3)) ||| liftv(new MyObject(1, 0)) ||| liftv(new MyObject(2, -9)) ||| liftv(new MyObject(3, 4))
---     val pp = loop(p, fun (y: MyObject)
---                        y.x += 1
---                        liftv(y)
---                      end,
---                      fun (exit: MyObject) => exit.x >= 5)
---     pp >> fun (z : MyObject) => println(z.id)
---     val ppp = extract(pp)
+active class Main
+  def main(): unit
+    val p = liftv(new MyObject(0, 3)) ||| liftv(new MyObject(1, 0)) ||| liftv(new MyObject(2, -9)) ||| liftv(new MyObject(3, 4))
+    val pp = loop(p, fun (y: MyObject)
+                       y.x += 1
+                       liftv(y)
+                     end,
+                     fun (exit: MyObject) => exit.x >= 5)
+    pp >> fun (z : MyObject) => println(z.id)
+    val ppp = extract(pp)
 
---     println("Printing sorted solution")
---     for x <- ppp do
---       print("{}, ", x.id)
---     end
---   end
--- end
+    println("Printing sorted solution")
+    for x <- ppp do
+      print("{}, ", x.id)
+    end
+  end
+end
