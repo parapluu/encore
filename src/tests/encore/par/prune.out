@@ -1,0 +1,8 @@
+
+- Tests only one item gets through:
+
+	* Streaming counter with id: 0
+
+- Tests looping and pruning (not cancelling operations):
+
+	* Streaming counter with id: 500

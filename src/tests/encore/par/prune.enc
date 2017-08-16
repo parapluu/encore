@@ -1,0 +1,84 @@
+import ParT.ParT
+import Task
+
+read class MyObject
+  val id : int = 0
+
+  def init(id: int): unit
+    this.id = id
+  end
+
+  def value(): int
+    this.id
+  end
+
+  def inc(): uint
+    EMBED (uint)
+      // safely cheating to increment the counter
+      #{this.id} = #{this.id} + 1;
+    END
+  end
+end
+
+--
+-- Helper function
+--
+fun generateObjects(number: uint): Par[MyObject]
+  var p = empty[MyObject]()
+  for i <- [0..number] do
+    p = p ||| liftf(async(new MyObject(i)))
+  end
+  p
+end
+
+--
+-- TESTS
+--
+
+fun testOnlyOneItemGetsThrough(): unit
+  println("\n- Tests only one item gets through:\n")
+  val p = generateObjects(1000) >> fun (m : MyObject) => m.id
+  prune(fun (f : Fut[Maybe[int]])
+          join(liftf(f ~~> fun (m : Maybe[int])
+                             match m with
+                               case Just(i) =>
+                                 do
+                                   println("\t* Streaming counter with id: {}", i)
+                                   liftv(i)
+                                 end
+                               end
+                             end
+                           end))
+        end, p)
+end
+
+fun testLoopingAndPrune(): unit
+  println("\n- Tests looping and pruning (not cancelling operations):\n")
+  val p = generateObjects(1000)
+  val p' = loop(p, fun (c: MyObject)
+                     c.inc()
+                     liftv(c)
+                   end,
+                   fun (c: MyObject) => c.id >= 500)
+  extract(p')
+  prune(fun (f : Fut[Maybe[MyObject]])
+          join(liftf(f ~~> fun (m : Maybe[MyObject])
+                             match m with
+                               case Just(c) =>
+                                 do
+                                   println("\t* Streaming counter with id: {}", c.id)
+                                   liftv(c.id)
+                                 end
+                               end
+                             end
+                           end))
+        end, p')
+end
+
+active class Main
+  def main(): unit
+    testOnlyOneItemGetsThrough()
+
+    testLoopingAndPrune()
+  end
+end

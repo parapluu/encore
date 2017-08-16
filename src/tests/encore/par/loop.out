@@ -1,0 +1,10 @@
+
+- Tests looping until exit condition is met:
+
+	Printing sorted solution
+	0, 	1, 	2, 	3, 
+- Tests 'streaming' fulfilled elements from the loop:
+
+	* Streaming counter with id: 5
+	* Printing sorted solution
+		100, 		1, 
