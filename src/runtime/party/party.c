@@ -160,7 +160,7 @@ void party_trace(pony_ctx_t* ctx, void* p){
       break;
     }
     case FUTURE_PAR: {
-      encore_trace_object(ctx, obj->data.f.fut, obj->rtype->trace);
+      encore_trace_object(ctx, obj->data.f.fut, future_trace);
       break;
     }
     case PAR_PAR: {
