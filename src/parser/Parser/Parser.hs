@@ -456,7 +456,7 @@ program = do
                    ,TDecl <$> traitDecl
                    ,TDef <$> typedef
                    ,FDecl <$> globalFunction
-                   ,FmlDecl <$> adtDecl
+                   ,FmlDecl <$> testDecl
                    ]
   let (classes, traits, typedefs, functions, adts) = partitionDecls decls
   eof
@@ -765,6 +765,53 @@ partitionClassAttributes = partitionClassAttributes' [] []
     partitionClassAttributes' fs ms (MethodAttribute{mdecl}:as) =
       partitionClassAttributes' fs (mdecl:ms) as
 
+testDecl :: EncParser AdtDecl
+testDecl = do
+  aIndent <- L.indentLevel
+  ameta <- meta <$> getPosition
+  reserved "adt"
+  decl <- (try (blockDecl ameta aIndent)) <|> lineDecl ameta
+  return decl
+  where
+    endNeeded ADT{amethods} = amethods == []
+
+    blockDecl ameta aIndent = indentBlock $ do
+      name <- lookAhead upperChar >> identifier
+      params <- optionalTypeParameters
+      return $ L.IndentSome
+        Nothing
+        (buildADT aIndent ameta name params)
+        methodDecl
+
+    buildADT aIndent ameta name params methods = do
+      atLevel aIndent $ reserved "end"
+      return ADT{ameta
+                ,aname = setRefNamespace emptyNamespace $ adtType name params
+                ,aconstructor = []
+                ,amethods = methods
+                }
+
+    lineDecl ameta = do
+      name <- lookAhead upperChar >> identifier
+      params <- optionalTypeParameters
+      return ADT{ameta
+                ,aname = setRefNamespace emptyNamespace $ adtType name params
+                ,aconstructor = []
+                ,amethods = []
+                }
+
+testConstructor :: EncParser AdtConstructor
+testConstructor = do
+  acmeta <- meta <$> getPosition
+  reserved "case"
+  name <- lookAhead upperChar >> identifier
+  acfields <- parens (commaSep paramDecl)
+  return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
+                    adtConsType name
+                 ,acfields
+                 }
+
+
 adtDecl :: EncParser AdtDecl
 adtDecl = do
   aIndent <- L.indentLevel
@@ -773,7 +820,7 @@ adtDecl = do
     reserved "data"
     name <- lookAhead upperChar >> identifier
     params <- optionalTypeParameters
-    return $ L.IndentSome
+    return $ L.IndentMany
       Nothing
       (buildAdt ameta name params)
       adtAttribute
