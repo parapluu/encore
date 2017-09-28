@@ -31,7 +31,8 @@ data Program = Program {
   functions :: [Function],
   traits :: [TraitDecl],
   classes :: [ClassDecl],
-  adts :: [AdtDecl]
+  adts :: [AdtDecl],
+  adtCons :: [AdtConstructor]
 } deriving (Show)
 
 setProgramSource source p = p{source}
@@ -230,16 +231,20 @@ data ClassDecl = Class {
 } deriving (Show)
 
 data AdtDecl = ADT {
-  ameta       :: Meta AdtDecl,
-  aname       :: Type,
+  ameta        :: Meta AdtDecl,
+  aname        :: Type,
   aconstructor :: [AdtConstructor],
-  amethods     :: [MethodDecl]
+  amethods     :: [MethodDecl],
+  identity     :: String
 } deriving (Show)
 
 data AdtConstructor = ADTcons {
-  acmeta      :: Meta AdtConstructor,
-  acname      :: Type,
-  acfields    :: [ParamDecl]
+  acmeta         :: Meta AdtConstructor,
+  acname         :: Type,
+  acfields       :: [ParamDecl],
+  acomposition   :: TraitComposition,
+  acmethods      :: [MethodDecl],
+  parentIdentity :: String
 } deriving (Show)
 
 fieldsFromClass :: ClassDecl -> [FieldDecl]

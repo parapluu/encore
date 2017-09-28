@@ -88,7 +88,7 @@ desugarDefaultParametersClass p c@(Class{cmethods}) = c{cmethods = cmethods ++ c
 
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{traits, classes, functions, adts}) =
+desugarProgram p@(Program{traits, classes, functions, adts, adtCons}) =
   p{
     traits = map desugarTrait $ traits ++ adtTraits,
     classes = map (desugarClass . desugarClassParams . (desugarDefaultParametersClass p)) $ classes ++ adtClasses,
@@ -96,7 +96,7 @@ desugarProgram p@(Program{traits, classes, functions, adts}) =
   }
   where
 
-    (adtTraits, adtClasses, adtFunctions) = partitionAdts [] [] [] adts
+    (adtTraits, adtClasses, adtFunctions) = partitionAdts [] [] [] (sortAdtCons adts adtCons)
 
     desugarTrait t@Trait{tmethods} = t{tmethods = map desugarMethod tmethods}
 
@@ -237,6 +237,17 @@ expandMiniLets (MiniLet{emeta, mutability, decl}:seq) =
         }]
 expandMiniLets (e:seq) = e:expandMiniLets seq
 
+sortAdtCons :: [AdtDecl] -> [AdtConstructor] -> [AdtDecl]
+sortAdtCons adts [] = adts
+sortAdtCons adts (con:cs) =
+  sortAdtCons (insertConsInAdt adts con) cs
+  where
+    insertConsInAdt [] _ = error "you done did it now!"
+    insertConsInAdt (adt@ADT{identity, aconstructor}:as) (cons@ADTcons{parentIdentity}) =
+      if (identity == parentIdentity)
+      then (adt{aconstructor = cons:aconstructor}:as)
+      else adt:(insertConsInAdt as cons)
+
 partitionAdts :: [TraitDecl] -> [ClassDecl] -> [Function] -> [AdtDecl] -> ([TraitDecl], [ClassDecl], [Function])
 partitionAdts ts cs ms [] = (ts, cs, ms)
 partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
@@ -250,7 +261,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
                ,tmethods = amethods
                }
 
-      c = map (\(a@ADTcons{acmeta, acname, acfields}, tag) ->
+      c = map (\(a@ADTcons{acmeta, acname, acfields, acomposition, acmethods}, tag) ->
           let
             fields = Field{fmeta, fmut = Val, fname = Name "_ADT_tag", ftype = intType}:
               (map (\p@Param{pmut, pname, ptype} ->
@@ -259,24 +270,24 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
           in
             Class{cmeta
                  ,cname = makeRead $ setRef acname $
-                          adtClassType (reverse (stripName (showWithoutMode acname) [])) typeParams
-                 ,ccomposition = Just(TraitLeaf{tcname = aname, tcext = traitExtensions})
+                          adtClassType (reverse (stripName (showWithoutMode acname) [])) (getTypeParameters acname)
+                 ,ccomposition = Just acomposition{tcext = traitExtensions}
                  ,cfields = fields
-                 ,cmethods = (initMethod a tag):getTag:(extractorMethods a aconstructor)++amethods
+                 ,cmethods = (initMethod a tag):getTag:(extractorMethods a aconstructor)++amethods++acmethods
                  }
               ) $ zip aconstructor [1..length aconstructor]
 
-      m = map (\x@ADTcons{acmeta, acname, acfields} ->
+      m = map (\x@ADTcons{acmeta, acname, acfields, acomposition} ->
               Function{funmeta
                       ,funheader = Header{hmodifiers = []
                                          ,kind = NonStreaming
-                                         ,htypeparams = typeParams
-                                         ,hname = Name (showWithoutMode acname)
-                                         ,htype = traitName
+                                         ,htypeparams = getTypeParameters acname
+                                         ,hname = Name (reverse $ (stripName (showWithoutMode acname) []))
+                                         ,htype = capabilityFromTraitComposition (Just acomposition)
                                          ,hparams = acfields
                                          }
                       ,funbody = NewWithInit{emeta
-                                            ,ty = makeRead $ setRef acname $ classType (showWithoutMode acname) typeParams
+                                            ,ty = makeRead $ setRef acname $ classType (reverse $ stripName (showWithoutMode acname) []) (getTypeParameters acname)
                                             ,args = map (\x@Param{pname} -> VarAccess{emeta ,qname = qName $ show pname }) acfields
                                             }
                       ,funlocals = []
@@ -367,7 +378,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
           hmodifiers = [],
           kind = NonStreaming,
           htypeparams = [],
-          hname = Name (showWithoutMode acname),
+          hname = Name (reverse $ stripName (showWithoutMode acname) []),
           htype = intType,
           hparams = []
         }

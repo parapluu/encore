@@ -812,10 +812,10 @@ adtType name parameters =
          ,box = Nothing
          }
 
-adtConsType :: String -> Type
-adtConsType name =
+adtConsType :: String -> [Type] -> Type
+adtConsType name parameters =
   Type{inner = AdtConsType{refInfo = RefInfo{refId = name
-                                            ,parameters = []
+                                            ,parameters
                                             ,mode = Nothing
                                             ,refNamespace = Nothing
                                             ,refSourceFile = Nothing
