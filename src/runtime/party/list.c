@@ -42,6 +42,7 @@ list_t* list_pop(list_t* list, encore_arg_t* data)
   } else {
     ln = list->next;
     *data = list->data;
+    POOL_FREE(list_t*, list);
   }
 
   return ln;
