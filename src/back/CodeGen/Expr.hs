@@ -221,7 +221,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let string = head args
           rest = tail args
       unless (Ty.isStringType $ A.getType string) $
-          error "Expr.hs: Print expects first argument to be a string literal"
+          error $ "Expr.hs: Print expects first argument to be a string literal"
       targs <- mapM translate rest
       let argNames = map (AsExpr . fst) targs
           argDecls = map snd targs
@@ -1015,6 +1015,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     then do
       (ntarget, ttarget) <- translate target
       let targetType = A.getType target
+
       (initArgs, forwardingCall) <-
         callTheMethodForward [futVar]
           ntarget targetType name args typeArguments Ty.unitType
@@ -1024,25 +1025,37 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           ntarget targetType name args typeArguments Ty.unitType
 
       let nullCheck = targetNullCheck (AsExpr ntarget) target name emeta "."
+          result =
+            case eCtx of
+              Ctx.ClosureContext clos -> []
+              _ -> [dtraceExit, Return Skip]
 
       return (unit, Seq $
                       ttarget : nullCheck :
                       [Statement $
                        If futVar
                          (Seq $ initArgs ++ [Statement forwardingCall])
-                         (Seq $ initArgs1 ++ [Statement oneWayMsg]),
-                       dtraceExit,
-                       Return Skip])
-
+                         (Seq $ initArgs1 ++ [Statement oneWayMsg])] ++
+                       result
+             )
     else do
       (sendn, sendt) <- translate A.MessageSend{A.emeta
                                                ,A.target
                                                ,A.name
                                                ,A.typeArguments
                                                ,A.args}
+      tmp <- Ctx.genSym
       let resultType = translate (Ty.getResultType $ A.getType expr)
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
-      return (unit, Seq [sendt, dtraceExit, Return theGet])
+          result =
+            case eCtx of
+              Ctx.MethodContext mdecl ->
+                (unit, Seq [sendt, dtraceExit, Return theGet])
+              Ctx.ClosureContext clos ->
+                let ty = (Ty.getResultType $ A.getType clos)
+                in (Var tmp, Seq [sendt, Assign (Decl (resultType, Var tmp)) theGet])
+              _ -> error "Expr.hs: No context to forward"
+      return result
 
   translate A.Forward{A.emeta, A.forwardExpr = fchain@A.FutureChain{A.future, A.chain}} = do
     (nfuture,tfuture) <- translate future
@@ -1051,17 +1064,26 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     isAsyncForward <- gets Ctx.isAsyncForward
     let ty = getRuntimeType chain
         dtraceExit = getDtraceExit eCtx
+        result = case eCtx of
+                    Ctx.ClosureContext clos -> []
+                    _ -> [dtraceExit, Return Skip]
+        futureChain =
+          if Util.isForwardInExpr chain
+          then Call futureChainActor
+                    [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
+          else Call futureChainWithFut
+                    [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain
+                    ,AsExpr futVar, AsExpr $ AsLval $ Nam "false"]
+    when (A.isVarAccess chain) $
+      unless (A.isIdClosure chain) $
+        error $ "Expr.hs: The closure that contains forward must be defined in chain."
     if isAsyncForward
     then do
       return (unit, Seq $
                       [tfuture,
                        tchain,
-                       (Statement $
-                          Call futureChainActorForward
-                           [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain, AsExpr futVar]
-                       )] ++
-                      [dtraceExit,
-                      Return Skip])
+                       Statement futureChain] ++
+                       result)
     else do
       tmp <- Ctx.genSym
       result <- Ctx.genSym
@@ -1094,17 +1116,40 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate ret@(A.Return{A.val}) =
       do (nval, tval) <- translate val
          eCtx <- gets Ctx.getExecCtx
+         isAsyncForward <- gets Ctx.isAsyncForward
          let theReturn =
-               case eCtx of
-                 Ctx.FunctionContext fun ->
-                   [dtraceFunctionExit (A.functionName fun), Return nval]
-                 Ctx.MethodContext mdecl ->
-                   [dtraceMethodExit thisVar (A.methodName mdecl), Return nval]
-                 Ctx.ClosureContext clos ->
-                   let ty = (Ty.getResultType $ A.getType clos)
-                   in [dtraceClosureExit,
-                       Return $ asEncoreArgT (translate ty) nval]
-                 _ -> error "Expr.hs: No context to return from"
+              if isAsyncForward then
+                  case eCtx of
+                    Ctx.FunctionContext fun ->
+                      let ty = A.getType fun
+                      in [dtraceFunctionExit (A.functionName fun)
+                          ,Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr futVar
+                                                ,asEncoreArgT (translate ty) nval]
+                          ,Return Skip]
+                    Ctx.MethodContext mdecl ->
+                      let ty = A.getType mdecl
+                      in [dtraceMethodExit thisVar (A.methodName mdecl)
+                          ,Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr futVar
+                                                ,asEncoreArgT (translate ty) nval]
+                          ,Return Skip]
+                    Ctx.ClosureContext clos ->
+                      let ty = (Ty.getResultType $ A.getType clos)
+                      in [dtraceClosureExit
+                          ,Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr futVar
+                                                ,asEncoreArgT (translate ty) nval]
+                          ,Return Skip]
+                    _ -> error "Expr.hs: No context to return from"
+              else
+                  case eCtx of
+                    Ctx.FunctionContext fun ->
+                      [dtraceFunctionExit (A.functionName fun), Return nval]
+                    Ctx.MethodContext mdecl ->
+                      [dtraceMethodExit thisVar (A.methodName mdecl), Return nval]
+                    Ctx.ClosureContext clos ->
+                      let ty = (Ty.getResultType $ A.getType clos)
+                      in [dtraceClosureExit,
+                         Return $ asEncoreArgT (translate ty) nval]
+                    _ -> error "Expr.hs: No context to return from"
          return (unit, Seq $ tval:theReturn)
 
   translate iseos@(A.IsEos{A.target}) =
@@ -1129,30 +1174,62 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate futureChain@(A.FutureChain{A.future, A.chain}) = do
     (nfuture,tfuture) <- translate future
     (nchain, tchain)  <- translate chain
-    let ty = getRuntimeType chain
     result <- Ctx.genSym
+    isAsyncForward <- gets Ctx.isAsyncForward
+    let ty = getRuntimeType chain
     return $ (Var result,
-      Seq [tfuture,
-           tchain,
-           (Assign (Decl (C.future, Var result))
-                   (Call futureChainActor
-                     [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain]
-                     ))])
+      Seq $ [tfuture,
+             tchain,
+              if (Util.isForwardInExpr chain && isAsyncForward)
+              then Statement $
+                      (Call futureChainWithFut
+                            [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain,
+                             AsExpr ((Deref envName) `Dot` futNam), AsExpr $ AsLval $ Nam "true"])
+              else Assign (Decl (C.future, Var result))
+                          (Call futureChainActor [AsExpr encoreCtxVar, AsExpr nfuture, ty, AsExpr nchain])
+            ] ++
+            if (Util.isForwardInExpr chain && isAsyncForward)
+            then [assignVar futNam (Decl (C.future, Var result))]
+            else [])
+    where
+      metaId    = Meta.getMetaId . A.getMeta $ chain
+      envName   = closureEnvName metaId
+      assignVar lhs rhs = Assign rhs ((Deref envName) `Dot` lhs)
 
   translate clos@(A.Closure{A.eparams, A.body}) = do
     tmp <- Ctx.genSym
+    futClos <- Ctx.genNamedSym "fut_closure"
     globalFunctionNames <- gets Ctx.getGlobalFunctionNames
+    isAsyncForward <- gets Ctx.isAsyncForward
     let bound = map (ID.qLocal . A.pname) eparams
         freeVars = filter (ID.isLocalQName . fst) $
                    Util.freeVariables bound body
+        ty = runtimeType . A.getType $ body
     fillEnv <- insertAllVars freeVars fTypeVars
     return
       (Var tmp,
-      Seq $
-        mkEnv envName : fillEnv ++
-        [Assign (Decl (closure, Var tmp))
-          (Call closureMkFn [encoreCtxName, funName, envName, traceName, nullName])])
+       Seq $
+          mkEnv envName : fillEnv ++
+          if isAsyncForward then
+              if forwardInBody
+              then [Assign (Decl (future, Var futClos))
+                           (Call futureMkFn [AsExpr encoreCtxVar, ty])
+                    ,assignVar futNam (Var futClos)
+                    ,Assign (Decl (closure, Var tmp))
+                           (Call closureMkFn [encoreCtxName, funNameAsync, envName, traceNameAsync, nullName])]
+              else [Assign (Decl (closure, Var tmp))
+                     (Call closureMkFn [encoreCtxName, funName, envName, traceName, nullName])]
+           else
+               [Assign (Decl (closure, Var tmp))
+                 (Call closureMkFn [encoreCtxName, funName, envName, traceName, nullName])])
     where
+      forwardInBody  = Util.isForwardInExpr body
+      metaIdAsync    = metaId ++ "_async"
+      idClos         = A.isIdClosure body
+      funNameAsync   = if idClos || not forwardInBody then funName
+                       else closureFunName metaIdAsync
+      traceNameAsync = if idClos || not forwardInBody then traceName
+                       else closureTraceName metaIdAsync
       metaId    = Meta.getMetaId . A.getMeta $ clos
       funName   = closureFunName metaId
       envName   = closureEnvName metaId

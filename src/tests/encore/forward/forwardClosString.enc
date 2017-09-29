@@ -1,0 +1,22 @@
+active class Crop
+  var v : String
+  def init(v : String) : unit
+    this.v = v
+  end
+  def collect() : String
+    this.v
+  end
+end
+active class Pepper
+  def green(arg : Fut[String]) : String
+    get(arg ~~> fun(x : String) : String => forward((new Crop(x)) ! collect()))
+  end
+end
+
+active class Main
+  def main() : unit
+    val arg = (new Crop("42")) ! collect()
+    val tem = (new Pepper) ! green(arg)
+    println("{}", get(tem))
+  end
+end

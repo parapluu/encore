@@ -1,0 +1,22 @@
+active class Main
+  def main() : unit
+    val foo = this ! foo()
+    await(foo)
+    val bar = this ! bar(foo)
+    await(bar)
+    println("{}", get(bar))
+  end
+  def bar(foo : Fut[int]) : int
+    get(foo ~~>  fun (x : int) : int
+                    val inc = this ! inc(x)
+                    await(inc)
+                    forward(inc)
+                 end)
+  end
+  def foo() : int
+    42
+  end
+  def inc(x : int) : int
+    x + 1
+  end
+end

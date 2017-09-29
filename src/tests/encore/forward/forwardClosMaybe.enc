@@ -1,0 +1,21 @@
+active class Crop
+  var v : Maybe[int]
+  def init(v : Maybe[int]) : unit
+    this.v = v
+  end
+  def collect() : Maybe[int]
+    this.v
+  end
+end
+active class Pepper
+  def green(arg : Fut[Maybe[int]]) : Maybe[int]
+    get(arg ~~> fun(x : Maybe[int]) : Maybe[int] => forward((new Crop(x)) ! collect()))
+  end
+end
+active class Main
+  def main() : unit
+    val arg = (new Crop((Just(42)))) ! collect()
+    val tem = (new Pepper) ! green(arg)
+    println("{}", get(tem))
+  end
+end

@@ -290,6 +290,7 @@ data Error =
   | BadSyncCallError
   | PrivateAccessModifierTargetError Name
   | ClosureReturnError
+  | ClosureForwardError
   | MatchMethodNonMaybeReturnError
   | MatchMethodNonEmptyParameterListError
   | ImpureMatchMethodError Expr
@@ -298,6 +299,7 @@ data Error =
   | ForwardInPassiveContext Type
   | ForwardInFunction
   | ForwardTypeError Type Type
+  | ForwardTypeClosError Type Type
   | CannotHaveModeError Type
   | ModelessError Type
   | ModeOverrideError Type
@@ -719,6 +721,8 @@ instance Show Error where
         printf "Constructors (a.k.a. 'init methods') cannot use parametric methods"
     show ClosureReturnError =
         "Closures must declare their type to use return"
+    show ClosureForwardError =
+        "Closures must declare their type to use forward"
     show MatchMethodNonMaybeReturnError =
         "Match methods must return a Maybe type"
     show MatchMethodNonEmptyParameterListError =
@@ -733,6 +737,10 @@ instance Show Error where
     show (ForwardTypeError retType ty) =
         printf ("Returned type %s of forward should match with " ++
                "the result type of the containing method %s")
+               (show retType) (show ty)
+    show (ForwardTypeClosError retType ty) =
+        printf ("Result type %s of the closure should match with " ++
+               "the return type %s of the forward")
                (show retType) (show ty)
     show (ForwardInPassiveContext cname) =
         printf "Forward can not be used in passive class '%s'"

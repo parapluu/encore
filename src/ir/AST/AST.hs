@@ -676,7 +676,7 @@ data Expr = Skip {emeta :: Meta Expr}
                    val :: Expr}
           | Suspend {emeta :: Meta Expr}
           | FutureChain {emeta :: Meta Expr,
-                        future :: Expr,
+                         future :: Expr,
                          chain :: Expr}
           | FieldAccess {emeta :: Meta Expr,
                          target :: Expr,
@@ -765,13 +765,25 @@ isThisAccess :: Expr -> Bool
 isThisAccess VarAccess {qname = QName{qnlocal}} = qnlocal == Name "this"
 isThisAccess _ = False
 
+isIdClos :: Expr -> Bool
+isIdClos VarAccess{qname = QName{qnlocal}} = qnlocal == Name "_id_fun_tmp"
+isIdClos _ = False
+
 isClosure :: Expr -> Bool
 isClosure Closure {} = True
 isClosure _ = False
 
+isIdClosure :: Expr -> Bool
+isIdClosure VarAccess{qname = QName{qnlocal}} = qnlocal == Name "_id_fun_tmp"
+isIdClosure _ = False
+
 isForward :: Expr -> Bool
 isForward Forward {} = True
 isForward _ = False
+
+isVarAccess :: Expr -> Bool
+isVarAccess VarAccess{} = True
+isVarAccess _ = False
 
 isNull :: Expr -> Bool
 isNull Null{} = True

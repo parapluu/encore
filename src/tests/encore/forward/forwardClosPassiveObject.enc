@@ -1,0 +1,30 @@
+read class Mellon
+  val v : int
+  def init(v : int) : unit
+    this. v = v
+  end
+  def grow() : int
+    this.v
+  end
+end
+active class Crop
+  var v : Mellon
+  def init(v : Mellon) : unit
+    this.v = v
+  end
+  def collect() : Mellon
+    this.v
+  end
+end
+active class Pepper
+  def green(arg : Fut[Mellon]) : Mellon
+    get(arg ~~> fun(x : Mellon) : Mellon => forward((new Crop(x)) ! collect()))
+  end
+end
+active class Main
+  def main() : unit
+    val mellon = new Mellon(42)
+    val arg = (new Crop(mellon)) ! collect()
+    println("{}", (get(arg)).grow())
+  end
+end

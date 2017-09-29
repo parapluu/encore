@@ -19,6 +19,7 @@ module AST.Util(
     , markStatsInBody
     , isStatement
     , isForwardMethod
+    , isForwardInExpr
     ) where
 
 import qualified Data.List as List
@@ -482,3 +483,6 @@ mark asParent s =
 
 isForwardMethod :: MethodDecl -> Bool
 isForwardMethod mdecl = not . null . (filter isForward) . mbody $ mdecl
+
+isForwardInExpr :: Expr -> Bool
+isForwardInExpr e = not . null $ filter isForward e

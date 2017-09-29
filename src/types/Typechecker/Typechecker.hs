@@ -25,7 +25,8 @@ import Control.Arrow((&&&), second)
 import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
-import qualified AST.Util as Util (freeVariables, filter, markStatsInBody, isStatement)
+import qualified AST.Util as Util (freeVariables, filter, markStatsInBody,
+                                  isStatement, isForwardInExpr)
 import AST.PrettyPrinter
 import AST.Util(extend)
 import Types as Ty
@@ -128,6 +129,9 @@ instance Checkable Function where
           funparams = functionParams f
           funtypeparams = functionTypeParams f
           body = Util.markStatsInBody funtype funbody
+          isForward = Util.isForwardInExpr funbody
+      when (isForward) $
+            pushError funbody ForwardInFunction
       local (addTypeParameters funtypeparams) $
             mapM_ typecheck funparams
       local (addTypeParameters funtypeparams) $
@@ -478,7 +482,7 @@ instance Checkable ClassDecl where
       typeParameters = getTypeParameters cname
       addTypeVars = addTypeParameters typeParameters
       addThis = extendEnvironmentImmutable [(thisName, cname)]
-      isForwardMethod m@Method{mbody} = not . null $ Util.filter isForward mbody
+      isForwardMethod m@Method{mbody} = Util.isForwardInExpr mbody
 
       checkMethodExtensionAllowed
         | isModeless cname = do
@@ -1293,10 +1297,16 @@ instance Checkable Expr where
            context <- asks currentExecutionContext
            case context of
              MethodContext mdecl -> do
-               let returnType = methodType mdecl
-               unlessM (getResultType ty `subtypeOf` returnType) $
-                       pushError eExpr $ ForwardTypeError returnType ty
-               return $ setType (getResultType ty) forward {forwardExpr = eExpr}
+                let returnType = methodType mdecl
+                unlessM (getResultType ty `subtypeOf` returnType) $
+                      pushError eExpr $ ForwardTypeError returnType ty
+                return $ setType (getResultType ty) forward {forwardExpr = eExpr}
+             ClosureContext (Just mty) -> do
+                mty' <- resolveType mty
+                unlessM (getResultType ty `subtypeOf` mty') $
+                    pushError eExpr $ ForwardTypeClosError mty' ty
+                return $ setType (getResultType ty) forward {forwardExpr = eExpr}
+             ClosureContext Nothing -> tcError ClosureForwardError
              _ -> pushError eExpr ForwardInFunction
 
     --  E |- val : t
@@ -2315,8 +2325,5 @@ typecheckParametricFun argTypes eSeqFunc
   | otherwise = error $ "Function that is callable but distinct from" ++
                         " 'VarAccess' or 'FunctionAsValue' AST node used."
   where
-    isVarAccess VarAccess{} = True
-    isVarAccess _ = False
-
     isFunctionAsValue FunctionAsValue{} = True
     isFunctionAsValue _ = False

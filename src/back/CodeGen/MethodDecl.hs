@@ -73,16 +73,19 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
                       ,returnStatement mType bodyn])
         forwardingMethodImpl =
             Function void nameForwarding (args ++ [(future, futVar)])
-                 (Seq [dtraceMethodEntry thisVar mName argNames
+                (Seq $[dtraceMethodEntry thisVar mName argNames
                       ,parametricMethodTypeVars
                       ,extractTypeVars
                       ,forwardingBody
                       ,dtraceMethodExit thisVar mName
-                      ,Statement $ returnForForwardingMethod returnType])
+                      ,Statement $ returnForForwardingMethod returnType
+                      ,Return Skip]
+                  )
     in
       code ++ return (Concat $ locals ++ closures ++
                                [normalMethodImpl] ++
-                               if null $ Util.filter A.isForward mbody
+                               if (null $ Util.filter A.isForward mbody) ||
+                                  (A.isMainMethod cname mName)
                                then []
                                else [forwardingMethodImpl])
   where
@@ -134,11 +137,11 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
 
       returnForForwardingMethod returnType =
           let fulfilArgs = [AsExpr encoreCtxVar
-                           ,AsExpr $ futVar
-                           ,asEncoreArgT returnType
+                            ,AsExpr $ futVar
+                            ,asEncoreArgT returnType
                                 (Cast returnType forwardingBodyName)]
           in
-            If futVar (Statement $ Call futureFulfil fulfilArgs) Skip
+              If futVar (Statement $ Call futureFulfil fulfilArgs) Skip
 
 callMethodWithFuture m cdecl@(A.Class {A.cname}) code
   | A.isActive cdecl ||
@@ -290,7 +293,7 @@ sendFutMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Name] -> [CCode Stat]
 sendFutMsg cname mname args tparams =
   let
     (msgId, msgTypeName) = (uncurry futMsgId &&& uncurry futMsgTypeName) (cname, mname)
-    argPairs = mkArgPairs args tparams ++ [(Nam "_fut", Nam "_fut")]
+    argPairs = mkArgPairs args tparams ++ [(futNam, futNam)]
   in
     sendMsg cname mname msgId msgTypeName argPairs
 
@@ -306,7 +309,7 @@ sendStreamMsg :: Ty.Type -> ID.Name -> [CCode Name] -> [CCode Name] -> [CCode St
 sendStreamMsg cname mname args tparams =
   let
     (msgId, msgTypeName) = (uncurry futMsgId &&& uncurry futMsgTypeName) (cname, mname)
-    argPairs = mkArgPairs args tparams ++ [(Nam "_fut", Nam "_stream")]
+    argPairs = mkArgPairs args tparams ++ [(futNam, Nam "_stream")]
   in
     sendMsg cname mname msgId msgTypeName argPairs
 

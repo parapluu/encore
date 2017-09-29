@@ -1,0 +1,26 @@
+active class Base
+  def base() : int
+    42
+  end
+end
+
+active class Foo
+  def join(ff : Fut[Fut[int]]) : int
+    await(ff)
+    get(ff ~~> fun (f : Fut[int]) : int
+                  await(f)
+                  forward(f)
+               end)
+  end
+
+  def duplicate() : Fut[int]
+    (new Base) ! base()
+  end
+end
+
+active class Main
+  def main() : unit
+    val arg = (new Foo) ! duplicate()
+    println("{}", get((new Foo) ! join(arg)))
+  end
+end

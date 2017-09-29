@@ -3,17 +3,20 @@ active class Foo
 
   def multiChainWithExistingFuture(arg: Fut[int]) : int
     val f = fun (x: int) => x + 1
-    forward(arg ~~> f ~~> f ~~> f ~~> f ~~> f)
+    val temp = arg ~~> f ~~> f ~~> f ~~> f ~~> f
+    forward(temp)
   end
 
   def multiChainWithId(arg: Fut[int]) : int
     val f = fun (x: int) => x + 1
-    forward(id(arg ~~> f) ~~> f ~~> f ~~> f ~~> f)
+    val temp = id(arg ~~> f) ~~> f ~~> f ~~> f ~~> f
+    forward(temp)
   end
 
   def multiChainWithMethodCall() : int
     val f = fun (x: int) => x + 1
-    forward(((new Foo) ! foo()) ~~> f ~~> f ~~> f ~~> f ~~> f)
+    val temp = ((new Foo) ! foo()) ~~> f ~~> f ~~> f ~~> f ~~> f
+    forward(temp)
   end
 
   def foo() : int
