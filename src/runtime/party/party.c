@@ -388,18 +388,49 @@ static inline par_t* party_join_fp(pony_ctx_t **ctx, par_t* const p){
   return new_par_fp(ctx, chained_fut, get_rtype(p));
 }
 
++// From an Par[array[t]] it creates a leafy balanced tree of Par[t].
++// O(n)
 static inline par_t* party_join_array(pony_ctx_t **ctx, par_t* const p){
   pony_type_t *type = get_rtype(p);
   assert(type == &party_type);
 
   array_t *ar = party_get_array(p);
   size_t size = array_size(ar);
-  par_t *new_p = new_par_empty(ctx, get_rtype(p));
-  for (size_t i = 0; i < size ; ++i){
+
+  size_t stack_size = ceil(size / 2) + 1;
+  par_t *stack[stack_size];
+  size_t stack_index = 0;
+
+  for(size_t i = 0; i < size ; ++i) {
     par_t *v = array_get(ar, i).p;
-    new_p = new_par_p(ctx, new_p, v, type);
+    if ((i % 2) == 0) {
+      stack[stack_index] = v;
+    } else {
+      par_t* new_p = new_par_p(ctx, stack[stack_index], v, type);
+      stack[stack_index] = new_p;
+      ++stack_index;
+    }
   }
-  return new_p;
+
+  stack_index = 0;
+  size_t current_index = 0;
+  size_t limit_stack = stack_size;
+  par_t *node_left;
+  while(limit_stack > 1){
+    if ((current_index % 2) == 0) {
+      node_left = stack[current_index];
+    } else {
+      stack[stack_index] = new_par_p(ctx, node_left, stack[current_index], type);
+      ++stack_index;
+    }
+    ++current_index;
+    if (current_index >= limit_stack){
+      current_index = 0;
+      stack_index = 0;
+      limit_stack = limit_stack / 2;
+    }
+  }
+  return stack[0];
 }
 
 par_t* party_join(pony_ctx_t **ctx, par_t* const p){
