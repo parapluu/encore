@@ -815,24 +815,49 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
-        getRecursivecalls A.Tuple{A.args} fields =
-          getRecursivecallsAux args fields [] []
-          where
-            getRecursivecallsAux [] _ patterns fields = (patterns, fields)
-            getRecursivecallsAux (e@A.AdtExtractorPattern{}:xs) (f:fs) patterns fields  = getRecursivecallsAux xs fs (e:patterns) (f:fields)
-            getRecursivecallsAux (_:xs) (_:fs) patterns fields = getRecursivecallsAux xs fs patterns fields
+        translateAdtPattern (tuple@A.Tuple{A.args}) argName typeName fieldNames argty assocs usedVars = do
+          tmp <- Ctx.genNamedSym "adtCheck"
+          let elemTypes = Ty.getArgTypes $ A.getType tuple
+              elemInfo = zip elemTypes args
+              init = Assign (Decl (int, (Var tmp))) (Int 0)
+
+          (tChecks, newUsedVars) <- checkElems elemInfo (Var tmp) argName assocs usedVars fieldNames
+          return (Var tmp, Seq $ init:tChecks, newUsedVars)
+            where
+              checkElems [] _ _ _ usedVars _ = return ([], usedVars)
+              checkElems ((ty, arg):rest) retVar argName assocs usedVars (f:fields) = do
+
+                (ncheck, tcheck, newUsedVars) <- translateAdtPattern arg argName typeName [f] ty assocs usedVars
+                (tRest, newNewUsedVars) <- checkElems rest retVar argName assocs newUsedVars fields
+
+                let theAnd = BinOp (translate ID.AND) (AsExpr retVar) (AsExpr ncheck)
+                    theRetAssign = Assign retVar theAnd
+
+                return (tcheck : tRest, newNewUsedVars)
+                return (tcheck : theRetAssign : tRest, newNewUsedVars)
+
+        translateAdtPattern (var@A.VarAccess{A.qname}) argName typeName fieldNames argty assocs usedVars = do
+          tmp <- Ctx.genNamedSym "adtCheck"
+          let
+            associatedName = fromJust $ lookup (show qname) assocs
+            cName = Nam $ head fieldNames
+            theAssign = Assign associatedName (Arrow (Cast (Ptr typeName) argName) cName)
+            decl = Assign (Decl (int, Var tmp)) (Int 1)
+          return (Var tmp, Seq [decl, theAssign], usedVars)
+
+        translateAdtPattern (e@A.AdtExtractorPattern{A.adtClassDecl = c@A.Class{A.cname}}) argName typeName fieldNames argty assocs usedVars = do
+          translatePattern e (Arrow (Cast (Ptr typeName) argName) (Nam $ head fieldNames))  argty assocs usedVars
+          {-error (show argty)-}
+
 
         translatePattern (e@A.AdtExtractorPattern{A.name, A.arg, A.emeta, A.fieldNames, A.adtClassDecl = c@A.Class{A.cname}}) argName argty assocs usedVars = do
           let eSelfArg = AsExpr argName
               noArgs = [] :: [A.Expr]
               innerTy = A.getType arg
-              namesNtypes = namesAndTypes arg
               typeName = AsType (classTypeName cname)
 
           tagPointer <- Ctx.genNamedSym "tagPointer"
 
-          {-(test1, test2, test3) <- translatePattern arg argName argty assocs usedVars-}
-          {-error (show test1)-}
           (nSelfTagCall, tSelfTagCall) <-
               if Ty.isCapabilityType argty ||
                  Ty.isUnionType argty
@@ -860,10 +885,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 let theAssign = Assign (Decl (int, Var tmp)) theCall
                 return (Var tmp, Seq $ argDecls ++ [theAssign])
 
-          let (recursiveCalls, recursiveFields) = getRecursivecalls arg fieldNames
-          (restT, restSeq, newUsedVar) <- if (recursiveCalls /= [])
-                                          then translatePattern (head recursiveCalls) (Arrow (Cast (Ptr typeName) argName) (Nam (head recursiveFields))) argty assocs usedVars
-                                          else translatePattern A.Skip{A.emeta = emeta} argName argty assocs usedVars
+          (nRest, tRest, test3) <- translateAdtPattern arg argName typeName fieldNames argty assocs usedVars
+          {-error (show test2)-}
 
           let eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
               selfTag = StatAsExpr (Deref nSelfTagCall) tSelfTagCall
@@ -872,31 +895,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               eCheck = BinOp (translate ID.AND) eNullCheck tagCheck
               tagDecl = Assign (Decl (Ptr int, Var tagPointer)) (Null)
               tAssign = Seq $ tagDecl:[Assign (Var "_tmp") eCheck]
-              assocAssign = assignAssocs namesNtypes fieldNames eSelfArg [] typeName
-              result = Seq [tAssign, assocAssign]
-              resultWithRest = Seq [BinOp (translate ID.AND) (StatAsExpr (Var "_tmp") result) (StatAsExpr restT restSeq)]
-              {-eCheck = BinOp (translate ID.AND) eNullCheck $ StatAsExpr nRest tRestWithDecl-}
+              result = Seq [tAssign]
+              resultWithRest = Seq [BinOp (translate ID.AND) (StatAsExpr (Var "_tmp") result) (StatAsExpr nRest tRest)]
 
-          if (recursiveCalls == [])
-          then return (Var "_tmp", result, usedVars)
-          else return (Var "_tmp", resultWithRest, usedVars)
-          where
-            assignAssocs [] _ _ cCode typeName = Seq(reverse cCode)
-            assignAssocs _ [] _ cCode typeName = Seq(reverse cCode)
-            assignAssocs ((name,ty):rest) (field:fs) selfArg cCode typeName =
-              let
-                assign = Assign name (Arrow (Cast (Ptr typeName) selfArg) (Nam field))
-              in
-                if (ty == argty) -- TODO: fix this!
-                then assignAssocs rest fs selfArg cCode typeName
-                else assignAssocs rest fs selfArg (assign:cCode) typeName
-
-            namesAndTypes tuple@A.Tuple{A.args} =
-              let
-                elemTypes = Ty.getArgTypes $ A.getType tuple
-                elemNames = map (\(_, name) -> name) assocs
-              in
-                zip elemNames elemTypes
+          return (Var "_tmp", resultWithRest, usedVars)
 
         translatePattern (A.ExtractorPattern {A.name, A.arg}) narg argty assocs usedVars = do
           let eSelfArg = AsExpr narg
@@ -905,7 +907,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               tmpTy = Ty.maybeType innerTy
               noArgs = [] :: [A.Expr]
 
-          error "Ta mig härifrån!"
           (nCall, tCall) <-
               if Ty.isCapabilityType argty ||
                  Ty.isUnionType argty
