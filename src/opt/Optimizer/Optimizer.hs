@@ -77,7 +77,7 @@ tupleMaybeIdComparison = extend tupleMaybeIdComparison'
     | (isMaybeType $ getType loper) &&
       (isMaybeType $ getType roper) &&
       (binop == Identifiers.EQ || binop == Identifiers.NEQ) =
-      tupleMaybeIdComparison $ maybeNeg Match{emeta, arg=setType tt Tuple{emeta, args}, clauses=[trueClause1, trueClause2, falseClause]}
+      tupleMaybeIdComparison $ maybeNeg Match{emeta, arg=setType tt Tuple{emeta, args}, clauses=[trueClause1, trueClause2, falseClause], adtMatch=False}
     where
       tt = tupleType [lmty, rmty]
       args = [loper, roper]

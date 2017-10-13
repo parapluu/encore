@@ -611,7 +611,9 @@ data Expr = Skip {emeta :: Meta Expr}
           | AdtExtractorPattern {emeta :: Meta Expr,
                                  ty :: Type,
                                  name :: Name,
-                                 arg :: Expr}
+                                 arg :: Expr,
+                                 fieldNames :: [String],
+                                 adtClassDecl :: ClassDecl}
           | ExtractorPattern {emeta :: Meta Expr,
                               ty :: Type,
                               name :: Name,
@@ -682,7 +684,8 @@ data Expr = Skip {emeta :: Meta Expr}
                  body   :: Expr}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
-                   clauses :: [MatchClause]}
+                   clauses :: [MatchClause],
+                   adtMatch::Bool}
           | Borrow {emeta  :: Meta Expr,
                     target :: Expr,
                     name   :: Name,

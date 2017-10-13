@@ -1510,7 +1510,7 @@ expr = notFollowedBy nl >>
           reserved "match"
           arg <- expression
           reserved "with"
-          return $ L.IndentSome Nothing (return . Match emeta arg) matchClause
+          return $ L.IndentSome Nothing (buildMatch emeta arg) matchClause
         atLevel indent $ reserved "end"
         returnWithEnd theMatch
 

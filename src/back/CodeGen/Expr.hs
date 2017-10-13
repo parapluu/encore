@@ -815,14 +815,24 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           | otherwise =
               return (BinOp (translate ID.EQ) e1 e2)
 
-        translatePattern (e@A.AdtExtractorPattern{A.name, A.arg}) argName argty assocs usedVars = do
+        getRecursivecalls A.Tuple{A.args} fields =
+          getRecursivecallsAux args fields [] []
+          where
+            getRecursivecallsAux [] _ patterns fields = (patterns, fields)
+            getRecursivecallsAux (e@A.AdtExtractorPattern{}:xs) (f:fs) patterns fields  = getRecursivecallsAux xs fs (e:patterns) (f:fields)
+            getRecursivecallsAux (_:xs) (_:fs) patterns fields = getRecursivecallsAux xs fs patterns fields
+
+        translatePattern (e@A.AdtExtractorPattern{A.name, A.arg, A.emeta, A.fieldNames, A.adtClassDecl = c@A.Class{A.cname}}) argName argty assocs usedVars = do
           let eSelfArg = AsExpr argName
               noArgs = [] :: [A.Expr]
               innerTy = A.getType arg
               namesNtypes = namesAndTypes arg
+              typeName = AsType (classTypeName cname)
 
           tagPointer <- Ctx.genNamedSym "tagPointer"
 
+          {-(test1, test2, test3) <- translatePattern arg argName argty assocs usedVars-}
+          {-error (show test1)-}
           (nSelfTagCall, tSelfTagCall) <-
               if Ty.isCapabilityType argty ||
                  Ty.isUnionType argty
@@ -850,6 +860,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 let theAssign = Assign (Decl (int, Var tmp)) theCall
                 return (Var tmp, Seq $ argDecls ++ [theAssign])
 
+          let (recursiveCalls, recursiveFields) = getRecursivecalls arg fieldNames
+          (restT, restSeq, newUsedVar) <- if (recursiveCalls /= [])
+                                          then translatePattern (head recursiveCalls) (Arrow (Cast (Ptr typeName) argName) (Nam (head recursiveFields))) argty assocs usedVars
+                                          else translatePattern A.Skip{A.emeta = emeta} argName argty assocs usedVars
 
           let eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
               selfTag = StatAsExpr (Deref nSelfTagCall) tSelfTagCall
@@ -858,26 +872,25 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               eCheck = BinOp (translate ID.AND) eNullCheck tagCheck
               tagDecl = Assign (Decl (Ptr int, Var tagPointer)) (Null)
               tAssign = Seq $ tagDecl:[Assign (Var "_tmp") eCheck]
-              padding = Assign (Decl (int, Var "padding")) (Int 0)
-              target = Assign (Decl (Typ "uintptr_t", Var "target"))
-                        (BinOp (translate ID.PLUS) (Cast (Typ "uintptr_t") (Var tagPointer)) (Sizeof (int))) --TODO should be uintptr_t
-              assocAssign = assignAssocs namesNtypes target []
+              assocAssign = assignAssocs namesNtypes fieldNames eSelfArg [] typeName
+              result = Seq [tAssign, assocAssign]
+              resultWithRest = Seq [BinOp (translate ID.AND) (StatAsExpr (Var "_tmp") result) (StatAsExpr restT restSeq)]
+              {-eCheck = BinOp (translate ID.AND) eNullCheck $ StatAsExpr nRest tRestWithDecl-}
 
-          return (Var "_tmp", Seq [tAssign, target, padding, assocAssign], usedVars)
+          if (recursiveCalls == [])
+          then return (Var "_tmp", result, usedVars)
+          else return (Var "_tmp", resultWithRest, usedVars)
           where
-            assignAssocs [] _  acc = Seq (reverse acc)
-            assignAssocs ((name, ty):rest) target acc =
+            assignAssocs [] _ _ cCode typeName = Seq(reverse cCode)
+            assignAssocs _ [] _ cCode typeName = Seq(reverse cCode)
+            assignAssocs ((name,ty):rest) (field:fs) selfArg cCode typeName =
               let
-                align = Sizeof $ translate ty
-                innerMod = BinOp (translate ID.MOD) (AsExpr (Var "target")) align
-                subtraction = BinOp (translate ID.MINUS) align innerMod
-                outerMod = BinOp (translate ID.MOD) subtraction align
-                assignPadding = Assign (Var "padding") outerMod
-                addPadding = Assign (Var "target") (BinOp (translate ID.PLUS) (Var "target") (Var "padding"))
-                assignment = Assign name (Deref (Cast (Ptr (translate ty)) (Var "target")))
-                movePastElement = Assign (Var "target") (BinOp (translate ID.PLUS) (AsExpr (Var "target")) (Sizeof (translate ty)))
+                assign = Assign name (Arrow (Cast (Ptr typeName) selfArg) (Nam field))
               in
-                assignAssocs rest target ([movePastElement, assignment, addPadding, assignPadding] ++ acc)
+                if (ty == argty) -- TODO: fix this!
+                then assignAssocs rest fs selfArg cCode typeName
+                else assignAssocs rest fs selfArg (assign:cCode) typeName
+
             namesAndTypes tuple@A.Tuple{A.args} =
               let
                 elemTypes = Ty.getArgTypes $ A.getType tuple
@@ -892,6 +905,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               tmpTy = Ty.maybeType innerTy
               noArgs = [] :: [A.Expr]
 
+          error "Ta mig härifrån!"
           (nCall, tCall) <-
               if Ty.isCapabilityType argty ||
                  Ty.isUnionType argty

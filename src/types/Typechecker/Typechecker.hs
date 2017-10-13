@@ -1059,7 +1059,9 @@ instance Checkable Expr where
         let updateClauseType m@MatchClause{mchandler} =
                 m{mchandler = setType resultType mchandler}
             eClauses' = map updateClauseType eClauses
-        return $ setType resultType match {arg = eArg, clauses = eClauses'}
+        if (isFromADT argType)
+        then return $ setType resultType match {arg = eArg, clauses = eClauses', adtMatch = True}
+        else return $ setType resultType match {arg = eArg, clauses = eClauses', adtMatch = False}
       where
         checkMatchArgument arg = do
           let argType = AST.getType arg
@@ -1316,18 +1318,21 @@ instance Checkable Expr where
                                                 ,args = [arg@Tuple{}]}) argty = do
           let name = qnlocal qname
           header <- findMethod argty name
-          c <- findClass (classType  (show $ qnlocal qname) [])
+          c <- findClass (classType  (show name) [])
           let fields = drop 1 $ fieldsFromClass c
           let fieldTypes = if (length fields > 0)
                            then map (\f@Field{ftype} -> ftype) fields
                            else [unitType]
+          let fieldNames = map (\f@Field{fname} -> "_enc__field_" ++ show fname) fields
+          adtClassDecl <- typecheck c
           eArg <- checkAdtPattern arg $ tupleType fieldTypes
           return $ setArrowType (arrowType [] intType) $
                    setType argty AdtExtractorPattern {emeta
                                                   ,ty = argty
                                                   ,name
                                                   ,arg = eArg
-                                                  }
+                                                  ,fieldNames
+                                                  ,adtClassDecl}
 
         doCheckAdtPattern pattern@(FunctionCall {args}) argty = do
           let tupMeta = getMeta $ head args
