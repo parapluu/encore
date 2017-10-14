@@ -864,21 +864,21 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               innerTy = A.getType arg
               typeName = AsType (classTypeName cname)
 
-          tagPointer <- Ctx.genNamedSym "tagPointer"
+          adtTag <- Ctx.genNamedSym "adtTag"
 
           (nSelfTagCall, tSelfTagCall) <-
               if Ty.isCapabilityType argty ||
                  Ty.isUnionType argty
               then do
                 calledType <- gets $ Ctx.lookupCalledType argty name
-                (argDecls, theCall) <- traitMethod msgId argName calledType (ID.Name "_getTag") [] noArgs (Ptr int)
-                let tagAssignment = Assign (Var tagPointer) argDecls
+                (argDecls, theCall) <- traitMethod msgId argName calledType (ID.Name "_getTag") [] noArgs int
+                let tagAssignment = Assign (Var adtTag) argDecls
                 return (argDecls, Seq $ theCall:[tagAssignment])
               else do
                 (argDecls, theCall) <-
                     passiveMethodCall argName argty (ID.Name "_getTag") noArgs Ty.intType
-                let theAssign = Assign (Var tagPointer) theCall
-                return (Var tagPointer, Seq $ argDecls ++ [theAssign])
+                let theAssign = Assign (Var adtTag) theCall
+                return (Var adtTag, Seq $ argDecls ++ [theAssign])
 
           (nActualTagCall, tActualTagCall) <-
               if Ty.isCapabilityType argty ||
@@ -896,11 +896,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           (nRest, tRest, _) <- translateAdtPattern arg argName typeName fieldNames argty assocs usedVars
 
           let eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
-              selfTag = StatAsExpr (Deref nSelfTagCall) tSelfTagCall
+              selfTag = StatAsExpr nSelfTagCall tSelfTagCall
               actualTag = StatAsExpr nActualTagCall tActualTagCall
               tagCheck = BinOp (translate ID.EQ) selfTag actualTag
               eCheck = BinOp (translate ID.AND) eNullCheck tagCheck
-              tagDecl = Assign (Decl (Ptr int, Var tagPointer)) (Null)
+              tagDecl = Assign (Decl (int, Var adtTag)) (Int $ -1)
               tAssign = Seq $ tagDecl:[Assign (Var "_tmp") eCheck]
               result = Seq [tAssign]
               resultWithRest = Seq [BinOp (translate ID.AND) (StatAsExpr (Var "_tmp") result) (StatAsExpr nRest tRest)]

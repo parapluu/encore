@@ -296,15 +296,13 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
                      ,mimplicit = False
                      ,mheader = getTagHeader
                      ,mlocals = []
-                     ,mbody = Embed{emeta, ty = (ctype "int64_t*"), embedded = [
-                          ("&(", FieldAccess{emeta ,target = VarAccess{emeta, qname = qLocal thisName} ,name = Name "_ADT_tag"}),
-                          (");",Skip{emeta})]}
+                     ,mbody = FieldAccess{emeta ,target = VarAccess{emeta, qname = qLocal thisName} ,name = Name "_ADT_tag"}
                      }
       getTagHeader = Header{hmodifiers = []
                            ,kind = NonStreaming
                            ,htypeparams = []
                            ,hname = Name "_getTag"
-                           ,htype = (ctype "int64_t*")
+                           ,htype = intType
                            ,hparams = []
                            }
       emeta = Meta.meta (Meta.sourcePos ameta)
