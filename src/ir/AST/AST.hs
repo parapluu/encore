@@ -684,8 +684,7 @@ data Expr = Skip {emeta :: Meta Expr}
                  body   :: Expr}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
-                   clauses :: [MatchClause],
-                   adtMatch::Bool}
+                   clauses :: [MatchClause]}
           | Borrow {emeta  :: Meta Expr,
                     target :: Expr,
                     name   :: Name,

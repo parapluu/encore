@@ -196,7 +196,7 @@ optionalAccess Optional {emeta=em, optTag} =
         [clauseNothing em,
          MatchClause {mcpattern = MaybeValue{emeta=em, mdt = JustData handlerVar}
                      ,mchandler = maybeVal
-                     ,mcguard = BTrue em}] False
+                     ,mcguard = BTrue em}]
   in Borrow{emeta = em
            ,target
            ,name = borrowName
