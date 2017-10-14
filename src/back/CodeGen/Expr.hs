@@ -819,12 +819,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           tmp <- Ctx.genNamedSym "adtCheck"
           let elemTypes = Ty.getArgTypes $ A.getType tuple
               elemInfo = zip elemTypes args
-              init = Assign (Decl (int, (Var tmp))) (Int 0)
+              init = Assign (Decl (int, (Var tmp))) (Int 1)
 
           (tChecks, newUsedVars) <- checkElems elemInfo (Var tmp) argName assocs usedVars fieldNames
           return (Var tmp, Seq $ init:tChecks, newUsedVars)
             where
               checkElems [] _ _ _ usedVars _ = return ([], usedVars)
+              checkElems _ _ _ _ usedVars [] = return ([], usedVars)
               checkElems ((ty, arg):rest) retVar argName assocs usedVars (f:fields) = do
 
                 (ncheck, tcheck, newUsedVars) <- translateAdtPattern arg argName typeName [f] ty assocs usedVars
@@ -833,7 +834,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 let theAnd = BinOp (translate ID.AND) (AsExpr retVar) (AsExpr ncheck)
                     theRetAssign = Assign retVar theAnd
 
-                return (tcheck : tRest, newNewUsedVars)
+                {-return (tcheck : tRest, newNewUsedVars)-}
                 return (tcheck : theRetAssign : tRest, newNewUsedVars)
 
         translateAdtPattern (var@A.VarAccess{A.qname}) argName typeName fieldNames argty assocs usedVars = do
@@ -847,7 +848,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
         translateAdtPattern (e@A.AdtExtractorPattern{A.adtClassDecl = c@A.Class{A.cname}}) argName typeName fieldNames argty assocs usedVars = do
           translatePattern e (Arrow (Cast (Ptr typeName) argName) (Nam $ head fieldNames))  argty assocs usedVars
-          {-error (show argty)-}
+
+        translateAdtPattern value argName typeName fieldNames argty assocs usedVars = do
+          (nvalue, tvalue) <- translate value
+          let eValue = StatAsExpr nvalue tvalue
+              eArg = AsExpr (Arrow (Cast (Ptr typeName) argName) (Nam $ head fieldNames))
+          eComp <- translateComparison eValue eArg argty
+          let tAssign = Assign (Var "_tmp") eComp
+          return (Var "_tmp", tAssign, usedVars)
 
 
         translatePattern (e@A.AdtExtractorPattern{A.name, A.arg, A.emeta, A.fieldNames, A.adtClassDecl = c@A.Class{A.cname}}) argName argty assocs usedVars = do
@@ -885,8 +893,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 let theAssign = Assign (Decl (int, Var tmp)) theCall
                 return (Var tmp, Seq $ argDecls ++ [theAssign])
 
-          (nRest, tRest, test3) <- translateAdtPattern arg argName typeName fieldNames argty assocs usedVars
-          {-error (show test2)-}
+          (nRest, tRest, _) <- translateAdtPattern arg argName typeName fieldNames argty assocs usedVars
 
           let eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
               selfTag = StatAsExpr (Deref nSelfTagCall) tSelfTagCall
