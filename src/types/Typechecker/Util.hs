@@ -481,11 +481,11 @@ findClass t = do
   result <- asks $ classLookup t
   case result of
     Just [] ->
-      tcError $ UnknownTraitError t
+      tcError $ UnknownADTError t
     Just [cdecl] ->
       return cdecl
     Just _ ->
-      tcError $ UnknownTraitError t
+      tcError $ UnknownADTError t
     Nothing ->
       tcError $ UnknownNamespaceError (getRefNamespace t)
 
@@ -555,7 +555,9 @@ findMethodWithCalledType ty name
                tcError $ UnknownTypeUsageError "call method on" ty
         result <- asks $ methodAndCalledTypeLookup ty name
         when (isNothing result) $
-          tcError $ MethodNotFoundError name ty
+          if (isFromADT ty)
+          then tcError $ AdtConstructorNotFoundError name ty
+          else tcError $ MethodNotFoundError name ty
         return $ fromJust result
 
 findCapability :: Type -> TypecheckM Type
