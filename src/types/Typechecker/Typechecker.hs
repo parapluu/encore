@@ -162,7 +162,7 @@ instance Checkable TraitDecl where
       addTypeParams = addTypeParameters $ getTypeParameters tname
       addMinorThis =
         extendEnvironmentImmutable $
-          if hasMinorMode tname
+          if (hasMinorMode tname && not (isFromADT tname))
           then [(thisName, makeSubordinate tname)]
           else [(thisName, tname)]
       addThis = extendEnvironmentImmutable [(thisName, tname)]
