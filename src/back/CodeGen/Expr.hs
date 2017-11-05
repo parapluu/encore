@@ -816,13 +816,12 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               return (BinOp (translate ID.EQ) e1 e2)
 
         translateAdtPattern (tuple@A.Tuple{A.args}) argName typeName fieldNames argty assocs usedVars = do
-          tmp <- Ctx.genNamedSym "adtCheck"
           let elemTypes = Ty.getArgTypes $ A.getType tuple
               elemInfo = zip elemTypes args
-              init = Assign (Decl (int, (Var tmp))) (Int 1)
+              {-init = Assign (Decl (int, (Var tmp))) (Int 1)-}
 
-          (tChecks, newUsedVars) <- checkElems elemInfo (Var tmp) argName assocs usedVars fieldNames
-          return (Var tmp, Seq $ init:tChecks, newUsedVars)
+          (tChecks, newUsedVars) <- checkElems elemInfo (Var "_tmp") argName assocs usedVars fieldNames
+          return (Var "_tmp", Seq $ tChecks, newUsedVars)
             where
               checkElems [] _ _ _ usedVars _ = return ([], usedVars)
               checkElems _ _ _ _ usedVars [] = return ([], usedVars)
@@ -831,11 +830,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 (ncheck, tcheck, newUsedVars) <- translateAdtPattern arg argName typeName [f] ty assocs usedVars
                 (tRest, newNewUsedVars) <- checkElems rest retVar argName assocs newUsedVars fields
 
-                let theAnd = BinOp (translate ID.AND) (AsExpr retVar) (AsExpr ncheck)
-                    theRetAssign = Assign retVar theAnd
+                {-let theAnd = BinOp (translate ID.AND) (AsExpr retVar) (AsExpr ncheck)-}
+                    {-theRetAssign = Assign retVar theAnd-}
 
                 {-return (tcheck : tRest, newNewUsedVars)-}
-                return (tcheck : theRetAssign : tRest, newNewUsedVars)
+                return (tcheck : tRest, newNewUsedVars)
 
         translateAdtPattern (var@A.VarAccess{A.qname}) argName typeName fieldNames argty assocs usedVars = do
           tmp <- Ctx.genNamedSym "adtCheck"
@@ -854,7 +853,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           let eValue = StatAsExpr nvalue tvalue
               eArg = AsExpr (Arrow (Cast (Ptr typeName) argName) (Nam $ head fieldNames))
           eComp <- translateComparison eValue eArg argty
-          let tAssign = Assign (Var "_tmp") eComp
+          let tAssign = Assign (Var "_tmp") (BinOp (translate ID.AND) eComp (AsExpr $ Var "_tmp"))
           return (Var "_tmp", tAssign, usedVars)
 
 
@@ -865,20 +864,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               typeName = AsType (classTypeName cname)
 
           adtTag <- Ctx.genNamedSym "adtTag"
-
-          (nSelfTagCall, tSelfTagCall) <-
-              if Ty.isCapabilityType argty ||
-                 Ty.isUnionType argty
-              then do
-                calledType <- gets $ Ctx.lookupCalledType argty name
-                (argDecls, theCall) <- traitMethod msgId argName calledType (ID.Name "_getTag") [] noArgs int
-                let tagAssignment = Assign (Var adtTag) argDecls
-                return (argDecls, Seq $ theCall:[tagAssignment])
-              else do
-                (argDecls, theCall) <-
-                    passiveMethodCall argName argty (ID.Name "_getTag") noArgs Ty.intType
-                let theAssign = Assign (Var adtTag) theCall
-                return (Var adtTag, Seq $ argDecls ++ [theAssign])
 
           (nActualTagCall, tActualTagCall) <-
               if Ty.isCapabilityType argty ||
@@ -896,10 +881,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           (nRest, tRest, _) <- translateAdtPattern arg argName typeName fieldNames argty assocs usedVars
 
           let eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
-              selfTag = StatAsExpr nSelfTagCall tSelfTagCall
               actualTag = StatAsExpr nActualTagCall tActualTagCall
-              tagCheck = BinOp (translate ID.EQ) selfTag actualTag
-              eCheck = BinOp (translate ID.AND) eNullCheck tagCheck
+              eCheck = BinOp (translate ID.AND) eNullCheck actualTag
               tagDecl = Assign (Decl (int, Var adtTag)) (Int $ -1)
               tAssign = Seq $ tagDecl:[Assign (Var "_tmp") eCheck]
               result = Seq [tAssign]
