@@ -818,9 +818,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         translateAdtPattern (tuple@A.Tuple{A.args}) argName typeName fieldNames argty assocs usedVars = do
           let elemTypes = Ty.getArgTypes $ A.getType tuple
               elemInfo = zip elemTypes args
-              {-init = Assign (Decl (int, (Var tmp))) (Int 1)-}
 
           (tChecks, newUsedVars) <- checkElems elemInfo (Var "_tmp") argName assocs usedVars fieldNames
+
           return (Var "_tmp", Seq $ tChecks, newUsedVars)
             where
               checkElems [] _ _ _ usedVars _ = return ([], usedVars)
@@ -830,10 +830,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 (ncheck, tcheck, newUsedVars) <- translateAdtPattern arg argName typeName [f] ty assocs usedVars
                 (tRest, newNewUsedVars) <- checkElems rest retVar argName assocs newUsedVars fields
 
-                {-let theAnd = BinOp (translate ID.AND) (AsExpr retVar) (AsExpr ncheck)-}
-                    {-theRetAssign = Assign retVar theAnd-}
-
-                {-return (tcheck : tRest, newNewUsedVars)-}
                 return (tcheck : tRest, newNewUsedVars)
 
         translateAdtPattern (var@A.VarAccess{A.qname}) argName typeName fieldNames argty assocs usedVars = do
@@ -845,7 +841,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             decl = Assign (Decl (int, Var tmp)) (Int 1)
           return (Var tmp, Seq [decl, theAssign], usedVars)
 
-        translateAdtPattern (e@A.AdtExtractorPattern{A.adtClassDecl = c@A.Class{A.cname}}) argName typeName fieldNames argty assocs usedVars = do
+        translateAdtPattern (e@A.AdtExtractorPattern{}) argName typeName fieldNames argty assocs usedVars = do
           translatePattern e (Arrow (Cast (Ptr typeName) argName) (Nam $ head fieldNames))  argty assocs usedVars
 
         translateAdtPattern value argName typeName fieldNames argty assocs usedVars = do
@@ -857,7 +853,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           return (Var "_tmp", tAssign, usedVars)
 
 
-        translatePattern (e@A.AdtExtractorPattern{A.name, A.arg, A.emeta, A.fieldNames, A.adtClassDecl = c@A.Class{A.cname}}) argName argty assocs usedVars = do
+        translatePattern (e@A.AdtExtractorPattern{A.name, A.arg, A.fieldNames, A.adtClassDecl = c@A.Class{A.cname}}) argName argty assocs usedVars = do
           let eSelfArg = AsExpr argName
               noArgs = [] :: [A.Expr]
               innerTy = A.getType arg
