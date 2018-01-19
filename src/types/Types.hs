@@ -26,6 +26,7 @@ module Types(
             ,traitType
             ,isRefType
             ,isFromADT
+            ,getAdtTag
             ,setFromADT
             ,isTraitType
             ,isAbstractTraitType
@@ -311,7 +312,8 @@ data InnerType =
         | AbstractTraitType{refInfo :: RefInfo
                            ,fromADT :: Bool}
         | ClassType{refInfo :: RefInfo
-                   ,fromADT :: Bool}
+                   ,fromADT :: Bool
+                   ,adtTag :: Int}
         | AdtType{refInfo :: RefInfo}--TODO: Add more stuff
         | AdtConsType{refInfo :: RefInfo}--TODO: Add more stuff
         | CapabilityType{typeop :: TypeOp
@@ -772,16 +774,16 @@ refTypeWithParams refId parameters =
 
 refType id = refTypeWithParams id []
 
---TODO: Remove me and stop cheating!
-adtClassType :: String -> [Type] -> Type
-adtClassType name parameters =
+adtClassType :: String -> Int -> [Type] -> Type
+adtClassType name tag parameters =
   Type{inner = ClassType{refInfo = RefInfo{refId = name
                                           ,parameters
                                           ,mode = Nothing
                                           ,refNamespace = Nothing
                                           ,refSourceFile = Nothing
                                           },
-                                   fromADT = True
+                                   fromADT = True,
+                                   adtTag = tag
                         }
       ,box = Nothing
       }
@@ -794,7 +796,8 @@ classType name parameters =
                                           ,refNamespace = Nothing
                                           ,refSourceFile = Nothing
                                           },
-                                   fromADT = False
+                                   fromADT = False,
+                                   adtTag = 0
                         }
       ,box = Nothing
       }
@@ -824,7 +827,6 @@ adtConsType name parameters =
       ,box = Nothing
       }
 
---TODO: Remove me and stop cheating!
 adtTraitType :: String -> [Type] -> Type
 adtTraitType name parameters =
     Type{inner = TraitType{refInfo = RefInfo{refId = name
@@ -880,6 +882,9 @@ isRefType ty
 
 isUnresolved Type{inner = Unresolved{}} = True
 isUnresolved _ = False
+
+getAdtTag Type{inner = ClassType{adtTag}} = adtTag
+getAdtTag _ = 0
 
 isFromADT Type{inner = TraitType{fromADT}} = fromADT
 isFromADT Type{inner = ClassType{fromADT}} = fromADT
