@@ -857,27 +857,16 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           let eSelfArg = AsExpr argName
               noArgs = [] :: [A.Expr]
               innerTy = A.getType arg
+              tag = Ty.getAdtTag cname
               typeName = AsType (classTypeName cname)
 
           adtTag <- Ctx.genNamedSym "adtTag"
 
-          (nActualTagCall, tActualTagCall) <-
-              if Ty.isCapabilityType argty ||
-                 Ty.isUnionType argty
-              then do
-                calledType <- gets $ Ctx.lookupCalledType argty name
-                traitMethod msgId argName calledType name [] noArgs int
-              else do
-                tmp <- Ctx.genNamedSym "actualTag"
-                (argDecls, theCall) <-
-                    passiveMethodCall argName argty name noArgs Ty.intType
-                let theAssign = Assign (Decl (int, Var tmp)) theCall
-                return (Var tmp, Seq $ argDecls ++ [theAssign])
 
           (nRest, tRest, _) <- translateAdtPattern arg argName typeName fieldNames argty assocs usedVars
 
           let eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
-              actualTag = StatAsExpr nActualTagCall tActualTagCall
+              actualTag = BinOp (translate ID.EQ) (AsExpr (Arrow (Cast (Ptr typeName) eSelfArg) (Nam $ "_enc__field__ADT_tag"))) (Int tag)
               eCheck = BinOp (translate ID.AND) eNullCheck actualTag
               tagDecl = Assign (Decl (int, Var adtTag)) (Int $ -1)
               tAssign = Seq $ tagDecl:[Assign (Var "_tmp") eCheck]
