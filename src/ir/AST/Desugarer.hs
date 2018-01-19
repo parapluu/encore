@@ -270,7 +270,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
           in
             Class{cmeta
                  ,cname = makeRead $ setRef acname $
-                          adtClassType (reverse (stripName (showWithoutMode acname) [])) (getTypeParameters acname)
+                     adtClassType (reverse (stripName (showWithoutMode acname) [])) tag (getTypeParameters acname)
                  ,ccomposition = Just acomposition{tcext = traitExtensions}
                  ,cfields = fields
                  ,cmethods = (initMethod a tag):getTag:(extractorMethods a aconstructor)++amethods++acmethods
