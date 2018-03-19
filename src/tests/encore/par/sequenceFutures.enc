@@ -1,0 +1,37 @@
+import Task
+import ParT.ParT
+
+read class MyObject
+  val id : int = 0
+
+  def init(id: int): unit
+    this.id = id
+  end
+
+  def value(): int
+    this.id
+  end
+
+  def inc(): uint
+    EMBED (uint)
+      // safely cheating to increment the counter
+      #{this.id} = #{this.id} + 1;
+    END
+  end
+end
+
+
+fun generateObjects(number: uint): Par[int]
+  var p = empty[MyObject]()
+  for i <- [0..number] do
+    p = p ||| liftf(async(new MyObject(i)))
+  end
+  p >> fun (m : MyObject) => m.id
+end
+
+active class Main
+  def main(): unit
+    val a = extract(generateObjects(10000))
+    print("{}, ", a(|a|-1))
+  end
+end
