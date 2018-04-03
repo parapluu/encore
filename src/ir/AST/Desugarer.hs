@@ -335,23 +335,14 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
 
       extractorMethods con@ADTcons{acmeta} cons =
         map (\c@ADTcons{acmeta, acname, acfields} ->
-          method (header c) (body c) mmeta
+          method (headerFromCons c) (body c) mmeta
         ) cons
         where
-          header c@ADTcons{acmeta, acfields} = (headerFromCons c){
-            htype = intType
-          }
-          returnType (x@Param{ptype}:[]) = maybeType ptype
-          returnType list = maybeType $ tupleType $ map (\p@Param{ptype} -> ptype) list
           body c@ADTcons{acfields} =
             if (show c == show con)
-            then justBody acfields
+            then FieldAccess{emeta, target = VarAccess{emeta, qname = qLocal thisName}, name = Name "_ADT_tag"}
             else IntLiteral{emeta, intLit = 0}
 
-          justBody fields = FieldAccess{emeta
-                                        ,target = VarAccess{emeta, qname = qLocal thisName}
-                                        ,name = Name "_ADT_tag"
-                                        }
       method header body mmeta=
         Method{mmeta
               ,mimplicit = True
@@ -359,6 +350,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
               ,mlocals = []
               ,mbody = body
               }
+
       headerFromCons ADTcons{acname, acfields} =
         Header{
           hmodifiers = [],
@@ -368,9 +360,6 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
           htype = intType,
           hparams = []
         }
-        where
-          returnType (x@Param{ptype}:[]) = maybeType ptype
-          returnType list = maybeType $ tupleType $ map (\p@Param{ptype} -> ptype) list
 
 
 desugar :: Expr -> Expr
