@@ -305,12 +305,12 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
                            ,htype = intType
                            ,hparams = []
                            }
-      emeta = Meta.meta (Meta.sourcePos ameta)
-      cmeta = Meta.meta (Meta.sourcePos ameta)
-      mmeta = Meta.meta (Meta.sourcePos ameta)
-      tmeta = Meta.meta (Meta.sourcePos ameta)
-      fmeta = Meta.meta (Meta.sourcePos ameta)
-      funmeta = Meta.meta (Meta.sourcePos ameta)
+      emeta = Meta.meta (Meta.getPos ameta)
+      cmeta = Meta.meta (Meta.getPos ameta)
+      mmeta = Meta.meta (Meta.getPos ameta)
+      tmeta = Meta.meta (Meta.getPos ameta)
+      fmeta = Meta.meta (Meta.getPos ameta)
+      funmeta = Meta.meta (Meta.getPos ameta)
       stripName (c:str) res = if c == '['
                               then res
                               else stripName str (c:res)
