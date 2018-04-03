@@ -277,6 +277,20 @@ instance HasMeta ClassDecl where
       c {cmeta = Meta.setType ty cmeta, cname = ty}
     showWithKind Class{cname} = "class '" ++ getId cname ++ "'"
 
+instance HasMeta AdtDecl where
+    getMeta = ameta
+    setMeta a m = a{ameta = m}
+    setType _ _ =
+        error "AST.hs: Cannot set the type of an ADT"
+    showWithKind ADT{aname} = "data '" ++ getId aname ++ "'"
+
+instance HasMeta AdtConstructor where
+    getMeta = acmeta
+    setMeta ac m = ac{acmeta = m}
+    setType _ _ =
+        error "AST.hs: Cannot set the type of an ADT"
+    showWithKind ADTcons{acname} = "data '" ++ getId acname ++ "'" --TODO: ?
+
 data Requirement =
     RequiredField {
       rfield :: FieldDecl
