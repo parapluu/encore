@@ -242,7 +242,8 @@ sortAdtCons adts [] = adts
 sortAdtCons adts (con:cs) =
   sortAdtCons (insertConsInAdt adts con) cs
   where
-    insertConsInAdt [] (cons@ADTcons{parentIdentity}) = error ("ADT " ++ (show parentIdentity) ++ " not defined")
+    insertConsInAdt [] (cons@ADTcons{acmeta, parentIdentity}) =
+      error ((show $ Meta.getPos acmeta) ++ ": ADT " ++ (show parentIdentity) ++ " not defined")
     insertConsInAdt (adt@ADT{identity, aconstructor}:as) (cons@ADTcons{parentIdentity}) =
       if (identity == parentIdentity)
       then (adt{aconstructor = cons:aconstructor}:as)
