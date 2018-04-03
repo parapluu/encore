@@ -763,7 +763,7 @@ adtDecl = do
   (try adtBlockDecl) <|> adtLineDecl
   where
     adtLineDecl = do
-      ameta <- meta <$> getPosition
+      ameta <- buildMeta
       reserved "data"
       name <- lookAhead upperChar >> identifier
       params <- optionalTypeParameters
@@ -776,7 +776,7 @@ adtDecl = do
     adtBlockDecl = do
       aIndent <- L.indentLevel
       adecl <- indentBlock $ do
-        ameta <- meta <$> getPosition
+        ameta <- buildMeta
         reserved "data"
         name <- lookAhead upperChar >> identifier
         params <- optionalTypeParameters
@@ -835,7 +835,7 @@ adtConstructor = do
   (try adtConsBlockDecl) <|> adtConsLineDecl
   where
     adtConsLineDecl = do
-      acmeta <- meta <$> getPosition
+      acmeta <- buildMeta
       reserved "case"
       name <- lookAhead upperChar >> identifier
       params <- optionalTypeParameters
@@ -859,7 +859,7 @@ adtConstructor = do
     adtConsBlockDecl = do
       acIndent <- L.indentLevel
       acdecl <- indentBlock $ do
-        acmeta <- meta <$> getPosition
+        acmeta <- buildMeta
         reserved "case"
         name <- lookAhead upperChar >> identifier
         params <- optionalTypeParameters
