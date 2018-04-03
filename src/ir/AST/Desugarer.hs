@@ -256,7 +256,6 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
       t = Trait{tmeta
                ,tname = makeRead traitName
                ,treqs = RequiredField{rfield = Field{fmeta, fmut = Val, fname = Name "_ADT_tag", ftype = intType, fexpr = Nothing}}:
-                        RequiredMethod{rheader = getTagHeader}:
                         (map (\con -> RequiredMethod{rheader = headerFromCons con}) aconstructor)
                ,tmethods = amethods
                }
@@ -273,7 +272,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
                      adtClassType (reverse (stripName (showWithoutMode acname) [])) tag (getTypeParameters acname)
                  ,ccomposition = Just acomposition{tcext = traitExtensions}
                  ,cfields = fields
-                 ,cmethods = (initMethod a tag):getTag:(extractorMethods a aconstructor)++amethods++acmethods
+                 ,cmethods = (initMethod a tag):(extractorMethods a aconstructor)++amethods++acmethods
                  }
               ) $ zip aconstructor [1..length aconstructor]
 
@@ -292,19 +291,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
                                             }
                       ,funlocals = []
                       ,funsource = getRefSourceFile acname}) aconstructor
-      getTag = Method{mmeta
-                     ,mimplicit = False
-                     ,mheader = getTagHeader
-                     ,mlocals = []
-                     ,mbody = FieldAccess{emeta ,target = VarAccess{emeta, qname = qLocal thisName} ,name = Name "_ADT_tag"}
-                     }
-      getTagHeader = Header{hmodifiers = []
-                           ,kind = NonStreaming
-                           ,htypeparams = []
-                           ,hname = Name "_getTag"
-                           ,htype = intType
-                           ,hparams = []
-                           }
+
       emeta = Meta.meta (Meta.getPos ameta)
       cmeta = Meta.meta (Meta.getPos ameta)
       mmeta = Meta.meta (Meta.getPos ameta)
