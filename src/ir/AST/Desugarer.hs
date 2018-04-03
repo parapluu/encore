@@ -255,7 +255,7 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
     where
       t = Trait{tmeta
                ,tname = makeRead traitName
-               ,treqs = RequiredField{rfield = Field{fmeta, fmut = Val, fname = Name "_ADT_tag", ftype = intType}}:
+               ,treqs = RequiredField{rfield = Field{fmeta, fmut = Val, fname = Name "_ADT_tag", ftype = intType, fexpr = Nothing}}:
                         RequiredMethod{rheader = getTagHeader}:
                         (map (\con -> RequiredMethod{rheader = headerFromCons con}) aconstructor)
                ,tmethods = amethods
@@ -263,9 +263,9 @@ partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
 
       c = map (\(a@ADTcons{acmeta, acname, acfields, acomposition, acmethods}, tag) ->
           let
-            fields = Field{fmeta, fmut = Val, fname = Name "_ADT_tag", ftype = intType}:
+            fields = Field{fmeta, fmut = Val, fname = Name "_ADT_tag", ftype = intType, fexpr = Nothing}:
               (map (\p@Param{pmut, pname, ptype} ->
-                         Field{fmeta, fmut = pmut, fname = pname, ftype = ptype})) acfields
+                         Field{fmeta, fmut = pmut, fname = pname, ftype = ptype, fexpr = Nothing})) acfields
             traitExtensions = map (\p@Param{pname} -> FieldExtension{extname = pname}) acfields
           in
             Class{cmeta
