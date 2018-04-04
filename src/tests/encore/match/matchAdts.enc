@@ -1,0 +1,60 @@
+data Foo
+case Bar(i : int, str : String) : Foo
+case Baz() : Foo
+
+data LinkedThingy[t]
+case Link[t](data : t, next : LinkedThingy[t]) : LinkedThingy[t]
+case Last[t](data : t) : LinkedThingy[t]
+
+active class Main
+  def simpleMatch() : unit
+    match Bar(1, "Bar") with
+      case Bar(i, str) => println(str)
+      case Baz() => println("Baz")
+    end
+
+    match Baz() with
+      case Bar(i, str) => println(str)
+      case Baz() => println("Baz")
+    end
+  end
+
+  def matchAdtWithGuard() : unit
+    match Bar(1, "Bar") with
+      case Bar(i, str) when i > 1 => println("Bad")
+      case Bar(i, str) when i == 1 => println("Good")
+    end
+
+    match Bar(1, "Bar") with
+      case Bar(i, str) when i > 1 => println("Bad")
+      case Bar(2, str) => println("Bad")
+      case Bar(i, "Bar") => println("Good")
+    end
+  end
+
+  def matchLinked() : unit
+    match Last("1") with
+      case Link(data, Link(data2, last)) => println("Bad")
+      case Last(data) => println("Works for depth 1")
+    end
+
+    match Link("1", Last("2")) with
+      case Link(data, Link(data2, last)) => println("Bad")
+      case Last(data) => println("Bad")
+      case Link(data, Last(data2)) => println("Works for depth 2")
+    end
+
+    match Link("1", Link("2", Last("3"))) with
+      case Link(data, Link(data2, Link(data3, Link(data4, last)))) => println("Bad1")
+      case Last(data) => println("Bad1")
+      case Link(data, Last(data2)) => println("Bad1")
+      case Link(data, Link(data2, Last(data3))) => println("Works for 1, 2 and 3. According to engineers induction it works for arbitrary depth")
+    end
+  end
+
+  def main() : unit
+    this.simpleMatch()
+    this.matchAdtWithGuard()
+    this.matchLinked()
+  end
+end
