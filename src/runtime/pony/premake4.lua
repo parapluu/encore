@@ -25,6 +25,11 @@ if premake.override then
   end)
 end
 
+if os.execute("clang -v") == 0 then
+  premake.gcc.cc  = 'clang'
+  premake.gcc.cxx = 'clang++'
+end
+
 function use_flto()
   buildoptions {
     "-O3",
