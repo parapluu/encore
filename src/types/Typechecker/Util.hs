@@ -62,6 +62,7 @@ import Control.Monad.State
 
 -- Module dependencies
 import Typechecker.TypeError
+import Typechecker.Backtrace
 import Typechecker.Environment
 
 -- Monadic versions of common functions
@@ -109,20 +110,20 @@ type TypecheckM a =
 -- | Convenience function for throwing an exception with the
 -- current backtrace
 tcError err =
-    do bt <- asks backtrace
-       throwError $ TCError err bt
+    do env <- ask
+       throwError $ TCError err env
 
 -- | Push the expression @expr@ and throw error err
 pushError expr err = local (pushBT expr) $ tcError err
 
 tcWarning wrn =
-    do bt <- asks backtrace
-       modify (TCWarning bt wrn:)
+    do env <- ask
+       modify (TCWarning wrn env:)
 
 pushWarning expr wrn = local (pushBT expr) $ tcWarning wrn
 
-checkValidUseOfBreak = Typechecker.TypeError.validUseOfBreak . bt
-checkValidUseOfContinue = Typechecker.TypeError.validUseOfContinue . bt
+checkValidUseOfBreak = validUseOfBreak . bt
+checkValidUseOfContinue = validUseOfContinue . bt
 
 -- | @matchTypeParameterLength ty1 ty2@ ensures that the type parameter
 -- lists of its arguments have the same length.

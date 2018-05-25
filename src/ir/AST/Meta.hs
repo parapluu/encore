@@ -24,16 +24,6 @@ instance Show Position where
   -- TODO: If we ever want to print ranges, this should be updated
   show = showSourcePos . startPos
 
-instance Ord Position where
-  p1 `compare` p2 =
-    let
-      start1 = getStartPos p1
-      start2 = getStartPos p2
-      compFile = (sourceName start1) `compare` (sourceName start2)
-      compLine = unPos (sourceLine start1) `compare` unPos (sourceLine start2)
-    in
-      compFile `mappend` compLine
-      --start1 `compare` start2
 
 newPos :: SourcePos -> Position
 newPos = SingletonPos

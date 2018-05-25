@@ -25,7 +25,7 @@ import Debug.Trace
 import Identifiers
 import AST.AST hiding(showWithKind)
 import Types
-import Typechecker.TypeError
+import Typechecker.Backtrace
 
 data LookupTable = LookupTable {
    sourceFile       :: FilePath
