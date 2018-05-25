@@ -1,0 +1,8 @@
+
+class Main
+  def main() : unit
+    var x = 10
+    x*2 = x * (2 / 3)
+    ()
+  end
+end
