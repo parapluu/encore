@@ -41,6 +41,7 @@ import ModuleExpander
 import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
+import Typechecker.TypeError(ioShow)
 import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -387,9 +388,16 @@ main =
                   (Right (newEnv, ast), warnings) -> return (ast, warnings)
                   (Left error, warnings) -> do
                     showWarnings warnings
-                    abort $ show error
+                    printf "*** Error during typechecking *** \n\n"
+                    ioShow [error]
+                    let errorlen = length [error]
+                    abort $ "\nAborting due to " ++ show errorlen ++ errors errorlen
+                    --abort $ show error
             showWarnings typecheckingWarnings
             return typecheckedAST
+
+          errors 1 = " error"
+          errors _ = " errors"
 
       capturecheckProgramTable :: ProgramTable -> IO ProgramTable
       capturecheckProgramTable table = do

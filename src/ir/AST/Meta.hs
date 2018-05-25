@@ -24,6 +24,17 @@ instance Show Position where
   -- TODO: If we ever want to print ranges, this should be updated
   show = showSourcePos . startPos
 
+instance Ord Position where
+  p1 `compare` p2 =
+    let
+      start1 = getStartPos p1
+      start2 = getStartPos p2
+      compFile = (sourceName start1) `compare` (sourceName start2)
+      compLine = unPos (sourceLine start1) `compare` unPos (sourceLine start2)
+    in
+      compFile `mappend` compLine
+      --start1 `compare` start2
+
 newPos :: SourcePos -> Position
 newPos = SingletonPos
 
@@ -56,11 +67,39 @@ showSourcePos pos =
       file = sourceName pos
   in printf "%s (line %d, column %d)" (show file) line col
 
+showRangePosition :: Position -> String
+showRangePosition pos =
+  case pos of
+    SingletonPos start -> showSourcePos start
+    RangePos start end -> getposFile pos ++ " (" ++ (show $ getposLine start) ++ ":" ++ (show $ getposCol start) ++
+                          " -> " ++ (show $ getposLine end) ++ ":" ++ (show $ getposCol end) ++ ")"
+
+
 showPos :: Meta a -> String
 showPos = showSourcePos . startPos . position
 
 getPos :: Meta a -> Position
 getPos = position
+
+getStartPos :: Position -> SourcePos
+getStartPos = startPos
+
+getPosColumns :: Position -> (Int, Int)
+getPosColumns pos =
+  case pos of
+    SingletonPos start -> (column start, (column start)+1)
+    RangePos start end -> (column start, column end)
+  where
+    column p = fromIntegral $ unPos (sourceColumn p)
+
+getposFile :: Position -> String
+getposFile pos = sourceName $ getStartPos pos
+
+getposLine :: SourcePos -> Int
+getposLine pos = fromIntegral $ unPos $ sourceLine pos
+
+getposCol :: SourcePos -> Int
+getposCol pos = fromIntegral $ unPos $ sourceColumn pos
 
 setType :: Type -> Meta a -> Meta a
 setType newType m = m {metaType = Just newType}

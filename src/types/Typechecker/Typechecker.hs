@@ -1461,14 +1461,14 @@ instance Checkable Expr where
            unless varIsMutable $
                   if varIsLocal
                   then tcError $ ImmutableVariableError qname
-                  else pushError eLhs NonAssignableLHSError
+                  else pushError assign NonAssignableLHSError
            eRhs <- hasType rhs (AST.getType eLhs)
            return $ setType unitType assign {lhs = eLhs, rhs = eRhs}
 
     doTypecheck assign@(Assign {lhs, rhs}) =
         do eLhs <- typecheck lhs
            unless (isLval eLhs) $
-                  pushError eLhs NonAssignableLHSError
+                  pushError assign NonAssignableLHSError
            context <- asks currentExecutionContext
            case context of
              MethodContext mtd ->

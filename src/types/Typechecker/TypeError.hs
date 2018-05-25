@@ -18,6 +18,7 @@ module Typechecker.TypeError (Backtrace
                              ,currentContextFromBacktrace
                              ,validUseOfBreak
                              ,validUseOfContinue
+                             ,ioShow
                              ) where
 
 import Text.PrettyPrint
@@ -30,7 +31,8 @@ import Identifiers
 import Types
 import AST.AST hiding (showWithKind)
 import AST.PrettyPrinter
-import AST.Meta(Position)
+import System.Console.ANSI
+import AST.Meta(Position, showRangePosition, getStartPos, getPosColumns, getposFile, getposLine)
 
 data BacktraceNode = BTFunction Name Type
                    | BTTrait Type
@@ -99,6 +101,30 @@ reduceBT = truncateExprs . dropMiniLets . mergeBlocks . nub
       (pos1, BTExpr e1):(pos2, BTExpr e2):
       filter (not . isBTExpr . snd) bt
     truncateExprs bt = bt
+
+reduceBTToLine :: Backtrace -> Backtrace
+reduceBTToLine = filterLine . nub
+  where
+    mergeBlocks ((pos1, BTExpr seq@Seq{}):(pos2, BTExpr e2):bt) =
+      if hasBody e2
+      then mergeBlocks $ (pos2, BTExpr e2):bt
+      else (pos1, BTExpr seq) : mergeBlocks ((pos2, BTExpr e2) : bt)
+    mergeBlocks (node:bt) = node:mergeBlocks bt
+    mergeBlocks [] = []
+
+    dropMiniLets :: Backtrace -> Backtrace
+    dropMiniLets = filter (not . isMiniLetNode . snd)
+    isMiniLetNode node
+      | BTExpr e <- node
+      , Just MiniLet{} <- getSugared e = True
+      | otherwise = False
+
+    filterLine ((pos1, BTExpr e1):(pos2, node2):bt)
+        | pos1 <= pos2 = filterLine ((pos2, node2):bt)
+        | otherwise = [(pos1, BTExpr e1)]
+    filterLine bt = bt
+    --filterLine ((pos2, BTExpr e2):_) = [(pos2, BTExpr e2)]
+
 
 data ExecutionContext = MethodContext MethodDecl
                       | ClosureContext (Maybe Type)
@@ -188,7 +214,7 @@ instance Show TCError where
         show err ++ "\n"
     show (TCError err bt@((pos, _):_)) =
         " *** Error during typechecking *** \n" ++
-        show pos ++ "\n" ++
+        showRangePosition pos ++ "\n" ++
         show err ++ "\n" ++
         concatMap showBT (reduceBT bt)
         where
@@ -196,6 +222,83 @@ instance Show TCError where
               case show node of
                 "" -> ""
                 s  -> s ++ "\n"
+
+
+ioShow :: [TCError] -> IO ()
+ioShow [] = return ()
+ioShow ((TCError err@NonAssignableLHSError bt@((pos, _):_)) :xs) = do
+
+    printError err
+--    setSGR [ SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
+--    printf "Error: "
+    printErrorDescription err
+--    setSGR [SetColor Foreground Vivid White]
+--    printf $ show err ++ "\n"
+    printPosition pos
+--    setSGR [ SetConsoleIntensity NormalIntensity, SetColor Foreground Vivid Blue]
+--    printf " --> "
+--    setSGR [Reset]
+--    printf $ showRangePosition pos
+
+    printCodeViewer pos "Insert good suggestion here"
+--    setSGR [SetColor Foreground Vivid Blue]
+--    printf "\n|\n|"
+--    setSGR [Reset]
+--    printFileLine (getposFile pos) (getposLine $ getStartPos pos)
+--    setSGR [SetColor Foreground Vivid Blue]
+--    printf "\n|"
+--    setSGR [SetColor Foreground Dull Red]
+--    printf $ errorIndicator startCol endCol
+--    setSGR [Reset]
+    ioShow xs
+
+    where
+
+        printError _ = do
+            setSGR [ SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
+            printf "Error: "
+            setSGR [Reset]
+
+        printErrorDescription err = do
+            setSGR [SetColor Foreground Vivid White]
+            printf $ show err ++ "\n"
+            setSGR [Reset]
+
+        printPosition pos = do
+            setSGR [ SetConsoleIntensity NormalIntensity, SetColor Foreground Vivid Blue]
+            printf " --> "
+            setSGR [Reset]
+            printf $ showRangePosition pos
+
+        printCodeViewer pos smallSuggestion = do
+            let startLine = getposLine $ getStartPos pos
+            let digits = fromIntegral $ round $ logBase 10 (fromIntegral startLine)
+            let (startCol, endCol) = getPosColumns pos
+            setSGR [SetColor Foreground Vivid Blue]
+            printf $ "\n" ++ replicate digits ' ' ++  " |\n" ++ show startLine ++ " |"
+
+            setSGR [Reset]
+            printFileLine (getposFile pos) (getposLine $ getStartPos pos)
+            setSGR [SetColor Foreground Vivid Blue]
+            printf $ "\n" ++ replicate digits ' ' ++  " |"
+
+            setSGR [SetColor Foreground Dull Red]
+            printf $ errorIndicator startCol endCol
+            printf $ ' ' : smallSuggestion ++ "\n\n"
+            setSGR [Reset]
+
+
+        errorIndicator :: Int -> Int -> [Char]
+        errorIndicator s e = "" ++ replicate (s-1) ' ' ++ replicate (e-s) '^'
+
+ioShow err = printf $ show err
+
+printFileLine :: String -> Int -> IO ()
+printFileLine file line = do
+    contents <- readFile file
+    case drop (line-1) $ lines contents of
+        []  -> error "File has been edited between parsing and type checking"
+        l:_ -> printf l
 
 data Error =
     DistinctTypeParametersError Type
@@ -568,7 +671,7 @@ instance Show Error where
           printf "Cannot read field of expression '%s' of %s"
                  (show $ ppSugared target) (showWithKind targetType)
     show NonAssignableLHSError =
-        "Left-hand side cannot be assigned to"
+        "Left-hand side of operand is not assignable"
     show (ValFieldAssignmentError name targetType) =
         printf "Cannot assign to val-field '%s' in %s"
                (show name) (refTypeName targetType)
@@ -994,3 +1097,8 @@ instance Show Warning where
     show CapabilitySplitWarning =
         "Unpacking linear capabilities is not fully supported and may be unsafe. " ++
         "This will be fixed in a later version of Encore."
+
+
+        --hash (UnionMethodAmbiguityError _ _) = 3
+
+        --explain 3 = "stuff"
