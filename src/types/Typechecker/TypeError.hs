@@ -3,24 +3,17 @@
 {-|
 
 The machinery used by "Typechecker.Typechecker" and
-"Typechecker.Capturechecker" for handling errors and backtracing.
+"Typechecker.Capturechecker" for handling and showing errors.
 
 -}
 
-module Typechecker.TypeError (Backtrace
-                             ,emptyBT
-                             ,Pushable(push)
-                             ,TCError(TCError)
+module Typechecker.TypeError (
+                              TCError(TCError)
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             ,ExecutionContext(..)
-                             ,currentContextFromBacktrace
-                             ,validUseOfBreak
-                             ,validUseOfContinue
                              ) where
 
-import Text.PrettyPrint
 import Data.Maybe
 import Data.List
 import Data.Char
@@ -28,144 +21,10 @@ import Text.Printf (printf)
 
 import Identifiers
 import Types
+import Typechecker.Environment
+import Typechecker.Backtrace
 import AST.AST hiding (showWithKind)
 import AST.PrettyPrinter
-import AST.Meta(Position)
-
-data BacktraceNode = BTFunction Name Type
-                   | BTTrait Type
-                   | BTClass Type
-                   | BTParam ParamDecl
-                   | BTField FieldDecl
-                   | BTMethod MethodDecl
-                   | BTExpr Expr
-                   | BTTypedef Type
-                   | BTModule Name
-                   | BTImport Namespace
-                     deriving(Eq)
-
-isBTExpr :: BacktraceNode -> Bool
-isBTExpr (BTExpr _) = True
-isBTExpr _ = False
-
-instance Show BacktraceNode where
-  show (BTFunction n ty) =
-    concat ["In function '", show n, "' of type '", show ty, "'"]
-  show (BTClass ty) = concat ["In class '", show ty, "'"]
-  show (BTTrait ty) = concat ["In trait '", show ty, "'"]
-  show (BTParam p) = concat ["In parameter '", show (ppParamDecl p), "'"]
-  show (BTField f) =  concat ["In field '", show (ppFieldDecl f), "'"]
-  show (BTMethod m) =
-      let name = hname $ mheader m
-          ty   = htype $ mheader m
-          method | isStreamMethod m = "stream method"
-                 | otherwise = "method"
-      in
-        concat ["In ", method, " '", show name, "' of type '", show ty, "'"]
-  show (BTExpr expr)
-    | (isNothing . getSugared) expr = ""
-    | otherwise =
-      let str = show $ nest 2 $ ppSugared expr
-      in "In expression: \n" ++ str
-  show (BTTypedef tl) =
-     concat ["In typedef '", show tl, "'"]
-  show (BTModule m) =
-     concat ["In declaration of module '", show m, "'"]
-  show (BTImport ns) =
-     concat ["In import of module '", show ns, "'"]
-
-type Backtrace = [(Position, BacktraceNode)]
-emptyBT :: Backtrace
-emptyBT = []
-
-reduceBT :: Backtrace -> Backtrace
-reduceBT = truncateExprs . dropMiniLets . mergeBlocks . nub
-  where
-    mergeBlocks ((pos1, BTExpr seq@Seq{}):(pos2, BTExpr e2):bt) =
-      if hasBody e2
-      then mergeBlocks $ (pos2, BTExpr e2):bt
-      else (pos1, BTExpr seq) : mergeBlocks ((pos2, BTExpr e2) : bt)
-    mergeBlocks (node:bt) = node:mergeBlocks bt
-    mergeBlocks [] = []
-
-    dropMiniLets :: Backtrace -> Backtrace
-    dropMiniLets = filter (not . isMiniLetNode . snd)
-    isMiniLetNode node
-      | BTExpr e <- node
-      , Just MiniLet{} <- getSugared e = True
-      | otherwise = False
-
-    truncateExprs ((pos1, BTExpr e1):(pos2, BTExpr e2):bt) =
-      (pos1, BTExpr e1):(pos2, BTExpr e2):
-      filter (not . isBTExpr . snd) bt
-    truncateExprs bt = bt
-
-data ExecutionContext = MethodContext MethodDecl
-                      | ClosureContext (Maybe Type)
-                      | FunctionContext Name Type
-
-currentContextFromBacktrace :: Backtrace -> ExecutionContext
-currentContextFromBacktrace [] = error "TypeError.hs: No execution context"
-currentContextFromBacktrace ((_, BTExpr Closure{mty}):_) = ClosureContext mty
-currentContextFromBacktrace ((_, BTMethod m):_) =  MethodContext m
-currentContextFromBacktrace ((_, BTFunction f t):_) =  FunctionContext f t
-currentContextFromBacktrace (_:bt) = currentContextFromBacktrace bt
-
-validUseOfBreak :: Backtrace -> Bool
-validUseOfBreak [] = False
-validUseOfBreak ((_, BTExpr l@For{}):_) = True
-validUseOfBreak ((_, BTExpr l@While{}):_) = True
-validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
-validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
-validUseOfBreak (_:bt) = validUseOfBreak bt
-
-validUseOfContinue :: Backtrace -> Bool
-validUseOfContinue [] = False
-validUseOfContinue ((_, BTExpr l@For{}):_) = False
-validUseOfContinue ((_, BTExpr l@While{}):_) = True
-validUseOfContinue ((_, BTExpr l@DoWhile{}):_) = True
-validUseOfContinue ((_, BTExpr l@Repeat{}):_) = True
-validUseOfContinue ((_, BTExpr c@Closure{}):_) = False
-validUseOfContinue (_:bt) = validUseOfContinue bt
-
--- | A type class for unifying the syntactic elements that can be pushed to the
--- backtrace stack.
-
-class Pushable a where
-    push :: a -> Backtrace -> Backtrace
-    pushMeta ::  HasMeta a => a -> BacktraceNode -> Backtrace -> Backtrace
-    pushMeta m n bt = (getPos m, n) : bt
-
-instance Pushable Function where
-  push fun =
-    pushMeta fun (BTFunction (functionName fun) (functionType fun))
-
-instance Pushable TraitDecl where
-  push t = pushMeta t (BTTrait (tname t))
-
-instance Pushable ClassDecl where
-    push c = pushMeta c (BTClass (cname c))
-
-instance Pushable FieldDecl where
-    push f = pushMeta f (BTField f)
-
-instance Pushable ParamDecl where
-    push p = pushMeta p (BTParam p)
-
-instance Pushable MethodDecl where
-    push m = pushMeta m (BTMethod m)
-
-instance Pushable Expr where
-    push expr = pushMeta expr (BTExpr expr)
-
-instance Pushable Typedef where
-    push t@(Typedef {typedefdef}) = pushMeta t (BTTypedef typedefdef)
-
-instance Pushable ModuleDecl where
-    push m@(Module{modname}) = pushMeta m (BTModule modname)
-
-instance Pushable ImportDecl where
-    push i@(Import{itarget}) = pushMeta i (BTImport itarget)
 
 refTypeName :: Type -> String
 refTypeName ty
@@ -181,12 +40,12 @@ refTypeName ty
 
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.
-data TCError = TCError Error Backtrace
+data TCError = TCError Error Environment
 instance Show TCError where
-    show (TCError err []) =
+    show (TCError err Env{bt = []}) =
         " *** Error during typechecking *** \n" ++
         show err ++ "\n"
-    show (TCError err bt@((pos, _):_)) =
+    show (TCError err Env{bt = bt@((pos, _):_)}) =
         " *** Error during typechecking *** \n" ++
         show pos ++ "\n" ++
         show err ++ "\n" ++
@@ -352,8 +211,8 @@ data Error =
 arguments 1 = "argument"
 arguments _ = "arguments"
 
-typeParameters 1 = "type parameter"
-typeParameters _ = "type parameters"
+typeParams 1 = "type parameter"
+typeParams _ = "type parameters"
 
 enumerateSafeTypes =
   "Safe types are primitives and types with read, active or local mode."
@@ -374,7 +233,7 @@ instance Show Error where
                (show name) expected (arguments expected) actual
     show (WrongNumberOfFunctionTypeArgumentsError name expected actual) =
         printf "Function %s expects %d %s. Got %d"
-               (show name) expected (typeParameters expected) actual
+               (show name) expected (typeParams expected) actual
     show (WrongNumberOfTypeParametersError ty1 n1 ty2 n2) =
         printf "'%s' expects %d type %s, but '%s' has %d"
               (showWithoutMode ty1) n1 (arguments n1) (showWithoutMode ty2) n2
@@ -520,7 +379,7 @@ instance Show Error where
         printf "Unbound function variable '%s'" (show name)
     show (NonFunctionTypeError ty) =
         printf "Cannot use value of type '%s' as a function" (show ty)
-    show BottomTypeInferenceError = "Not enough information to infer the type.\n" ++ 
+    show BottomTypeInferenceError = "Not enough information to infer the type.\n" ++
         "Try adding more type information."
     show IfInferenceError = "Cannot infer result type of if-statement"
     show (IfBranchMismatchError ty1 ty2) =
@@ -947,12 +806,12 @@ instance Show Error where
         printf "Cannot capture expression '%s' of linear type '%s'"
                (show (ppSugared e)) (show ty)
 
-data TCWarning = TCWarning Backtrace Warning
+data TCWarning = TCWarning Warning Environment
 instance Show TCWarning where
-    show (TCWarning [] w) =
+    show (TCWarning w Env{bt = []}) =
         "Warning:\n" ++
         show w
-    show (TCWarning ((pos, _):_) w) =
+    show (TCWarning w Env{bt = ((pos, _):_)}) =
         "Warning at " ++ show pos ++ ":\n" ++
         show w
 

@@ -32,6 +32,7 @@ import AST.Util(extend)
 import Types as Ty
 import Typechecker.Environment
 import Typechecker.TypeError
+import Typechecker.Backtrace
 import Typechecker.Util
 import Text.Printf (printf)
 
@@ -49,8 +50,8 @@ checkForMainClass source Program{classes} =
     Just Class{cname,cmethods} ->
       if any (isMainMethod cname . methodName) cmethods
       then Nothing
-      else Just $ TCError (MethodNotFoundError (Name "main") cname) []
-    Nothing -> Just $ TCError MissingMainClass []
+      else Just $ TCError (MethodNotFoundError (Name "main") cname) emptyEnv
+    Nothing -> Just $ TCError MissingMainClass emptyEnv
   where
     isLocalMain source c@Class{cname} =
         isMainClass c &&
@@ -411,10 +412,10 @@ checkOverriding cname typeParameters methods extendedTraits = do
                OverriddenMethodTypeError
                  (methodName method) expectedMethodType requirer actualMethodType
       typecheckWithTrait `catchError`
-                          \(TCError e bt) ->
+                          \(TCError e env) ->
                              throwError $
                                TCError (OverriddenMethodError
-                                        (methodName method) requirer e) bt
+                                        (methodName method) requirer e) env
 
       where
         addAbstractTrait = withAbstractTrait abstractDecl
@@ -1249,12 +1250,12 @@ instance Checkable Expr where
       where
         handleBurying :: Expr -> TCError -> TypecheckM Expr
         handleBurying VarAccess{qname}
-                      (TCError err@(UnboundVariableError unbound) bt) =
+                      (TCError err@(UnboundVariableError unbound) env) =
           if unbound == qname
-          then throwError $ TCError (BuriedVariableError qname) bt
-          else throwError $ TCError err bt
-        handleBurying _ (TCError err bt) =
-          throwError $ TCError err bt
+          then throwError $ TCError (BuriedVariableError qname) env
+          else throwError $ TCError err env
+        handleBurying _ (TCError err env) =
+          throwError $ TCError err env
 
     --  E |- cond : bool
     --  E |- body : t
