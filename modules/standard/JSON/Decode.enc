@@ -1,0 +1,724 @@
+module Decode(decode
+             ,stringD
+             ,intD
+             ,boolD
+             ,realD
+             ,nullD
+             ,nullable
+             ,fail
+             ,succeed
+             ,field
+             ,at
+             ,index
+             ,array
+             ,dict
+             ,key_value_pairs
+             ,maybe
+             ,value
+             ,map
+             ,map2
+             ,map3
+             ,and_then
+             ,lazy
+             ,Result)
+
+import Data.Maybe hiding(map,maybe)
+import Data.Either hiding(or_else)
+import Collections.Mutable.HashMap
+import Hash.Hashable
+import JSON.Parser
+import JSON.Encode
+
+{- The design of this module follows Elm's 
+   (http://package.elm-lang.org/packages/elm-lang/core/5.1.1/Json-Decode)
+   The implementation is mostly independent.
+-}
+
+-- TODO: move to another module related to Exceptions 
+-- But inside Encore, not Sahand's
+typedef Result[t] = Either[String,t]
+
+fun good[t](x : t) : Result[t]
+  Right[String,t](x)
+end
+
+fun bad[t](s : String) : Result[t]
+  Left[String,t](s)
+end
+
+
+{- decode :: (Decoder[t], String) -> Result[String,t]
+   first parses the string into a JSON value
+   and then runs a decoder on the result.
+   Fails if either the parser or the decoder fails
+
+     decode(intD(), "4")      => Right(4)
+     decode(intD(), "3 + 2")  => Left(...)
+     
+-}
+fun decode[t](decoder : Decoder[t], str: String) : Result[t]
+  match parse(str) with
+    case Nothing => bad[t]("JSON parser failed.")
+    case Just(raw) => decoder.decode(raw)
+  end
+end
+
+
+-- A trait for JSON decoders, which decode values
+read trait Decoder[t]
+  require def decode(raw: Value) : Result[t]
+end
+
+-- the decoders
+
+{-  Decodes a JSON String into a String 
+
+    decode(stringD(), "true")              => Left(...)
+    decode(stringD(), "42")                => Left(...)
+    decode(stringD(), "3.14")              => Left(...)
+    decode(stringD(), "\"hello\"")         => Right("hello")
+    decode(stringD(), "{ \"hello\": 42 }") => Left(...)
+-}
+fun stringD() : Decoder[String]
+  new StringDecoder()
+end
+
+-- StringDecoder implementation
+class StringDecoder : Decoder[String]
+  def decode(raw: Value) : Result[String]
+    match raw with
+      case RawString(str) => good(str) 
+      case _ => bad[String]("Wrong format for JSON string")
+    end
+  end 
+end
+
+{- Decodes a JSON number into an int
+
+    decode(intD(), "true")              => Left(...)
+    decode(intD(), "42")                => Right(42)
+    decode(intD(), "3.14")              => Right(3)
+    decode(intD(), "\"hello\"")         => Left(...)
+    decode(intD(), "{ \"hello\": 42 }") => Left(...)
+-}
+fun intD() : Decoder[int]
+  new IntDecoder()
+end
+
+-- IntDecoder implementation
+class IntDecoder : Decoder[int]
+  def decode(raw: Value) : Result[int]
+    match raw with
+      case RawNumber(num) =>
+        match num.to_int() with
+          case Just(i) => good(i)
+          case Nothing => bad[int]("Wrong format for JSON int")
+        end
+      end
+      case _ => bad[int]("Wrong format for JSON int")
+    end
+  end 
+end
+
+
+{- Decodes a JSON boolean into a bool
+
+    decode(boolD(), "true")              => Right(true)
+    decode(boolD(), "42")                => Left(...)
+    decode(boolD(), "3.14")              => Left(...)
+    decode(boolD(), "\"hello\"")         => Left(...)
+    decode(boolD(), "{ \"hello\": 42 }") => Left(...)
+-}
+fun boolD() : Decoder[bool]
+  new BoolDecoder()
+end
+
+-- BoolDecoder implementation
+class BoolDecoder : Decoder[bool]
+  def decode(raw: Value) : Result[bool]
+    match raw with
+      case RawBool(i) => good(i)
+      case _ => bad[bool]("Wrong format for JSON bool")
+    end
+  end 
+end
+
+{- Decodes a JSON number into a real
+
+    decode(realD(), "true")              => Left(...)
+    decode(realD(), "42")                => Right(42)
+    decode(realD(), "3.14")              => Right(3.14)
+    decode(realD(), "\"hello\"")         => Left(...)
+    decode(realD(), "{ \"hello\": 42 }") => Left(...)
+-}
+fun realD() : Decoder[real]
+  new RealDecoder()
+end
+
+-- implementation of ReadDecoder
+class RealDecoder : Decoder[real]
+  def decode(raw: Value) : Result[real]
+    match raw with
+      case RawNumber(num) =>
+        match num.to_real() with
+          case Just(i) => good(i)
+          case Nothing => bad[real]("Wrong format for JSON real")
+        end
+      end
+      case _ => bad[real]("Wrong format for JSON real")
+    end
+  end 
+end
+
+{- Decodes a `null` value into some value.
+
+    decode(nullD[bool](false), "null") => Right(false)
+    decode(nullD[int](42), "null")     => Right(42)
+    decode(nullD[int](42), "42")       => Left(...)
+    decode(nullD[int](42), "false")    => Left(...)
+
+-}
+fun nullD[t](default : t) : Decoder[t]
+  new NullDecoder(default)
+end
+
+-- implementation of NullDecoder
+class NullDecoder[t] : Decoder[t](default)
+  val default : t
+  
+  def init(default : t) : unit
+    this.default = default
+  end
+  
+  def decode(raw: Value) : Result[t]
+    match raw with
+      case Null() => good(this.default)
+      case _ => bad[t]("Does not match JSON null")
+    end
+  end  
+end
+
+
+{- Decodes a nullable JSON value into a value.
+
+    decode(nullable[int](intD()), "42")   => Right(Just(42))
+    decode(nullable[int](intD()), "null") => Right(Nothing)
+    decode(nullable[int](intD()), "true") => Left(...)
+-}
+fun nullable[t](sub : Decoder[t]) : Decoder[Maybe[t]]
+  new Nullable[t](sub)
+end
+
+-- implementation of nullable
+class Nullable[t] : Decoder[Maybe[t]](dec)
+  val dec : Decoder[Maybe[t]]
+  
+  def init(sub : Decoder[t]) : unit
+    this.dec = one_of([ new NullDecoder[Maybe[t]](Nothing) : Decoder[Maybe[t]], 
+                        map(fun (x : t) => Just(x), sub)]) 
+  end
+
+  def decode(raw: Value) : Result[Maybe[t]]
+    this.dec.decode(raw)
+  end
+end
+
+
+{- ignore the JSON and fail -}
+fun fail[t](msg : String) : Decoder[t]
+  new Fail[t](msg)
+end
+
+-- implementation of Fail
+class Fail[t] : Decoder[t](msg)
+  val msg : String
+  
+  def init(msg : String) : unit
+    this.msg = msg
+  end
+
+  def decode(raw: Value) : Result[t]
+    bad[t](this.msg)
+  end
+end
+
+
+
+{- Ignore the JSON and produce a certain value.  
+    decode(succeed[int](42), "true")    => Right(42)
+    decode(succeed[int](42), "[1,2,3]") => Right(42)
+    decode(succeed[int](42), "Hello")   => Left(...) -- this is not a valid JSON string
+-}
+fun succeed[t](default : t) : Decoder[t]
+  new Succeed[t](default)
+end
+
+-- implementation of Succeed decoder
+class Succeed[t] : Decoder[t](default)
+  val default : t
+  
+  def init(default : t) : unit
+    this.default = default
+  end
+  
+  def decode(raw: Value) : Result[t]
+    good(this.default)
+  end  
+end
+
+-- for holding more sophisticated decoders
+-- probably can be replaced by function composition
+class DecoderHolder[t] : Decoder[t](dec)
+  val dec : Value -> Result[t]
+  
+  def init(dec : Value -> Result[t]) : unit
+    this.dec = dec
+  end
+
+  def decode(raw: Value) : Result[t]
+    this.dec(raw)
+  end
+end
+
+
+
+{- Extract a particular field from a JSON object
+
+    decode(field[int]("x", intD()), "{ \"x\": 3 }")           => Right(3)
+    decode(field[int]("x", intD()), "{ \"x\": 3, \"y\": 4 }") => Right(3)
+    decode(field[int]("x", intD()), "{ \"x\": true }")        => Left(...)
+    decode(field[int]("x", intD()), "{ \"y\": 4 }")           => Left(...)
+    decode(field[String]("name", stringD()), "{ \"name\": \"tom\" }") => Right("tom")
+-}
+fun field[t](name : String, sub : Decoder[t]) : Decoder[t]
+  new Field[t](name, sub)
+end
+
+-- implementation of Field decoder
+class Field[t] : Decoder[t](name, sub)
+  val name : String
+  val sub : Decoder[t]
+  
+  def init(name : String, sub : Decoder[t]) : unit
+    this.name = name
+    this.sub = sub
+  end
+  
+  def decode(raw: Value) : Result[t]
+    match raw with
+      case RawObject(hash) => 
+        match hash.get_value(this.name) with
+          case Just(value) => this.sub.decode(value)
+          case Nothing => bad[t]("Expected a JSON object with field '".concatenate(this.name).concatenate("'"))
+        end
+      end
+      case _ => bad[t]("Expected a JSON object")
+    end
+  end
+end
+
+
+{- Extract a particular path from a JSON object
+
+    json = "{ "person": { "name": "tom", "age": 42 } }"
+
+    decode(at(["person", "name"], stringD()), json) => Right("tom")
+    decode(at(["person", "age" ], intD()), json)    => Right(42)
+
+-}
+fun at[t](path : [String], sub : Decoder[t]) : Decoder[t]
+  new At[t](path, sub)
+end
+
+-- implementation of At decoder
+class At[t] : Decoder[t](sub, path)
+  val path : [String]
+  val sub : Decoder[t]
+  
+  def init(path : [String], sub : Decoder[t]) : unit
+    this.path = path
+    this.sub = sub
+  end
+
+  def decode(raw : Value) : Result[t]
+    var node = raw
+    var decoder = this.sub
+    for name <- this.path do
+      match dig(name, node) with
+        case Just(value) => 
+          node = value 
+          bad[t]("nothing") -- value ignored, used to help type checker
+        end
+        case Nothing => return bad[t]("Expect path ".concatenate(".".join(this.path)))
+      end
+    end    
+    decoder.decode(node)
+  where
+    fun dig(name : String, node : Value) : Maybe[Value]
+      match node with
+        case RawObject(hash) => hash.get_value(name)
+        case _ => Nothing
+      end
+    end
+  end
+end
+
+
+{- extract given index of a JSON array
+    json = "[ \"alice\", \"bob\", \"chuck\" ]"
+
+    decode(index(0, stringD()), json) => Right("alice")
+    decode(index(1, stringD()), json) => Right("bob")
+    decode(index(2, stringD()), json) => Right("chuck")
+    decode(index(3, stringD()), json) => Left(...)
+-}
+fun index[t](index : int, dec : Decoder[t]) : Decoder[t]
+  new Index(index, dec)
+end
+
+-- implementation of Index decoder
+class Index[t] : Decoder[t](index, dec)
+  val index : int
+  val dec : Decoder[t]
+  
+  def init(index : int, dec : Decoder[t]) : unit
+    this.index = index
+    this.dec = dec
+  end
+  
+  def decode(raw : Value) : Result[t]
+    match raw with
+      case RawArray(arr) => 
+        if this.index >= 0 && this.index < |arr| then
+          this.dec.decode(arr(this.index))
+        else
+          bad[t]("Index out of bounds")
+        end
+      end
+      case _ => bad[t]("Expected JSON array")
+    end
+  end
+end
+
+
+{- Decode a JSON array
+
+    decode(array[int](intD()), "[1,2,3]")      => Right([1,2,3])
+    decode(array[int](intD()), "[true,false]") => Right([true,false]) 
+-}
+fun array[t](dec : Decoder[t]) : Decoder[[t]]
+  new ArrayDecoder[t](dec)
+end
+
+-- implementation of array decoder
+class ArrayDecoder[t] : Decoder[[t]](dec)
+  val dec : Decoder[t]
+  
+  def init(dec : Decoder[t]) : unit
+    this.dec = dec
+  end
+  
+  def decode(raw: Value) : Result[[t]]
+    match raw with
+      case RawArray(arr) => 
+        val res = new [t](|arr|)
+        for i <- [0 .. |arr| - 1] do
+          match this.dec.decode(arr(i)) with
+            case Right(v) => 
+              res(i) = v
+            end
+            case Left(err) => return bad[[t]](err)
+          end
+        end
+        good(res)
+      end
+      case _ => bad[[t]]("Expected JSON array")
+    end
+  end
+end
+
+
+
+{- Decode a JSON object into a hash table
+
+    decode(dict[t](intD()), "{ \"alice\": 42, \"bob\": 99 }")
+      => HashMap["alice" => 42, "bob" => 99]
+-}
+fun dict[t](dec : Decoder[t]) : Decoder[HashMap[String,t]]
+  new Dict[t](dec)
+end
+
+-- implementation of Dict decoder
+class Dict[t] : Decoder[HashMap[String,t]](dec)
+  val dec : Decoder[t]
+  
+  def init(dec : Decoder[t]) : unit
+    this.dec = dec
+  end
+  
+  def decode(raw : Value) : Result[HashMap[String,t]]
+    match raw with
+      case RawObject(hash) => 
+        val iter = hash.iterator()
+        val new_map = new HashMap[String,t]()
+        while iter.has_next() do
+          val x = iter.next()
+          match this.dec.decode(x.value) with
+            case Right(y) => 
+              new_map.set(x.key, y)
+            end
+            case Left(err) => return bad[HashMap[String,t]](err)
+          end
+        end
+
+        return good(new_map)
+      end
+      case _ => bad[HashMap[String,t]]("Expected JSON object")
+    end
+  end
+end
+
+
+{- Decode a JSON object into an array of pairs.
+
+    decode(key_value_pairs[int](intD()), "{ \"alice\": 42, \"bob\": 99 }")
+      => [("alice", 42), ("bob", 99)]
+-}
+fun key_value_pairs[t](dec : Decoder[t]) : Decoder[[(String, t)]]
+  map(fun(x : HashMap[String,t]) => x.key_value_pairs(), new Dict(dec) : Decoder[HashMap[String,t]])
+end
+
+-- utilities
+fun one_of[t](decs : [Decoder[t]]) : Decoder[t]
+  one_of_helper[t](decs,0)
+end
+
+-- previously was local function of previous, but compiler bug 
+fun one_of_helper[t](decs : [Decoder[t]], index : int) : Decoder[t]
+  if index < |decs| then
+    or_else(decs(index), one_of_helper(decs, index + 1))
+  else
+    new Fail[t]("No valid choice")
+  end
+end
+
+-- TODO: basically, the core of one_of
+-- should be local to one_of, but it didn't compile
+fun or_else[t](dec1 : Decoder[t], dec2 : Decoder[t]) : Decoder[t]
+  val next = fun (str : Value)
+               val one = dec1.decode(str)
+               if is_right(one) then
+                 one
+               else
+                 dec2.decode(str)
+               end
+             end
+  new DecoderHolder[t](next)
+end
+
+
+
+{- Useful for dealing with optional fields. Some examples:
+
+    json = "{ \"name\": \"tom\", \"age\": 42 }"
+
+    decode(maybe (field("age", intD())))) json => Right(Just(42))
+    decode(maybe (field("name", intD()))) json => Right(Nothing)
+    decode(maybe (field("height", real()))) json => Right(Nothing)
+
+    decode(field ("age",    (maybe (intD())))) json => Right(Just(42))
+    decode(field ("name",   (maybe (intD())))) json => Right(Nothing)
+    decode(field ("height", (maybe (realD()))) json => Left(...)
+-}
+fun maybe[t](dec : Decoder[t]) : Decoder[Maybe[t]]
+  new MaybeDecoder[t](dec)
+end
+
+-- implementation of MaybeDecoder
+class MaybeDecoder[t] : Decoder[Maybe[t]](dec)
+  val dec : Decoder[t]
+  
+  def init(dec : Decoder[t]) : unit
+    this.dec = dec
+  end
+
+  def decode(raw: Value) : Result[Maybe[t]]
+    match this.dec.decode(raw) with
+      case Right(value) => good(Just(value))
+      case Left(err) => good(Nothing : Maybe[t])
+    end
+  end
+end
+
+{- 
+    return the underlying JSON value.
+-}
+fun value() : Decoder[Value]
+  new ValueDecoder()
+end
+
+-- implementation of ValueDecoder
+class ValueDecoder : Decoder[Value]
+  def decode(value : Value) : Result[Value]
+    good(value)
+  end
+end
+
+
+-- mapping functions, useful for creating domain specific decoders
+fun map[a,v](f : a -> v, dec : Decoder[a]) : Decoder[v]
+  new MMap[a,v](f, dec)
+end
+
+class MMap[a,v] : Decoder[v](dec,f)
+  val dec : Decoder[a]
+  val f : a -> v
+  
+  def init(f : a -> v, dec : Decoder[a]) : unit
+    this.f = f
+    this.dec = dec
+  end
+  
+  def decode(raw : Value) : Result[v]
+    this.dec.decode(raw).map(this.f) 
+  end
+end
+
+fun map2[a,b,v](f : (a,b) -> v, dec1 : Decoder[a], dec2 : Decoder[b]) : Decoder[v]
+  new Map2[a,b,v](f, dec1, dec2)
+end
+
+class Map2[a,b,v] : Decoder[v](dec1,dec2,f)
+  val dec1 : Decoder[a]
+  val dec2 : Decoder[b]
+  val f : (a,b) -> v
+  
+  def init(f : (a,b) -> v, dec1 : Decoder[a], dec2 : Decoder[b]) : unit
+    this.f = f
+    this.dec1 = dec1
+    this.dec2 = dec2
+  end
+  
+  def decode(raw : Value) : Result[v]
+    match this.dec1.decode(raw) with
+      case Left(err) => bad[v](err)
+      case Right(res1) =>
+        match this.dec2.decode(raw) with
+          case Left(err) => bad[v](err)
+          case Right(res2) => good(this.f(res1, res2))
+        end
+      end
+    end    
+  end
+end
+
+
+fun map3[a,b,c,v](f : (a,b,c) -> v, dec1 : Decoder[a], dec2 : Decoder[b], dec3 : Decoder[c]) : Decoder[v]
+  new Map3[a,b,c,v](f, dec1, dec2, dec3)
+end
+
+class Map3[a,b,c,v] : Decoder[v](dec1,dec2,dec3,f)
+  val dec1 : Decoder[a]
+  val dec2 : Decoder[b]
+  val dec3 : Decoder[c]
+  val f : (a,b,c) -> v
+  
+  def init(f : (a,b,c) -> v, dec1 : Decoder[a], dec2 : Decoder[b], dec3 : Decoder[c]) : unit
+    this.f = f
+    this.dec1 = dec1
+    this.dec2 = dec2
+    this.dec3 = dec3    
+  end
+  
+  -- I need monads
+  def decode(raw : Value) : Result[v]
+    match this.dec1.decode(raw) with
+      case Left(err) => bad[v](err)
+      case Right(res1) =>
+        match this.dec2.decode(raw) with
+          case Left(err) => bad[v](err)
+          case Right(res2) => 
+            match this.dec3.decode(raw) with
+              case Left(err) => bad[v](err)
+              case Right(res3) => good(this.f(res1, res2, res3))
+            end
+          end
+        end
+      end
+    end    
+  end
+end
+
+
+fun map4[a,b,c,d,v](f : (a,b,c,d) -> v, dec1 : Decoder[a], dec2 : Decoder[b], dec3 : Decoder[c], dec4 : Decoder[d]) : Decoder[v]
+  new Map4[a,b,c,d,v](f, dec1, dec2, dec3, dec4)
+end
+
+class Map4[a,b,c,d,v] : Decoder[v](dec1,dec2,dec3,dec4,f)
+  val dec1 : Decoder[a]
+  val dec2 : Decoder[b]
+  val dec3 : Decoder[c]
+  val dec4 : Decoder[d]
+  val f : (a,b,c,d) -> v
+  
+  def init(f : (a,b,c,d) -> v, dec1 : Decoder[a], dec2 : Decoder[b], dec3 : Decoder[c], dec4 : Decoder[d]) : unit
+    this.f = f
+    this.dec1 = dec1
+    this.dec2 = dec2
+    this.dec3 = dec3    
+    this.dec4 = dec4    
+  end
+  
+  -- I need monads
+  def decode(raw : Value) : Result[v]
+    match this.dec1.decode(raw) with
+      case Left(err) => bad[v](err)
+      case Right(res1) =>
+        match this.dec2.decode(raw) with
+          case Left(err) => bad[v](err)
+          case Right(res2) => 
+            match this.dec3.decode(raw) with
+              case Left(err) => bad[v](err)
+              case Right(res3) => 
+                match this.dec4.decode(raw) with
+                  case Left(err) => bad[v](err)
+                  case Right(res4) => good(this.f(res1, res2, res3, res4))
+                end
+              end
+            end
+          end
+        end
+      end
+    end    
+  end
+end
+
+--- TODO: UP TO 8 ---
+
+-- essentially monadic bind
+fun and_then[a,b](f : a -> Decoder[b], dec : Decoder[a]) : Decoder[b]
+  new AndThen[a,b](f, dec)
+end
+
+class AndThen[a,b] : Decoder[b](dec,f)
+  val f : a -> Decoder[b]
+  val dec : Decoder[a]
+  
+  def init(f : a -> Decoder[b], dec : Decoder[a]) : unit
+    this.f = f
+    this.dec = dec
+  end
+  
+  def decode(raw : Value) : Result[b]
+    match this.dec.decode(raw) with
+      case Right(value) => this.f(value).decode(raw)
+      case Left(err) => bad[b](err)
+    end 
+  end
+end
+
+--- lazily applies a decoder
+fun lazy[a](thunk : unit -> Decoder[a]) : Decoder[a]
+  and_then[unit,a](thunk, succeed[unit](()))
+end
+

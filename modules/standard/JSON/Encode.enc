@@ -1,0 +1,312 @@
+module Encode
+ 
+-- The classes implementing trait Value provides an untyped representation 
+-- of JSON values. Values are either strings, numbers (as a string), objects 
+-- (hash maps), arrays, booleans or null.
+-- 
+-- Values are produced by the parser in JSON.Parser (or produced directly)
+-- and consumed by decodes produced by functions in JSON.Decoder
+ 
+import Collections.Mutable.HashMap
+import Data.StringBuffer
+import Hash.Hashable
+import Data.Maybe
+
+-- TODO: add suport for indentation
+-- TODO: probably rename
+-- TODO: use default parameters: fun encode(indent : int = 0 , value : Value) : String
+--
+fun encode(value : Value, indent : int = 0) : String
+  val sb = new StringBuffer()
+  value.encode_into(sb)
+  sb.build()
+end
+
+-- parse trees for raw, uninterpreted JSON 
+local trait Value
+  require def encode_into(sb : StringBuffer) : unit
+  
+  -- pattern matching functions. TODO: fix when ADTs have been finished
+  require def RawString() : Maybe[String]
+  require def RawNumber() : Maybe[String]
+  require def RawObject() : Maybe[HashMap[String,Value]]
+  require def RawArray()  : Maybe[[Value]]
+  require def RawBool()   : Maybe[bool]
+  require def Null()      : Maybe[unit]
+end
+
+-- functions to help construct value objects
+
+fun stringJ(s : String) : Value
+  new RawString(s)
+end
+
+fun nullJ() : Value
+  new Null()
+end
+
+fun intJ(i : int) : Value
+  new RawNumber(string_from_int(i))
+end
+
+fun realJ(r : real) : Value
+  new RawNumber(string_from_real(r))
+end
+
+fun objectJ(fields : [(String, Value)]) : Value
+  val hm = new HashMap[String,Value]()
+  hm.populate(fields)
+  new RawObject(hm)
+end
+
+fun arrayJ(entries : [Value]) : Value
+  new RawArray(entries)
+end
+
+fun boolJ(b : bool) : Value
+  new RawBool(b)
+end
+
+-- underlying classes
+class RawString : Value(str)
+  val str : String
+  def init(str : String) : unit
+    this.str = str
+  end
+  
+  def encode_into(sb : StringBuffer) : unit
+    sb.add("\"")
+    sb.add(this.str)
+    sb.add("\"")
+  end
+  
+  def RawString() : Maybe[String]
+    Just(this.str)
+  end
+  
+  def RawNumber() : Maybe[String]
+    Nothing
+  end
+    
+  def RawObject() : Maybe[HashMap[String,Value]]
+    Nothing
+  end
+    
+  def RawArray()  : Maybe[[Value]]
+    Nothing
+  end
+    
+  def RawBool()   : Maybe[bool]
+    Nothing
+  end
+    
+  def Null()      : Maybe[unit]
+    Nothing
+  end
+end
+
+
+class RawNumber : Value(num)
+  val num : String
+  
+  def init(num : String) : unit
+    this.num = num
+  end
+    
+  def encode_into(sb : StringBuffer) : unit
+    sb.add(this.num)
+  end
+  
+  def RawString() : Maybe[String]
+    Nothing
+  end
+  
+  def RawNumber() : Maybe[String]
+    Just(this.num)
+  end
+    
+  def RawObject() : Maybe[HashMap[String,Value]]
+    Nothing
+  end
+    
+  def RawArray()  : Maybe[[Value]]
+    Nothing
+  end
+    
+  def RawBool()   : Maybe[bool]
+    Nothing
+  end
+    
+  def Null()      : Maybe[unit]
+    Nothing
+  end
+end
+
+-- curly braces wrapping comma separated name-value pairs
+class RawObject : Value(hash)
+  val hash : HashMap[String,Value]
+  
+  def init(hash : HashMap[String,Value]) : unit
+    this.hash = hash
+  end
+
+  def encode_into(sb : StringBuffer) : unit
+    sb.add("{")
+    val iter = this.hash.iterator()
+    if iter.has_next() then
+      val entry = iter.next()
+      encodeKV(entry.key, entry.value, sb)
+      while iter.has_next() do
+        sb.add(",")
+        val entry = iter.next()
+        encodeKV(entry.key, entry.value, sb)
+      end
+    end
+    sb.add("}")
+  where
+    fun encodeKV(key : String, value : Value, sb : StringBuffer) : unit
+      sb.add("\"")
+      sb.add(key)
+      sb.add("\":")
+      value.encode_into(sb)      
+    end
+  end
+  
+  def RawString() : Maybe[String]
+    Nothing
+  end
+  
+  def RawNumber() : Maybe[String]
+    Nothing
+  end
+    
+  def RawObject() : Maybe[HashMap[String,Value]]
+    Just(this.hash)
+  end
+    
+  def RawArray()  : Maybe[[Value]]
+    Nothing
+  end
+    
+  def RawBool()   : Maybe[bool]
+    Nothing
+  end
+    
+  def Null()      : Maybe[unit]
+    Nothing
+  end
+end
+
+
+-- square brackets wrapping ...
+class RawArray : Value(elems)
+  val elems : [Value]
+  
+  def init(elems : [Value]) : unit
+    this.elems = elems
+  end
+  
+  def encode_into(sb : StringBuffer) : unit
+    sb.add("[")
+    if |this.elems| > 0 then
+      this.elems(0).encode_into(sb)
+      for i <- [1 .. |this.elems| - 1] do
+        sb.add(",")
+        this.elems(i).encode_into(sb)
+      end
+    end
+    sb.add("]")
+  end
+  
+  def RawString() : Maybe[String]
+    Nothing
+  end
+  
+  def RawNumber() : Maybe[String]
+    Nothing
+  end
+    
+  def RawObject() : Maybe[HashMap[String,Value]]
+    Nothing
+  end
+    
+  def RawArray()  : Maybe[[Value]]
+    Just(this.elems)
+  end
+    
+  def RawBool()   : Maybe[bool]
+    Nothing
+  end
+    
+  def Null()      : Maybe[unit]
+    Nothing
+  end
+end
+
+
+class RawBool : Value(value)
+  val value : bool
+  
+  def init(value : bool) : unit
+    this.value = value
+  end
+
+  def encode_into(sb : StringBuffer) : unit
+    sb.add(string_from_bool(this.value))
+  end
+  
+  def RawString() : Maybe[String]
+    Nothing
+  end
+  
+  def RawNumber() : Maybe[String]
+    Nothing
+  end
+    
+  def RawObject() : Maybe[HashMap[String,Value]]
+    Nothing
+  end
+    
+  def RawArray()  : Maybe[[Value]]
+    Nothing
+  end
+    
+  def RawBool()   : Maybe[bool]
+    Just(this.value)
+  end
+    
+  def Null()      : Maybe[unit]
+    Nothing
+  end
+end
+
+
+class Null : Value
+  def encode_into(sb : StringBuffer) : unit
+    sb.add("null")
+  end
+
+  def RawString() : Maybe[String]
+    Nothing
+  end
+  
+  def RawNumber() : Maybe[String]
+    Nothing
+  end
+    
+  def RawObject() : Maybe[HashMap[String,Value]]
+    Nothing
+  end
+    
+  def RawArray()  : Maybe[[Value]]
+    Nothing
+  end
+    
+  def RawBool()   : Maybe[bool]
+    Nothing
+  end
+    
+  def Null()      : Maybe[unit]
+    Just(())
+  end
+end
