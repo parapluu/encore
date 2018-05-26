@@ -214,6 +214,7 @@ data Error =
   | MissingMainClass
   | SyncStreamCall
   | UnknownTraitError Type
+  | UnknownADTError Type
   | UnknownRefTypeError Type
   | MalformedCapabilityError Type
   | MalformedBoundError Type
@@ -226,6 +227,7 @@ data Error =
   | MainConstructorError
   | FieldNotFoundError Name Type
   | MethodNotFoundError Name Type
+  | AdtConstructorNotFoundError Name Type
   | BreakOutsideOfLoopError
   | BreakUsedAsExpressionError
   | ContinueOutsideOfLoopError
@@ -440,6 +442,8 @@ instance Show Error where
                (show $ ppFunctionHeader header) (refTypeName trait)
     show (UnknownTraitError ty) =
         printf "Couldn't find trait '%s'" (getId ty)
+    show (UnknownADTError ty) =
+      printf "Couldn't find ADT constructor '%s'" (getId ty)
     show MissingMainClass = "Couldn't find active class 'Main'"
     show SyncStreamCall = "A stream method can not be called synchronously since it will invariably deadlock"
     show (IdComparisonNotSupportedError ty) =
@@ -484,6 +488,8 @@ instance Show Error where
     show (FieldNotFoundError name ty) =
         printf "No field '%s' in %s"
                (show name) (refTypeName ty)
+    show (AdtConstructorNotFoundError name ty) =
+        printf "No constructor %s in ADT %s" (show name) (showWithoutMode ty)
     show (MethodNotFoundError name ty) =
         let nameWithKind = if name == constructorName
                            then "constructor"
