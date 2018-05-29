@@ -41,7 +41,7 @@ import ModuleExpander
 import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
-import Typechecker.TypeError(ioShow)
+import Typechecker.TypeError(printError)
 import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -389,7 +389,7 @@ main =
                   (Left error, warnings) -> do
                     showWarnings warnings
                     printf "*** Error during typechecking *** \n\n"
-                    ioShow [error]
+                    printError error
                     let errorlen = length [error]
                     abort $ "\nAborting due to " ++ show errorlen ++ errors errorlen
                     --abort $ show error

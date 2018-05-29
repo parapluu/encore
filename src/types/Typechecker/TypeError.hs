@@ -12,7 +12,7 @@ module Typechecker.TypeError (
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             ,ioShow
+                             ,printError
                              ) where
 
 import Data.Maybe
@@ -27,7 +27,8 @@ import Typechecker.Backtrace
 import AST.AST hiding (showWithKind)
 import AST.PrettyPrinter
 import System.Console.ANSI
-import AST.Meta(Position, showRangePosition, getStartPos, getPosColumns, getposFile, getposLine)
+import AST.Meta(Position, getPositionFile, getPositions)
+import Data.Ix(range)
 
 refTypeName :: Type -> String
 refTypeName ty
@@ -50,7 +51,7 @@ instance Show TCError where
         show err ++ "\n"
     show (TCError err Env{bt = bt@((pos, _):_)}) =
         " *** Error during typechecking *** \n" ++
-        showRangePosition pos ++ "\n" ++
+        show pos ++ "\n" ++
         show err ++ "\n" ++
         concatMap showBT (reduceBT bt)
         where
@@ -59,75 +60,88 @@ instance Show TCError where
                 "" -> ""
                 s  -> s ++ "\n"
 
+--TypeWithCapabilityMismatchError Type Type Type
+--TypeWithCapabilityMismatchError actual cap expected
 
-ioShow :: [TCError] -> IO ()
-ioShow [] = return ()
-ioShow ((TCError err@NonAssignableLHSError Env{bt = bt@((pos, _):_)}) :xs) = do
+colorError = setSGR [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
+colorDescription = setSGR [SetColor Foreground Vivid White]
+colorLogistic = setSGR [SetColor Foreground Vivid Blue]
+colorErrorIndicator = setSGR [SetColor Foreground Dull Red]
+
+printError :: TCError -> IO ()
+--printError (TCError err@NonAssignableLHSError Env{bt = bt@((pos, _):_)}) = do
+printError (TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((pos, _):_)}) = do
 
     printError err
---    setSGR [ SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
---    printf "Error: "
-    printErrorDescription err
---    setSGR [SetColor Foreground Vivid White]
---    printf $ show err ++ "\n"
     printPosition pos
---    setSGR [ SetConsoleIntensity NormalIntensity, SetColor Foreground Vivid Blue]
---    printf " --> "
---    setSGR [Reset]
---    printf $ showRangePosition pos
-
     printCodeViewer pos "Insert good suggestion here"
---    setSGR [SetColor Foreground Vivid Blue]
---    printf "\n|\n|"
---    setSGR [Reset]
---    printFileLine (getposFile pos) (getposLine $ getStartPos pos)
---    setSGR [SetColor Foreground Vivid Blue]
---    printf "\n|"
---    setSGR [SetColor Foreground Dull Red]
---    printf $ errorIndicator startCol endCol
---    setSGR [Reset]
-    ioShow xs
 
     where
 
         printError _ = do
-            setSGR [ SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
+            colorError
             printf "Error: "
-            setSGR [Reset]
-
-        printErrorDescription err = do
-            setSGR [SetColor Foreground Vivid White]
+            colorDescription
             printf $ show err ++ "\n"
             setSGR [Reset]
 
         printPosition pos = do
-            setSGR [ SetConsoleIntensity NormalIntensity, SetColor Foreground Vivid Blue]
+            colorLogistic
             printf " --> "
             setSGR [Reset]
-            printf $ showRangePosition pos
+            printf $ show pos
 
+        printCodeViewer :: Position -> String -> IO ()
         printCodeViewer pos smallSuggestion = do
-            let startLine = getposLine $ getStartPos pos
-            let digits = fromIntegral $ round $ logBase 10 (fromIntegral startLine)
-            let (startCol, endCol) = getPosColumns pos
-            setSGR [SetColor Foreground Vivid Blue]
-            printf $ "\n" ++ replicate digits ' ' ++  " |\n" ++ show startLine ++ " |"
+            let ((sL, sC), (eL, eC)) = getPositions pos
+            let digitSpace = replicate (length $ show sL) ' '
 
-            setSGR [Reset]
-            printFileLine (getposFile pos) (getposLine $ getStartPos pos)
-            setSGR [SetColor Foreground Vivid Blue]
-            printf $ "\n" ++ replicate digits ' ' ++  " |"
-
-            setSGR [SetColor Foreground Dull Red]
-            printf $ errorIndicator startCol endCol
-            printf $ ' ' : smallSuggestion ++ "\n\n"
+            colorLogistic
+            printf "\n%s |" digitSpace
             setSGR [Reset]
 
+            if sL == eL
+                then do
+                    printLine pos "" sL
+                    colorLogistic
+                    printf "\n%s |" digitSpace
+                    colorErrorIndicator
+                    printf $ errorIndicator sC eC
+                else do
+                    printLine pos "  " sL
+                    colorLogistic
+                    printf "\n%s |" digitSpace
+                    colorErrorIndicator
+                    printf "  %s^" (replicate (sC-1) '_')
+                    mapM_ (printLine pos " |") $ range (sL+1, eL)
+                    colorLogistic
+                    printf "\n%s |" digitSpace
+                    colorErrorIndicator
+                    printf " |%s^" (replicate (eC-2) '_')
 
-        errorIndicator :: Int -> Int -> [Char]
-        errorIndicator s e = "" ++ replicate (s-1) ' ' ++ replicate (e-s) '^'
+            printf " %s\n\n" smallSuggestion
+            setSGR [Reset]
 
-ioShow err = printf $ show err
+
+        errorIndicator :: Int -> Int -> String
+        errorIndicator s e = replicate (s-1) ' ' ++ replicate (e-s) '^'
+
+        printLine :: Position -> String -> Int -> IO ()
+        printLine pos strInsert line = do
+            contents <- readFile $ getPositionFile pos
+            result <- case drop (line-1) $ lines contents of
+                []  -> error "File has been edited between parsing and type checking"
+                l:_ -> return l
+
+            colorLogistic
+            printf "\n%s |" (show line)
+            colorErrorIndicator
+            printf strInsert
+            setSGR [Reset]
+            printf result
+            --printFileLine file line
+
+printError err = printf $ show err
 
 printFileLine :: String -> Int -> IO ()
 printFileLine file line = do
