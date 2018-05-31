@@ -29,6 +29,7 @@ import AST.PrettyPrinter
 import System.Console.ANSI
 import AST.Meta(Position, getPositionFile, getPositions)
 import Data.Ix(range)
+import Control.Monad(zipWithM_)
 
 refTypeName :: Type -> String
 refTypeName ty
@@ -95,6 +96,7 @@ printError (TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((po
         printCodeViewer pos smallSuggestion = do
             let ((sL, sC), (eL, eC)) = getPositions pos
             let digitSpace = replicate (length $ show sL) ' '
+            cHead:cTail <- getCodeLines pos sL eL
 
             colorLogistic
             printf "\n%s |" digitSpace
@@ -102,18 +104,18 @@ printError (TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((po
 
             if sL == eL
                 then do
-                    printLine pos "" sL
+                    printLine "" cHead sL
                     colorLogistic
                     printf "\n%s |" digitSpace
                     colorErrorIndicator
                     printf $ errorIndicator sC eC
                 else do
-                    printLine pos "  " sL
+                    printLine "  " cHead sL
                     colorLogistic
                     printf "\n%s |" digitSpace
                     colorErrorIndicator
                     printf "  %s^" (replicate (sC-1) '_')
-                    mapM_ (printLine pos " |") $ range (sL+1, eL)
+                    zipWithM_ (printLine " |") cTail $ range (sL+1, eL)
                     colorLogistic
                     printf "\n%s |" digitSpace
                     colorErrorIndicator
@@ -126,29 +128,25 @@ printError (TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((po
         errorIndicator :: Int -> Int -> String
         errorIndicator s e = replicate (s-1) ' ' ++ replicate (e-s) '^'
 
-        printLine :: Position -> String -> Int -> IO ()
-        printLine pos strInsert line = do
-            contents <- readFile $ getPositionFile pos
-            result <- case drop (line-1) $ lines contents of
-                []  -> error "File has been edited between parsing and type checking"
-                l:_ -> return l
-
+        printLine :: String -> String -> Int -> IO ()
+        printLine insertStr codeLine lineNo = do
             colorLogistic
-            printf "\n%s |" (show line)
+            printf "\n%s |" (show lineNo)
             colorErrorIndicator
-            printf strInsert
+            printf insertStr
             setSGR [Reset]
-            printf result
-            --printFileLine file line
+            printf codeLine
 
 printError err = printf $ show err
 
-printFileLine :: String -> Int -> IO ()
-printFileLine file line = do
-    contents <- readFile file
-    case drop (line-1) $ lines contents of
-        []  -> error "File has been edited between parsing and type checking"
-        l:_ -> printf l
+getCodeLines :: Position -> Int -> Int -> IO [String]
+getCodeLines pos sL eL = do
+    let start = sL-1
+    let end = eL-start
+    contents <- readFile $ getPositionFile pos
+    case take end $ drop start $ lines contents of
+        []  -> error "\nFile has been edited between parsing and type checking"
+        l   -> return l
 
 data Error =
     DistinctTypeParametersError Type
