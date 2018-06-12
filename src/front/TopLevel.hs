@@ -42,6 +42,7 @@ import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
 import Typechecker.Errorprinter
+import Typechecker.ErrorExplainer(getErrorExplanation)
 import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -73,6 +74,7 @@ data Option =
             | Verbose
             | Literate
             | NoGC
+            | Explain String
             | Help
             | Undefined String
             | Malformed String
@@ -123,6 +125,8 @@ optionMappings =
         "Compile and run the program, but do not produce executable file."),
        (NoArg NoGC, "", "--no-gc", "",
         "DEBUG: disable GC and use C-malloc for allocation."),
+       (Arg Explain, "-e", "--explain", "[error]",
+        "Display information for error code"),
        (NoArg Help, "", "--help", "",
         "Display this information.")
       ]
@@ -294,6 +298,9 @@ main =
        checkForUndefined options
        when (Help `elem` options)
            (exit helpMessage)
+       case find isExplain options of
+           Just (Explain errCode) -> exit $ explainError errCode
+           Nothing -> return ()
        when (null programs)
            (abort ("No program specified! Aborting.\n\n" <>
                     usage <> "\n" <>
@@ -411,6 +418,15 @@ main =
                                   (putStrLn str)
 
       showWarnings = mapM print
+
+      isExplain (Explain _) = True
+      isExplain _ = False
+
+      explainError errCode =
+        case getErrorExplanation errCode of
+          Just explain -> explain
+          Nothing -> printf "error: no extended information for %s" errCode
+
       helpMessage =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
