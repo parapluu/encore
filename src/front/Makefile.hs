@@ -1,34 +1,35 @@
 
 module Makefile where
 
-import Text.PrettyPrint
+import Data.Text.Prettyprint.Doc
 
 import Data.String.Utils
 
 import Prelude hiding(all)
 
-($\$) t = ((t <> text "\n") $$)
-tab = text "\t"
-all = text "all"
-bench = text "bench"
-clean = text "clean"
-rm args = (text "rm -rf" <+> hsep args)
-phony = text ".PHONY"
-cc args = (text "$(CC)" <+> hsep args)
-flags = text "$(FLAGS)"
-benchFlags = text "$(BENCH_FLAGS)"
-target = text "$(TARGET)"
-inc = text "$(INC)"
-lib = text "$(LIB)"
-deps = text "$(DEPS)"
-defs = text "$(DEFINES)"
-dSYM = text ".dSYM"
-i = (text "-I" <+>)
-o = (text "-o" <+>)
-parent = text ".."
+($$) s e = s <> hardline <> e
+($\$) t ts = (t <> hardline <> hardline <> ts)
+tab = pretty "\t"
+all = pretty "all"
+bench = pretty "bench"
+clean = pretty "clean"
+rm args = (pretty "rm -rf" <+> hsep args)
+phony = pretty ".PHONY"
+cc args = (pretty "$(CC)" <+> hsep args)
+flags = pretty "$(FLAGS)"
+benchFlags = pretty "$(BENCH_FLAGS)"
+target = pretty "$(TARGET)"
+inc = pretty "$(INC)"
+lib = pretty "$(LIB)"
+deps = pretty "$(DEPS)"
+defs = pretty "$(DEFINES)"
+dSYM = pretty ".dSYM"
+i = (pretty "-I" <+>)
+o = (pretty "-o" <+>)
+parent = pretty ".."
 
 generateMakefile :: [String] ->
-   String -> String -> String -> String -> String -> String -> Doc
+    String -> String -> String -> String -> String -> String -> Doc ann
 generateMakefile classFiles progName compiler ccFlags incPath defines libs =
     decl "CC" [compiler]
     $$
@@ -46,23 +47,20 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs =
     $$
     decl "DEPS" ("shared.c" : classFiles)
     $\$
-    rule all target
-         empty
+    noCmdRule all target
     $\$
     rule target deps
-         (cc [flags, i inc, i parent, deps, lib, lib, defs, o target])
+        (cc [flags, i inc, i parent, deps, lib, lib, defs, o target])
     $\$
     rule bench deps
-         (cc [benchFlags, i inc, i parent, deps, lib, lib, defs, o target])
+        (cc [benchFlags, i inc, i parent, deps, lib, lib, defs, o target])
     $\$
-    rule clean empty
-         (rm [target, target <> dSYM])
+    rule clean emptyDoc
+        (rm [target, target <> dSYM])
     $\$
-    rule phony (all <+> bench <+> clean)
-         empty
+    noCmdRule phony (all <+> bench <+> clean)
     where
-      decl var rhs = text var <> equals <> hsep (map text rhs)
-      rule target deps cmd
-          | isEmpty cmd = target <> colon <+> deps
-          | otherwise   = target <> colon <+> deps $$
-                          tab <> cmd
+        decl var rhs = pretty var <> equals <> hsep (map pretty rhs)
+        rule target deps cmd = target <> colon <+> deps $$
+                                tab <> cmd
+        noCmdRule target deps = target <> colon <+> deps

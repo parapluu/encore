@@ -15,6 +15,7 @@ module Typechecker.TypeError (
                              ,printError
                              ) where
 
+import Data.Text.Prettyprint.Doc
 import Data.Maybe
 import Data.List
 import Data.Char
