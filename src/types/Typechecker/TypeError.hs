@@ -16,6 +16,7 @@ module Typechecker.TypeError (
                              ) where
 
 import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Maybe
 import Data.List
 import Data.Char
@@ -26,11 +27,13 @@ import Types
 import Typechecker.Environment
 import Typechecker.Backtrace
 import AST.AST hiding (showWithKind)
-import AST.PrettyPrinter
-import System.Console.ANSI
+import AST.PrettyPrinter hiding (indent)
+import qualified System.Console.ANSI as A
 import AST.Meta(Position, getPositionFile, getPositions)
 import Data.Ix(range)
 import Control.Monad(zipWithM_)
+
+($+$) s e = s <> line <> e
 
 refTypeName :: Type -> String
 refTypeName ty
@@ -62,17 +65,102 @@ instance Show TCError where
                 "" -> ""
                 s  -> s ++ "\n"
 
---TypeWithCapabilityMismatchError Type Type Type
---TypeWithCapabilityMismatchError actual cap expected
+colorError = A.setSGR [A.SetConsoleIntensity A.BoldIntensity, A.SetColor A.Foreground A.Vivid A.Red]
+colorDescription = A.setSGR [A.SetColor A.Foreground A.Vivid A.White]
+colorLogistic = A.setSGR [A.SetColor A.Foreground A.Vivid A.Blue]
+colorErrorIndicator = A.setSGR [A.SetColor A.Foreground A.Dull A.Red]
 
-colorError = setSGR [SetConsoleIntensity BoldIntensity, SetColor Foreground Vivid Red]
-colorDescription = setSGR [SetColor Foreground Vivid White]
-colorLogistic = setSGR [SetColor Foreground Vivid Blue]
-colorErrorIndicator = setSGR [SetColor Foreground Dull Red]
+data TCStyle = Classification | Desc | Logistic | Highlight
+
+classify, desc, logistic, highlight :: Doc TCStyle -> Doc TCStyle
+classify = annotate Classification
+desc = annotate Desc
+logistic = annotate Logistic
+highlight = annotate Highlight
+
+-- Possible Ansi render settings
+--
+-- Color commands:  color, colorDull
+-- Colors:          Black, Red, Green, Yellow, Blue, Magenta, Cyan, White
+-- Font Styles:     bold, italicized, underlined
+toErrorStyle :: TCStyle -> AnsiStyle
+toErrorStyle Classification = color Red <> bold
+toErrorStyle Desc = bold
+toErrorStyle Logistic = color Blue
+toErrorStyle Highlight = colorDull Red
+
+toWarningStyle :: TCStyle -> AnsiStyle
+toWarningStyle Classification = color Yellow <> bold
+toWarningStyle Desc = bold
+toWarningStyle Logistic = color Blue
+toWarningStyle Highlight = colorDull Yellow
+
+
+ppError ::TCError -> IO ()
+ppError (TCError err Env{bt = []}) =
+    putDoc $ reAnnotate toErrorStyle $ pError err <+> description err <> line
+ppError err@(TCError _ Env{bt = ((pos, _):_)}) = do
+    code <- getCodeLines pos
+    putDoc $ reAnnotate toErrorStyle $  richError err code <> line <> line
+
+richError ::  TCError -> [String] -> Doc TCStyle
+richError (TCError err Env{bt = bt@((pos, _):_)}) code =
+    pError err <+> description err $+$ codeViewer pos code <+> smallSuggest err
+
+
+pError :: Error -> Doc TCStyle
+pError _ = classify $ pretty "Error:"
+description :: Error -> Doc TCStyle
+description err = desc $ viaShow err
+
+codeLine :: String -> String -> Int -> Doc TCStyle
+codeLine insertStr codeLine lineNo =
+    logistic ((pretty lineNo) <+> pipe) <>
+    highlight (pretty insertStr) <>
+    pretty codeLine
+
+showPosition :: Position -> Int -> Doc TCStyle
+showPosition pos offset = indent offset $ logistic (pretty "-->") <+> viaShow pos
+
+lineHighlighter :: Int -> Int -> Char -> Doc ann
+lineHighlighter s e c = indent (s-1) $ pretty $ replicate (e-s) c
+
+multilineHighlighter :: Int -> Bool -> Char -> Doc ann
+multilineHighlighter col True c  = indent 2 (pretty (replicate (col-1) '_') <> pretty c)
+multilineHighlighter col False c = indent 1 pipe <> (pretty (replicate (col-2) '_') <> pretty c)
+
+codeViewer :: Position -> [String] -> Doc TCStyle
+codeViewer pos (cHead:cTail)=
+    let
+        ((sL, sC), (eL, eC)) = getPositions pos
+        digitLen = length $ show sL
+        tailCode = zipWith (codeLine " |") cTail (range (sL+1, eL))
+    in
+        if sL == eL
+            then
+                showPosition pos digitLen $+$
+                logistic (indent (digitLen+1) pipe) $+$
+                codeLine "" cHead sL $+$
+                logistic (indent (digitLen+1) pipe) <>
+                highlight (lineHighlighter sC eC '^')
+            else
+                showPosition pos digitLen $+$
+                logistic (indent (digitLen+1) pipe) $+$
+                codeLine "  " cHead sL $+$
+                logistic (indent (digitLen+1) pipe) <>
+                highlight (multilineHighlighter sC True '^') $+$
+                vsep tailCode $+$
+                logistic (indent (digitLen+1) pipe) <>
+                highlight (multilineHighlighter eC False '^')
+
+smallSuggest :: Error -> Doc TCStyle
+smallSuggest err = highlight $ pretty "-> Something useful <-"
+
 
 printError :: TCError -> IO ()
 --printError (TCError err@NonAssignableLHSError Env{bt = bt@((pos, _):_)}) = do
-printError (TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((pos, _):_)}) = do
+printError err = ppError err
+printErrorOld hm@(TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((pos, _):_)}) = do
 
     printError err
     printPosition pos
@@ -85,23 +173,23 @@ printError (TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((po
             printf "Error: "
             colorDescription
             printf $ show err ++ "\n"
-            setSGR [Reset]
+            A.setSGR [A.Reset]
 
         printPosition pos = do
             colorLogistic
             printf " --> "
-            setSGR [Reset]
+            A.setSGR [A.Reset]
             printf $ show pos
 
         printCodeViewer :: Position -> String -> IO ()
         printCodeViewer pos smallSuggestion = do
             let ((sL, sC), (eL, eC)) = getPositions pos
             let digitSpace = replicate (length $ show sL) ' '
-            cHead:cTail <- getCodeLines pos sL eL
+            cHead:cTail <- getCodeLines pos
 
             colorLogistic
             printf "\n%s |" digitSpace
-            setSGR [Reset]
+            A.setSGR [A.Reset]
 
             if sL == eL
                 then do
@@ -123,7 +211,7 @@ printError (TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((po
                     printf " |%s^" (replicate (eC-2) '_')
 
             printf " %s\n\n" smallSuggestion
-            setSGR [Reset]
+            A.setSGR [A.Reset]
 
 
         errorIndicator :: Int -> Int -> String
@@ -135,13 +223,14 @@ printError (TCError err@(TypeWithCapabilityMismatchError _ _ _) Env{bt = bt@((po
             printf "\n%s |" (show lineNo)
             colorErrorIndicator
             printf insertStr
-            setSGR [Reset]
+            A.setSGR [A.Reset]
             printf codeLine
 
-printError err = printf $ show err
+printErrorOld err = printf $ show err
 
-getCodeLines :: Position -> Int -> Int -> IO [String]
-getCodeLines pos sL eL = do
+getCodeLines :: Position -> IO [String]
+getCodeLines pos = do
+    let ((sL, _), (eL, _)) = getPositions pos
     let start = sL-1
     let end = eL-start
     contents <- readFile $ getPositionFile pos
