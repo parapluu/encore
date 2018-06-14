@@ -1,2 +1,2 @@
-Assertion failed at "assertFalse.enc" (6:5 -> 6:36):
+Assertion failed at "assertFalse.enc" (Line:6, Column:5):
 Kingfisher

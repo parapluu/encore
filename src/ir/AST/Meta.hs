@@ -21,13 +21,8 @@ data Position = SingletonPos {startPos :: SourcePos}
                 deriving (Eq)
 
 instance Show Position where
-  show (SingletonPos start) = showSourcePos start
-  show pos@(RangePos start _) =
-    let
-      ((sL, sC), (eL,eC)) = getPositions pos
-      file = sourceName start
-    in
-      printf "%s (%d:%d -> %d:%d)" (show file) sL sC eL eC
+  -- TODO: If we ever want to print ranges, this should be updated
+  show = showSourcePos . startPos
 
 
 newPos :: SourcePos -> Position
@@ -60,10 +55,10 @@ showSourcePos pos =
   let line = unPos (sourceLine pos)
       col = unPos (sourceColumn pos)
       file = sourceName pos
-  in printf "%s (%d:%d)" (show file) line col
+  in printf "%s (Line:%d, Column:%d)" (show file) line col
 
 showPos :: Meta a -> String
-showPos = show . position
+showPos = showSourcePos . startPos . position
 
 getPos :: Meta a -> Position
 getPos = position

@@ -1,2 +1,2 @@
-Assertion failed at "assertFalseMsg.enc" (6:5 -> 6:68):
+Assertion failed at "assertFalseMsg.enc" (Line:6, Column:5):
 Int 42 Bool false String Foo
