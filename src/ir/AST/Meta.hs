@@ -66,7 +66,7 @@ getPos = position
 getPositions :: Position -> ((Int, Int), (Int, Int))
 getPositions pos =
   case pos of
-    SingletonPos start -> ((line start, column start), (line start, column start))
+    SingletonPos start -> ((line start, column start), (line start, column start+1))
     RangePos start end -> ((line start, column start), (line end, column end))
     where
       line p   = fromIntegral $ unPos (sourceLine p)

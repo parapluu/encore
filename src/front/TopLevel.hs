@@ -41,7 +41,7 @@ import ModuleExpander
 import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
-import Typechecker.TypeError(printError)
+import Typechecker.Errorprinter
 import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -350,7 +350,7 @@ main =
 
        unless (TypecheckOnly `elem` options) $
          case checkForMainClass mainSource fullAst of
-           Just error -> abort $ show error
+           Just error -> errorAbort error
            Nothing    -> return ()
 
        exeName <- compileProgram fullAst sourceName options
@@ -373,7 +373,7 @@ main =
                   (Right ast, warnings)  -> return (ast, warnings)
                   (Left error, warnings) -> do
                     showWarnings warnings
-                    abort $ show error
+                    errorAbort error
             showWarnings precheckingWarnings
             return precheckedAST
 
@@ -388,16 +388,9 @@ main =
                   (Right (newEnv, ast), warnings) -> return (ast, warnings)
                   (Left error, warnings) -> do
                     showWarnings warnings
-                    printf "*** Error during typechecking *** \n\n"
-                    printError error
-                    let errorlen = length [error]
-                    abort $ "\nAborting due to " ++ show errorlen ++ errors errorlen
-                    --abort $ show error
+                    errorAbort error
             showWarnings typecheckingWarnings
             return typecheckedAST
-
-          errors 1 = " error"
-          errors _ = " errors"
 
       capturecheckProgramTable :: ProgramTable -> IO ProgramTable
       capturecheckProgramTable table = do
@@ -410,7 +403,7 @@ main =
                 (Right (newEnv, ast), warnings) -> return (ast, warnings)
                 (Left error, warnings) -> do
                     showWarnings warnings
-                    abort $ show error
+                    errorAbort error
             showWarnings capturecheckingWarnings
             return capturecheckedAST
       usage = "Usage: encorec [flags] file"
@@ -437,3 +430,8 @@ main =
           flags = intercalate "\n" $
                   map (("  " ++) . strip) . lines $
                   Box.render optionBox
+
+      errorAbort e = do
+        printf "*** Error during typechecking *** \n\n"
+        printError e
+        abort $ "\nAborting due to previous error"
