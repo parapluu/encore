@@ -76,7 +76,7 @@ codeLine :: String -> String -> Int -> Doc TCStyle
 codeLine insertStr codeLine lineNo =
     logistic ((int lineNo) <+> pipe) <>
     highlight (text insertStr) <>
-    text codeLine
+    code (text codeLine)
 
 showPosition :: Position -> Doc TCStyle
 showPosition pos = logistic (text "-->") <+> (text $ show $ pos)

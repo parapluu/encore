@@ -19,6 +19,7 @@ module Typechecker.TypeError (
                              ,desc
                              ,logistic
                              ,highlight
+                             ,code
                              ) where
 
 import Text.PrettyPrint.Annotated.HughesPJ
@@ -855,15 +856,17 @@ instance Show Warning where
         "This will be fixed in a later version of Encore."
 
 
-data TCStyle = Classification | Desc | Logistic | Highlight
 
 pipe = char '|'
 
-classify, desc, logistic, highlight :: Doc TCStyle -> Doc TCStyle
+data TCStyle = Classification | Desc | Logistic | Highlight | Code
+
+classify, desc, logistic, highlight, code :: Doc TCStyle -> Doc TCStyle
 classify = annotate Classification
 desc = annotate Desc
 logistic = annotate Logistic
 highlight = annotate Highlight
+code = annotate Code
 
 highlightPretty :: String -> Doc TCStyle
 highlightPretty s = highlight $ text s
