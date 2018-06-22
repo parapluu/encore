@@ -12,8 +12,8 @@ module Typechecker.TypeError (
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             ,smallSuggest
-                             ,longSuggest
+                             --,smallSuggest
+                             --,longSuggest
                              ,TCStyle(..)
                              ,classify
                              ,desc
@@ -867,34 +867,6 @@ desc = annotate Desc
 logistic = annotate Logistic
 highlight = annotate Highlight
 code = annotate Code
-
-highlightPretty :: String -> Doc TCStyle
-highlightPretty s = highlight $ text s
-
-makeNotation :: Doc TCStyle
-makeNotation = logistic (pipe $+$ equals) <+> desc (text "note:")
-
-
-class Suggestable a where
-    smallSuggest :: a -> Doc TCStyle
-    longSuggest :: a -> Doc TCStyle
-
-instance Suggestable Error where
-    smallSuggest (NonAssignableLHSError) = highlightPretty "Can only be used on var or fields"
-    smallSuggest _ = empty
-
-    longSuggest (TypeWithCapabilityMismatchError actual cap expected) =
-        let
-            expect = text "expected type" <+> desc (text $ show expected)
-            found  = text "   found type" <+> desc (text $ show actual)
-        in
-            makeNotation <+> vcat [expect, found]
-    longSuggest _ = empty
-
-
-instance Suggestable Warning where
-    smallSuggest _ = empty
-    longSuggest _ = empty
 
 
         --hash (UnionMethodAmbiguityError _ _) = 3
