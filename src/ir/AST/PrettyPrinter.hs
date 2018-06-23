@@ -19,7 +19,8 @@ module AST.PrettyPrinter (ppExpr
                          ) where
 
 -- Library dependencies
-import Data.Text.Prettyprint.Doc hiding(indent)
+import qualified Text.PrettyPrint as P
+import Text.PrettyPrint hiding(brackets)
 
 -- Module dependencies
 import Identifiers
@@ -27,28 +28,27 @@ import Types
 import AST.AST
 
 indent = nest 2
-($+$) s e = s <> line <> e
 
 commaSep l = hcat $ punctuate ", " l
---brackets s = hcat ["[", s, "]"]
+brackets s = hcat ["[", s, "]"]
 
-ppMut :: Mutability -> Doc ann
+ppMut :: Mutability -> Doc
 ppMut Val = "val"
 ppMut Var = "var"
 
-ppName :: Name -> Doc ann
-ppName = viaShow
+ppName :: Name -> Doc
+ppName = text . show
 
-ppNamespace :: Namespace -> Doc ann
-ppNamespace = viaShow
+ppNamespace :: Namespace -> Doc
+ppNamespace = text . show
 
-ppQName :: QualifiedName -> Doc ann
-ppQName = viaShow
+ppQName :: QualifiedName -> Doc
+ppQName = text . show
 
-ppType :: Type -> Doc ann
-ppType = viaShow
+ppType :: Type -> Doc
+ppType = text . show
 
-ppProgram :: Program -> Doc ann
+ppProgram :: Program -> Doc
 ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes} =
     ppModuleDecl moduledecl $+$
     vcat (map ppEmbedded etl) <+>
@@ -65,18 +65,18 @@ ppEmbedded EmbedTL{etlheader=header, etlbody=code} =
 
 ppHeader header code =
   if null header && null code
-  then emptyDoc
-  else "EMBED" $+$ pretty header $+$ "BODY" $+$ pretty code $+$ "END\n"
+  then empty
+  else "EMBED" $+$ text header $+$ "BODY" $+$ text code $+$ "END\n"
 
-ppModuleDecl :: ModuleDecl -> Doc ann
-ppModuleDecl NoModule = emptyDoc
+ppModuleDecl :: ModuleDecl -> Doc
+ppModuleDecl NoModule = empty
 ppModuleDecl Module{modname, modexports} =
   "module" <+> ppName modname <>
                case modexports of
                  Just names -> parens (commaSep $ map ppName names)
-                 Nothing -> emptyDoc
+                 Nothing -> empty
 
-ppImportDecl :: ImportDecl -> Doc ann
+ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget
                     ,iqualified
                     ,ihiding
@@ -91,41 +91,41 @@ ppImportDecl Import {itarget
     maybeSelect =
       case iselect of
         Just names -> parens (commaSep $ map ppName names)
-        Nothing -> emptyDoc
+        Nothing -> empty
     maybeHiding =
       case ihiding of
         Just names -> " hiding" <> parens (commaSep $ map ppName names)
-        Nothing -> emptyDoc
+        Nothing -> empty
     maybeAlias =
       case ialias of
         Just alias -> " as" <+> ppNamespace alias
-        Nothing -> emptyDoc
+        Nothing -> empty
 
-ppTypedef :: Typedef -> Doc ann
+ppTypedef :: Typedef -> Doc
 ppTypedef Typedef { typedefdef=t } =
     "typedef" <+>
     ppType t <+>
     "=" <+>
     ppType (typeSynonymRHS t)
 
-ppFunctionHeader :: FunctionHeader -> Doc ann
+ppFunctionHeader :: FunctionHeader -> Doc
 ppFunctionHeader header =
     ppName (hname header) <>
     ppTypeParams (htypeparams header) <>
     parens (commaSep $ map ppParamDecl $ hparams header) <+>
     ":" <+> ppType (htype header)
 
-ppTypeParams :: [Type] -> Doc ann
+ppTypeParams :: [Type] -> Doc
 ppTypeParams params =
   if null params
-  then emptyDoc
+  then empty
   else brackets (commaSep $ map ppTypeParam params)
   where
   ppTypeParam ty
     | Just bound <- getBound ty = ppType ty <+> ":" <+> ppType bound
     | otherwise = ppType ty
 
-ppFunctionHelper :: FunctionHeader -> Expr -> [Function] -> Doc ann
+ppFunctionHelper :: FunctionHeader -> Expr -> [Function] -> Doc
 ppFunctionHelper funheader funbody [] =
     "fun" <+> ppFunctionHeader funheader $+$
         indent (ppBody funbody) $+$
@@ -137,29 +137,29 @@ ppFunctionHelper funheader funbody funlocals =
         indent (vcat $ map ppFunction funlocals) $+$
     "end"
 
-ppFunction :: Function -> Doc ann
+ppFunction :: Function -> Doc
 ppFunction Function {funheader, funbody, funlocals} =
   ppFunctionHelper funheader funbody funlocals
 
-ppTraitDecl :: TraitDecl -> Doc ann
+ppTraitDecl :: TraitDecl -> Doc
 ppTraitDecl Trait {tname, treqs, tmethods} =
-    trait <+> pretty (showWithoutMode tname) $+$
-        indent (vcat (map ppRequirement treqs) $+$
+    trait <+> text (showWithoutMode tname) $+$
+        indent (vcat (map ppRequirement treqs) $$
                 vcat (map ppMethodDecl tmethods)) $+$
     "end"
   where
     trait | isModeless tname = "trait"
-          | otherwise = pretty $ showModeOf tname ++ " trait"
+          | otherwise = text $ showModeOf tname ++ " trait"
     ppRequirement RequiredField{rfield} =
       "require" <+> ppFieldDecl rfield
     ppRequirement RequiredMethod{rheader} =
       "require" <+> "def" <+> ppFunctionHeader rheader
 
-ppTraitExtension :: TraitExtension -> Doc ann
+ppTraitExtension :: TraitExtension -> Doc
 ppTraitExtension FieldExtension{extname} = ppName extname
 ppTraitExtension MethodExtension{extname} = ppName extname <> "()"
 
-ppComposition :: TraitComposition -> Doc ann
+ppComposition :: TraitComposition -> Doc
 ppComposition Conjunction{tcleft, tcright} =
   ppConjunctionChild tcleft <+> "*" <+> ppConjunctionChild tcright
   where
@@ -169,33 +169,33 @@ ppComposition Disjunction{tcleft, tcright} =
   ppComposition tcleft <+> "+" <+> ppComposition tcright
 ppComposition TraitLeaf{tcname, tcext} =
   ppType tcname <> if null tcext
-                   then emptyDoc
+                   then empty
                    else parens (commaSep (map ppTraitExtension tcext))
 
-ppClassDecl :: ClassDecl -> Doc ann
+ppClassDecl :: ClassDecl -> Doc
 ppClassDecl Class {cname, cfields, cmethods, ccomposition} =
-    clss <+> pretty (showWithoutMode cname) <+> compositionDoc $+$
-        indent (vcat (map ppFieldDecl cfields) $+$
+    clss <+> text (showWithoutMode cname) <+> compositionDoc $+$
+        indent (vcat (map ppFieldDecl cfields) $$
                 vcat (map ppMethodDecl cmethods)) $+$
     "end"
   where
     clss | isModeless cname = "class"
-         | otherwise = pretty $ showModeOf cname ++ " class"
+         | otherwise = text $ showModeOf cname ++ " class"
     compositionDoc =
       case ccomposition of
         Just c -> ":" <+> ppComposition c
-        Nothing -> emptyDoc
+        Nothing -> empty
 
-ppFieldDecl :: FieldDecl -> Doc ann
-ppFieldDecl = viaShow
+ppFieldDecl :: FieldDecl -> Doc
+ppFieldDecl = text . show
 
-ppParamDecl :: ParamDecl -> Doc ann
+ppParamDecl :: ParamDecl -> Doc
 ppParamDecl (Param {pmut = Val, pname, ptype}) =
     ppName pname <+> ":" <+> ppType ptype
 ppParamDecl (Param {pmut = Var, pname, ptype}) =
     "var" <+> ppName pname <+> ":" <+> ppType ptype
 
-ppMethodDecl :: MethodDecl -> Doc ann
+ppMethodDecl :: MethodDecl -> Doc
 ppMethodDecl m =
     let header = mheader m
         modifiers = hmodifiers header
@@ -210,9 +210,9 @@ ppMethodDecl m =
           indent (ppBody body) $+$
       endOrLocals
     where
-      ppModifiers [] = emptyDoc
+      ppModifiers [] = empty
       ppModifiers mods = hcat $ punctuate " " $
-                         map (viaShow) mods
+                         map (text . show) mods
       endOrLocals
         | null (mlocals m) = "end"
         | otherwise =
@@ -228,27 +228,26 @@ isSimple MessageSend {target} = isSimple target
 isSimple FunctionCall {} = True
 isSimple _ = False
 
-maybeParens :: Expr -> Doc ann
+maybeParens :: Expr -> Doc
 maybeParens e
     | isSimple e = ppExpr e
     | otherwise  = parens $ ppExpr e
 
-ppSugared :: Expr -> Doc ann
+ppSugared :: Expr -> Doc
 ppSugared e = case getSugared e of
                 Just e' -> ppExpr e'
                 Nothing -> ppExpr e
 
-ppBody :: Expr -> Doc ann
 ppBody (Seq {eseq}) = vcat $ map ppExpr eseq
 ppBody e = ppExpr e
 
-withTypeArguments :: [Type] -> Doc ann
+withTypeArguments :: [Type] -> Doc
 withTypeArguments typeArguments =
   if null typeArguments
-  then emptyDoc
+  then empty
   else brackets (commaSep (map ppType typeArguments))
 
-ppExpr :: Expr -> Doc ann
+ppExpr :: Expr -> Doc
 ppExpr Skip {} = "()"
 ppExpr Break {} = "break"
 ppExpr Continue {} = "Continue"
@@ -264,9 +263,9 @@ ppExpr Optional {optTag = QuestionDot MethodCall {target, name, args, typeArgume
 ppExpr Optional {optTag = QuestionDot FieldAccess {target, name}} =
   maybeParens target <> "?." <> ppName name
 ppExpr Optional {optTag} = error $ "PrettyPrinter.hs: don't know how to " ++
-                                   "print expression '" ++ (show $ ppPath optTag) ++ "'"
+                                   "print expression '" ++ (render $ ppPath optTag) ++ "'"
   where
-    ppPath :: OptionalPathComponent -> Doc ann
+    ppPath :: OptionalPathComponent -> Doc
     ppPath (QuestionBang e) = ppExpr e
     ppPath (QuestionDot e) = ppExpr e
 
@@ -397,7 +396,7 @@ ppExpr ArraySize {target} = "|" <> ppExpr target <> "|"
 ppExpr ArrayNew {ty, size} = "new" <+> brackets (ppType ty) <> parens (ppExpr size)
 ppExpr ArrayLiteral {args} = brackets $ commaSep (map ppExpr args)
 ppExpr VarAccess {qname} = ppQName qname
-ppExpr TupleAccess {target, compartment} = ppExpr target <> "." <> pretty compartment
+ppExpr TupleAccess {target, compartment} = ppExpr target <> "." <> int compartment
 ppExpr Consume {target} = "consume" <+> ppExpr target
 ppExpr Assign {lhs, rhs} = ppExpr lhs <+> "=" <+> ppExpr rhs
 ppExpr Null {} = "null"
@@ -409,11 +408,11 @@ ppExpr New {ty} = "new" <+> ppType ty
 ppExpr Print {args} = "print" <> parens (commaSep (map ppExpr args))
 ppExpr Exit {args} = "exit" <> parens (commaSep (map ppExpr args))
 ppExpr Abort {args} = "abort" <> parens (commaSep (map ppExpr args))
-ppExpr StringLiteral {stringLit} = viaShow stringLit
-ppExpr CharLiteral {charLit} = viaShow charLit
-ppExpr UIntLiteral {intLit} = pretty intLit <> "u"
-ppExpr IntLiteral {intLit} = pretty intLit
-ppExpr RealLiteral {realLit} = pretty realLit
+ppExpr StringLiteral {stringLit} = text $ show stringLit
+ppExpr CharLiteral {charLit} = text $ show charLit
+ppExpr UIntLiteral {intLit} = int intLit <> "u"
+ppExpr IntLiteral {intLit} = int intLit
+ppExpr RealLiteral {realLit} = double realLit
 ppExpr RangeLiteral {start, stop, step} =
   "[" <> ppExpr start <> ".." <> ppExpr stop <> ppStep step <> "]"
   where
@@ -424,26 +423,26 @@ ppExpr Embed {ty, embedded} =
           indent (hcat (map (uncurry ppPair) embedded)) $+$
   "END"
   where
-    ppPair code Skip{} = pretty code
-    ppPair code expr = pretty code <> "#{" <> ppExpr expr <> "}"
+    ppPair code Skip{} = text code
+    ppPair code expr = text code <> "#{" <> ppExpr expr <> "}"
 ppExpr Unary {uop, operand} = ppUnary uop <> parens (ppExpr operand)
 ppExpr Binop {binop, loper, roper} =
   ppExpr loper <+> ppBinop binop <+> ppExpr roper
 ppExpr TypedExpr {body, ty} = ppExpr body <+> ":" <+> ppType ty
 
-ppDecl :: ([VarDecl], Expr) -> Doc ann
+ppDecl :: ([VarDecl], Expr) -> Doc
 ppDecl (vars, val) =
   commaSep (map ppVar vars) <+> "=" <+> ppExpr val
-ppVar :: VarDecl -> Doc ann
+ppVar :: VarDecl -> Doc
 ppVar (VarType x ty) = ppName x <+> ":" <+> ppType ty
 ppVar (VarNoType x) = ppName x
 
 
-ppUnary :: UnaryOp -> Doc ann
+ppUnary :: UnaryOp -> Doc
 ppUnary Identifiers.NOT = "not"
 ppUnary Identifiers.NEG = "-"
 
-ppBinop :: BinaryOp -> Doc ann
+ppBinop :: BinaryOp -> Doc
 ppBinop Identifiers.AND   = "&&"
 ppBinop Identifiers.OR    = "||"
 ppBinop Identifiers.LT    = "<"

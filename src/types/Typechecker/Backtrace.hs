@@ -17,7 +17,7 @@ module Typechecker.Backtrace(Backtrace
 
 import Data.Maybe
 import Data.List
-import Data.Text.Prettyprint.Doc
+import Text.PrettyPrint
 
 import Identifiers
 import AST.Meta(Position)

@@ -21,8 +21,7 @@ module Typechecker.TypeError (
                              ,highlight
                              ) where
 
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.Terminal
+import Text.PrettyPrint.Annotated.HughesPJ
 import Data.Maybe
 import Data.List
 import Data.Char
@@ -856,8 +855,9 @@ instance Show Warning where
         "This will be fixed in a later version of Encore."
 
 
-($+$) s e = s <> line <> e
 data TCStyle = Classification | Desc | Logistic | Highlight
+
+pipe = char '|'
 
 classify, desc, logistic, highlight :: Doc TCStyle -> Doc TCStyle
 classify = annotate Classification
@@ -866,10 +866,10 @@ logistic = annotate Logistic
 highlight = annotate Highlight
 
 highlightPretty :: String -> Doc TCStyle
-highlightPretty = highlight . pretty
+highlightPretty s = highlight $ text s
 
 makeNotation :: Doc TCStyle
-makeNotation = logistic (pipe $+$ equals) <+> desc (pretty "note:")
+makeNotation = logistic (pipe $+$ equals) <+> desc (text "note:")
 
 
 class Suggestable a where
@@ -878,17 +878,20 @@ class Suggestable a where
 
 instance Suggestable Error where
     smallSuggest (NonAssignableLHSError) = highlightPretty "Can only be used on var or fields"
-    smallSuggest _ = emptyDoc
+    smallSuggest _ = empty
 
     longSuggest (TypeWithCapabilityMismatchError actual cap expected) =
-        let typelist = pretty "expected type" <+> desc (viaShow expected) $+$ pretty "found type" <+> desc (viaShow actual) in
-            makeNotation <+> hang 3 typelist
-    longSuggest _ = emptyDoc
+        let
+            expect = text "expected type" <+> desc (text $ show expected)
+            found  = text "   found type" <+> desc (text $ show actual)
+        in
+            makeNotation <+> vcat [expect, found]
+    longSuggest _ = empty
 
 
 instance Suggestable Warning where
-    smallSuggest _ = emptyDoc
-    longSuggest _ = emptyDoc
+    smallSuggest _ = empty
+    longSuggest _ = empty
 
 
         --hash (UnionMethodAmbiguityError _ _) = 3
