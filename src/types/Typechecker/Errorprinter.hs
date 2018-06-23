@@ -91,7 +91,7 @@ pipe = char '|'
 declareError :: Error -> Doc TCStyle
 declareError err =
     let
-        hash = case lookupHash (head $ words $ show err) of
+        hash = case lookupHash err of
             Nothing -> empty
             Just num -> text $ printf "[E%04d]" num
     in
