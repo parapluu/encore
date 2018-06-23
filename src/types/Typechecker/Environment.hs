@@ -509,6 +509,26 @@ varLookup qname@QName{qnspace, qnlocal = x}
                                    } =
       Map.filterWithKey (\f _ -> f `elem` names) functionTable
 
+visibleFunctions :: Environment -> [(Name, Type)]
+visibleFunctions Env{locals, lookupTables} =
+  let
+    ftable = extractTables filterFunctionTable lookupTables
+    selfMadeFunc = filter (not . (`elem` ["Std", "String"]) . show . fst) ftable
+    localFunc = map (\(x,(_,z)) -> (x,z)) $ filter (isArrowType . snd . snd) locals
+  in
+    localFunc ++ concatMap (Map.assocs . snd) selfMadeFunc
+
+  where
+    filterFunctionTable LookupTable{functionTable
+                                   ,selectiveExports = Nothing
+                                   } =
+      functionTable
+    filterFunctionTable LookupTable{functionTable
+                                   ,selectiveExports = Just names
+                                   } =
+      Map.filterWithKey (\f _ -> f `elem` names) functionTable
+
+
 isLocal :: QualifiedName -> Environment -> Bool
 isLocal QName{qnspace = Nothing, qnlocal = x} Env{locals} =
     isJust $ lookup x locals

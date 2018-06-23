@@ -12,13 +12,12 @@ module Typechecker.TypeError (
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             ,smallSuggest
-                             ,longSuggest
                              ,TCStyle(..)
                              ,classify
                              ,desc
                              ,logistic
                              ,highlight
+                             ,code
                              ) where
 
 import Text.PrettyPrint.Annotated.HughesPJ
@@ -855,43 +854,17 @@ instance Show Warning where
         "This will be fixed in a later version of Encore."
 
 
-data TCStyle = Classification | Desc | Logistic | Highlight
 
 pipe = char '|'
 
-classify, desc, logistic, highlight :: Doc TCStyle -> Doc TCStyle
+data TCStyle = Classification | Desc | Logistic | Highlight | Code
+
+classify, desc, logistic, highlight, code :: Doc TCStyle -> Doc TCStyle
 classify = annotate Classification
 desc = annotate Desc
 logistic = annotate Logistic
 highlight = annotate Highlight
-
-highlightPretty :: String -> Doc TCStyle
-highlightPretty s = highlight $ text s
-
-makeNotation :: Doc TCStyle
-makeNotation = logistic (pipe $+$ equals) <+> desc (text "note:")
-
-
-class Suggestable a where
-    smallSuggest :: a -> Doc TCStyle
-    longSuggest :: a -> Doc TCStyle
-
-instance Suggestable Error where
-    smallSuggest (NonAssignableLHSError) = highlightPretty "Can only be used on var or fields"
-    smallSuggest _ = empty
-
-    longSuggest (TypeWithCapabilityMismatchError actual cap expected) =
-        let
-            expect = text "expected type" <+> desc (text $ show expected)
-            found  = text "   found type" <+> desc (text $ show actual)
-        in
-            makeNotation <+> vcat [expect, found]
-    longSuggest _ = empty
-
-
-instance Suggestable Warning where
-    smallSuggest _ = empty
-    longSuggest _ = empty
+code = annotate Code
 
 
         --hash (UnionMethodAmbiguityError _ _) = 3
