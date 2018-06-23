@@ -57,7 +57,7 @@ instance Suggestable TCError where
             header = snd . fromJust $ findMethodWithEnvironment name targetType env
             types = hparams header
         in
-            makeNotation <+> hang ("Method" <+> quotes (text $ show name) <+> "is declared:,\n") 0
+            makeNotation <+> hang ("Method" <+> quotes (text $ show name) <+> "is declared:") 0
                 (desc (ppFunctionHeader header))
     
     longSuggest _ = empty
