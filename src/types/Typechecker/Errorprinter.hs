@@ -23,14 +23,13 @@ import Typechecker.Suggestable
 currentPos (TCError _ Env{bt = ((pos, _):_)}) = pos
 
 printError :: TCError -> IO ()
--- Default errors
 printError err@(TCError _ Env{bt = []}) =
     renderError $ prettyError err [] $+$ text ""
 printError error = do
     code <- getCodeLines $ currentPos error
-    renderError $ prettyError error [code] $+$ text ""
+    renderError $ prettyError error code $+$ text ""
 
--- renderDecoratedM :: Monad m => (ann -> m r) -> (ann -> m r) -> (String -> m r) -> m r -> Doc ann -> m r
+
 renderError :: Doc TCStyle -> IO ()
 renderError doc =
     renderDecoratedM toErrorStyle endAnn textprinter endDoc doc
@@ -65,15 +64,14 @@ toWarningStyle Code = return ()
 --      - Make prettyprinter.hs have the ability to include whitespace and parentheses
 -- prettyError will need all lines of code it will print beforehand in its second argument
 
-prettyError ::  TCError -> [[String]] -> Doc TCStyle
---prettyError tcErr@(TCError err@(TypeWithCapabilityMismatchError _ _ _) _) [code] =
---    declareError err <+> description err $+$ codeViewer code tcErr
-prettyError tcErr@(TCError err@(UnknownRefTypeError _) _) [code] =
+prettyError ::  TCError -> [String] -> Doc TCStyle
+prettyError tcErr@(TCError err@(UnknownRefTypeError _) _) _ =
     declareError err <+> description err $+$ nest 2 (showPosition $ currentPos tcErr)
+
 -- Default errors
 prettyError (TCError err Env{bt = []}) _ =
     declareError err <+> description err
-prettyError tcErr@(TCError err _) [code] =
+prettyError tcErr@(TCError err _) code =
     declareError err <+> description err $+$ codeViewer tcErr code
 -- Possible extensions:
 --  Duplicate Class -> print positions (File + line) of the two classes

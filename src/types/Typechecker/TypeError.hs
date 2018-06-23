@@ -12,8 +12,6 @@ module Typechecker.TypeError (
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
-                             --,smallSuggest
-                             --,longSuggest
                              ,TCStyle(..)
                              ,classify
                              ,desc

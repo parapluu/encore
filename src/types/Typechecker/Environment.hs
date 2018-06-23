@@ -511,17 +511,12 @@ varLookup qname@QName{qnspace, qnlocal = x}
 
 visibleFunctions :: Environment -> [(Name, Type)]
 visibleFunctions Env{locals, lookupTables} =
-  -- List of all available (non-local) function names
-  -- fst / snd    => module name   / table of functions
-  -- keys / elems => function name / types (inputparameter types -> result type)
   let
     ftable = extractTables filterFunctionTable lookupTables
     selfMadeFunc = filter (not . (`elem` ["Std", "String"]) . show . fst) ftable
     localFunc = map (\(x,(_,z)) -> (x,z)) $ filter (isArrowType . snd . snd) locals
-    --localNames = map (fst) localFunc
   in
     localFunc ++ concatMap (Map.assocs . snd) selfMadeFunc
-    --localNames ++ concatMap (Map.keys . snd) selfMadeFunc
 
   where
     filterFunctionTable LookupTable{functionTable

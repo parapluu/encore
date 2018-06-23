@@ -33,8 +33,8 @@ makeNotation = logistic (pipe $+$ equals) <+> desc (text "note:")
 -- they are made so that from none to both are able to be used at the same time.
 --
 -- a smallSuggest are inlined with the highlighting of an error,
--- therefore it is good practice to the text printed fairly short,
--- about 32 characters seem to be a good maxximum to strive for.
+-- therefore it is good practice for the text to be fairly short,
+-- about 32 characters seem to be a good maximum to strive for.
 -- If more are needed, use longSuggest instead.
 class Suggestable a where
     smallSuggest :: a -> Doc TCStyle
