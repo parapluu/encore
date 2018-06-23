@@ -25,6 +25,8 @@ import qualified Data.Map.Strict as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
+import System.Console.ANSI
+import qualified Text.PrettyPrint.Annotated as Pretty
 import qualified Text.PrettyPrint.Boxes as Box
 import System.FilePath (splitPath, joinPath)
 import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
@@ -42,7 +44,7 @@ import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
 import Typechecker.Errorprinter
-import Typechecker.ErrorExplainer(getErrorExplanation)
+import Typechecker.ExplainTable(getErrorExplanation)
 import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -299,7 +301,7 @@ main =
        when (Help `elem` options)
            (exit helpMessage)
        case find isExplain options of
-           Just (Explain errCode) -> exit $ explainError errCode
+           Just (Explain errCode) -> explainError errCode
            Nothing -> return ()
        when (null programs)
            (abort ("No program specified! Aborting.\n\n" <>
@@ -424,8 +426,14 @@ main =
 
       explainError errCode =
         case getErrorExplanation errCode of
-          Just explain -> explain
-          Nothing -> printf "error: no extended information for %s" errCode
+          Nothing -> do
+            noExplanation errCode
+            exit ""
+          Just explain -> do
+            resetScreen >> exit (Pretty.render $ explain Pretty.<> Pretty.text "\n")
+          where
+            resetScreen :: IO ()
+            resetScreen = setSGR [Reset] >> clearScreen >> setCursorPosition 0 0
 
       helpMessage =
         "Welcome to the Encore compiler!\n" <>

@@ -6,14 +6,17 @@ module Typechecker.ExplainTable (
     ,getErrorExplanation
     ) where
 
-import Text.PrettyPrint
+import Typechecker.TypeError
+
+import Text.PrettyPrint.Annotated
 import Text.Read (readMaybe)
+import Text.Printf (printf)
 
 
 lookupHash :: String -> Maybe Int
 lookupHash k = 
     let T t = table in
-        lookup' t k 0
+        lookup' t k 1
   where
     lookup' [] k _ = Nothing
     lookup' ((k', v):as) k x
@@ -21,11 +24,11 @@ lookupHash k =
         | otherwise = lookup' as k (x+1)
 
 
-getErrorExplanation :: String -> Maybe Doc
+getErrorExplanation :: String -> Maybe (Doc a)
 getErrorExplanation ('E':err) =
     case readMaybe err :: Maybe Int of
         Just num
-            | num > 0 -> let T t = table in lookupExplain num t
+            | num > 0 -> let T t = table in lookupExplain (num-1) t
             | otherwise -> Nothing
         Nothing -> Nothing
 getErrorExplanation _ = Nothing
@@ -38,7 +41,7 @@ lookupExplain x (_:ls) =  lookupExplain (x-1) ls
 
 newtype Table k v = T [(k, v)]
 
-table :: Table String Doc
+table :: Table String (Doc a)
 table = 
     T [
         (

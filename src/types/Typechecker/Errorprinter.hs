@@ -1,5 +1,5 @@
 
-module Typechecker.Errorprinter (printError) where
+module Typechecker.Errorprinter (printError, noExplanation) where
 
 
 -- Library dependencies
@@ -18,6 +18,7 @@ import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Typechecker.Suggestable
+import Typechecker.ExplainTable
 
 
 currentPos (TCError _ Env{bt = ((pos, _):_)}) = pos
@@ -29,6 +30,14 @@ printError error = do
     code <- getCodeLines $ currentPos error
     renderError $ prettyError error code $+$ text ""
 
+
+noExplanation :: String -> IO ()
+noExplanation errCode =
+    let
+        err = classify $ text "error"
+        info = desc $ text $ printf ": no extended information for %s\n" errCode
+    in
+        renderError $ err <> info
 
 renderError :: Doc TCStyle -> IO ()
 renderError doc =
@@ -80,7 +89,14 @@ prettyError tcErr@(TCError err _) code =
 pipe = char '|'
 
 declareError :: Error -> Doc TCStyle
-declareError _ = classify $ text "Error:"
+declareError err =
+    let
+        hash = case lookupHash (head $ words $ show err) of
+            Nothing -> empty
+            Just num -> text $ printf "[E%04d]" num
+    in
+        classify $ text "Error" <> hash <> char ':'
+
 
 description :: Error -> Doc TCStyle
 description err = desc $ text $ show err
