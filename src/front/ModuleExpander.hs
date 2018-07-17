@@ -103,7 +103,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
         let shortPath = shortenPrelude preludePaths source
         in i{isource = Just shortPath}
 
-    setADTSource source adt@ADT{aname, aconstructor} =
+    setADTSource source adt@ADT{aname} =
       adt{aname = setRefNamespace moduleNamespace $
                   setRefSourceFile source aname}
 

@@ -249,7 +249,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
         expandPrintfArg ty argName
           | Ty.isStringObjectType ty =
               let castArg = Cast (translate Ty.stringObjectType) argName
-              in [AsExpr $ castArg `Arrow` fieldName (ID.Name "data")]
+              in [AsExpr $ castArg `Arrow` fieldName (ID.Name "cstring")]
           | Ty.isBoolType ty =
               [Ternary argName (String "true") (String "false")]
           | Ty.isRangeType ty =

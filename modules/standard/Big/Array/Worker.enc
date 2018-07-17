@@ -2,32 +2,32 @@
 module Worker
 
 active class Worker[t]
-  var data : [t]
+  var arr : [t]
   var size : int
 
-  def init(data:[t]) : unit
-    this.data = data
-    this.size = |data|
+  def init(arr:[t]) : unit
+    this.arr = arr
+    this.size = |arr|
   end
 
   def array() : [t]
-      this.data
+      this.arr
   end
 
   def at(index: int) : t
-      this.data(index)
+      this.arr(index)
   end
 
   def update(f: t->t) : unit
     repeat i <- this.size do
-      this.data(i) = f(this.data(i))
+      this.arr(i) = f(this.arr(i))
     end
   end
 
   def filter(f: t->bool) : [t]
       var resultsize = 0
       repeat i <- this.size do
-          if (f(this.data(i))) then
+          if (f(this.arr(i))) then
               resultsize += 1
           end
       end
@@ -35,8 +35,8 @@ active class Worker[t]
       var resultarray = new[t](resultsize)
       var resultindex = 0
       repeat i <- this.size do
-          if (f(this.data(i))) then
-              resultarray(resultindex) = this.data(i)
+          if (f(this.arr(i))) then
+              resultarray(resultindex) = this.arr(i)
               resultindex += 1
           end
       end
@@ -52,12 +52,12 @@ active class Worker[t]
           if(i == index) then
               newarray(i) = value
           else
-              newarray(i) = this.data(oldi)
+              newarray(i) = this.arr(oldi)
               oldi +=1
           end
       end
 
-      this.data = newarray
+      this.arr = newarray
   end
 
   def delete(index: int) : unit
@@ -68,14 +68,14 @@ active class Worker[t]
       repeat i <- this.size do
           if(i == index) then
               oldi +=1
-              newarray(i) = this.data(oldi)
+              newarray(i) = this.arr(oldi)
           else
-              newarray(i) = this.data(oldi)
+              newarray(i) = this.arr(oldi)
           end
           oldi +=1
       end
 
-      this.data = newarray
+      this.arr = newarray
   end
 
   def push(value:t) : unit
@@ -86,15 +86,15 @@ active class Worker[t]
           if(i == this.size-1) then
               newarray(i) = value
           else
-              newarray(i) = this.data(i)
+              newarray(i) = this.arr(i)
           end
       end
 
-      this.data = newarray
+      this.arr = newarray
   end
 
   def applyto(index:int, f : t -> t) : unit
-      this.data(index) = f(this.data(index))
+      this.arr(index) = f(this.arr(index))
   end
 
 end

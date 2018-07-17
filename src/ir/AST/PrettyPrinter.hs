@@ -175,11 +175,10 @@ ppComposition TraitLeaf{tcname, tcext} =
                    else parens (commaSep (map ppTraitExtension tcext))
 
 ppAdtDecl :: AdtDecl -> Doc
-ppAdtDecl ADT {ameta, aname, amethods, aconstructor} =
+ppAdtDecl ADT {ameta, aname, amethods} =
   "data" <+> text (showWithoutMode aname) $+$
-    indent (vcat (map ppMethodDecl amethods) $$
-            vcat (map ppAdtConsDecl aconstructor)) $+$
-    "end"
+    indent (vcat (map ppMethodDecl amethods)) $+$
+  "end"
 
 ppAdtConsDecl :: AdtConstructor -> Doc
 ppAdtConsDecl ADTcons{acmeta, acname, acfields, acmethods} =

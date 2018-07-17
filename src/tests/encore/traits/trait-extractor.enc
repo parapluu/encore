@@ -4,13 +4,13 @@ local trait Result[b]
     Nothing
   end
 end
-class Success[b] : Result[b](data)
-  var data : b
-  def init(data : b) : unit
-    this.data = data
+class Success[b] : Result[b](result)
+  var result : b
+  def init(result : b) : unit
+    this.result = result
   end
   def Success() : Maybe[b]
-    Just(this.data)
+    Just(this.result)
   end
 end
 active class Main

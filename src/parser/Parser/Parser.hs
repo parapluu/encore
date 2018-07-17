@@ -196,6 +196,7 @@ reservedNames =
     ,"class"
     ,"consume"
     ,"continue"
+    ,"data"
     ,"def"
     ,"do"
     ,"else"
@@ -759,8 +760,8 @@ partitionClassAttributes = partitionClassAttributes' [] []
       partitionClassAttributes' fs (mdecl:ms) as
 
 adtDecl :: EncParser AdtDecl
-adtDecl = do
-  (try adtBlockDecl) <|> adtLineDecl
+adtDecl =
+  try adtBlockDecl <|> adtLineDecl
   where
     adtLineDecl = do
       ameta <- buildMeta
@@ -769,9 +770,7 @@ adtDecl = do
       params <- optionalTypeParameters
       return ADT{ameta
                 ,aname = setRefNamespace emptyNamespace $ adtType name params
-                ,aconstructor = []
                 ,amethods = []
-                ,identity = name
                 }
     adtBlockDecl = do
       aIndent <- L.indentLevel
@@ -789,71 +788,39 @@ adtDecl = do
     buildADT ameta name params methods =
       return ADT{ameta
                 ,aname = setRefNamespace emptyNamespace $ adtType name params
-                ,aconstructor = []
                 ,amethods = methods
-                ,identity = name
                 }
 
-
---adtDecl :: EncParser AdtDecl
---adtDecl = do
---  aIndent <- L.indentLevel
---  ameta <- meta <$> getPosition
---  reserved "data"
---  decl <- (try (blockDecl ameta aIndent)) <|> lineDecl ameta
---  return decl
---  where
---    blockDecl ameta aIndent = indentBlock $ do
---      name <- lookAhead upperChar >> identifier
---      params <- optionalTypeParameters
---      return $ L.IndentSome
---        Nothing
---        (buildADT aIndent ameta name params)
---        methodDecl
---
---    buildADT aIndent ameta name params methods = do
---      atLevel aIndent $ reserved "end"
---      return ADT{ameta
---                ,aname = setRefNamespace emptyNamespace $ adtType name params
---                ,aconstructor = []
---                ,amethods = methods
---                ,identity = name
---                }
---
---    lineDecl ameta = do
---      name <- lookAhead upperChar >> identifier
---      params <- optionalTypeParameters
---      return ADT{ameta
---                ,aname = setRefNamespace emptyNamespace $ adtType name params
---                ,aconstructor = []
---                ,amethods = []
---                ,identity = name
---                }
-
 adtConstructor :: EncParser AdtConstructor
-adtConstructor = do
-  (try adtConsBlockDecl) <|> adtConsLineDecl
+adtConstructor =
+  try adtConsBlockDecl <|> adtConsLineDecl
   where
     adtConsLineDecl = do
       acmeta <- buildMeta
       reserved "case"
       name <- lookAhead upperChar >> identifier
       params <- optionalTypeParameters
-      acfields <- parens (commaSep paramDecl)
+      acfields <- option [] $ parens (commaSep paramDecl)
       colon
-      parentIdentity <- lookAhead parentID
-      acomposition <- traitComposition
-      return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
-                        adtConsType name params
+      acomposition <- parentType
+      return  ADTcons{acmeta
+                     ,acname = setRefNamespace emptyNamespace $
+                                 adtConsType name params
                      ,acfields
                      ,acomposition
                      ,acmethods = []
-                     ,parentIdentity
                      }
-    parentID = do
-      c <- upperChar
-      rest <- identifier
-      return (c:rest)
+    parentType = do
+      notFollowedBy lowerChar
+      full <- modulePath
+      let ns = explicitNamespace $ init full
+          refId = show $ last full
+      parameters <- option [] $ brackets (commaSep1 typ)
+      let tcname = if isEmptyNamespace ns
+                   then traitType refId parameters
+                   else setRefNamespace ns $
+                        traitType refId parameters
+      return TraitLeaf{tcname, tcext = []}
 
     adtConsBlockDecl :: EncParser AdtConstructor
     adtConsBlockDecl = do
@@ -865,22 +832,20 @@ adtConstructor = do
         params <- optionalTypeParameters
         acfields <- parens (commaSep paramDecl)
         colon
-        parentIdentity <- lookAhead parentID
         acomposition <- traitComposition
         return $ L.IndentMany
                    Nothing
-                   (buildAdtCons acmeta name params acfields acomposition parentIdentity)
+                   (buildAdtCons acmeta name params acfields acomposition)
                    methodDecl
       atLevel acIndent $ reserved "end"
       return acdecl
 
-    buildAdtCons acmeta name params acfields acomposition parentIdentity acmethods =
+    buildAdtCons acmeta name params acfields acomposition acmethods =
       return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
                         adtConsType name params
                      ,acfields
                      ,acomposition
                      ,acmethods
-                     ,parentIdentity
                      }
 
 -- TODO: Allow linebreak (with indent) for trait inclusion

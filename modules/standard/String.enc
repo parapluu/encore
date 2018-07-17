@@ -96,19 +96,19 @@ end
 -- [x] change this.length(a) ==> a.length()
 -- [ ] Write proper docs
 -- Be aware of issue #204
-read class String : Id + Hashable + Eq[String](compare(),length,data)
-  val data : CString
+read class String : Id + Hashable + Eq[String](compare(),length,cstring)
+  val cstring : CString
   val length : int
   val hash_code : uint
-  
+
   def init(s:CString) : unit
-    this.data = s
+    this.cstring = s
     this.length = EMBED (int); strlen(#{s}); END
     this.hash_code = this.hash_string()
   end
 
   def private hash_string() : uint
-    var ans = EMBED (uint) (uint64_t) hash_string(#{this.data}); END
+    var ans = EMBED (uint) (uint64_t) hash_string(#{this.cstring}); END
     ans
   end
 
@@ -122,13 +122,13 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
     let
       t_len  = this.length()
       b_len  = b.length()
-      t_data = this.data
-      b_data = b.data
+      t_cstring = this.cstring
+      b_cstring = b.cstring
     in
       new String(EMBED (CString)
                    void *str = encore_alloc(*_ctx, #{t_len} + #{b_len} + 1);
-                   strncpy(str, (char *)#{t_data}, #{t_len});
-                   strncat(str, (char *)#{b_data}, #{b_len});
+                   strncpy(str, (char *)#{t_cstring}, #{t_len});
+                   strncat(str, (char *)#{b_cstring}, #{b_len});
                    str;
                  END)
     end
@@ -138,11 +138,11 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
   def copy() : String
     let
       t_len = this.length()
-      data  = this.data
+      cstring  = this.cstring
     in
       new String(EMBED (CString)
                    char *str = encore_alloc(*_ctx, #{t_len} + 1);
-                   strncpy(str, (char *)#{data}, #{t_len} + 1);
+                   strncpy(str, (char *)#{cstring}, #{t_len} + 1);
                    str;
                  END)
     end
@@ -150,11 +150,11 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
   -- Returns true if b is a substring of the current string
   def contains(b:String) : bool
     let
-      data  = this.data
-      b_data  = b.data
+      cstring  = this.cstring
+      b_cstring  = b.cstring
     in
       EMBED (bool)
-        strstr((char *)#{data}, (char *)#{b_data}) != NULL;
+        strstr((char *)#{cstring}, (char *)#{b_cstring}) != NULL;
       END
     end
   end
@@ -170,10 +170,10 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
       t_len  = this.length
       b_len  = b.length
       len = if t_len > b_len then t_len else b_len end
-      t_data = this.data
-      b_data = b.data
+      t_cstring = this.cstring
+      b_cstring = b.cstring
     in
-      EMBED (int) strncmp((char *)#{t_data}, (char *)#{b_data}, #{len}); END
+      EMBED (int) strncmp((char *)#{t_cstring}, (char *)#{b_cstring}, #{len}); END
     end
   end
 
@@ -186,13 +186,13 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
   def to_upper() : String
     let
       t_len = this.length()
-      data  = this.data
+      cstring  = this.cstring
     in
       new String(EMBED (CString)
                    char *str = encore_alloc(*_ctx, #{t_len} + 1);
                    for (int i = 0; i < #{t_len}; ++i)
                      {
-                       str[i] = toupper(((char *)#{data})[i]);
+                       str[i] = toupper(((char *)#{cstring})[i]);
                      }
                    str[#{t_len}] = '\0';
                    str;
@@ -204,13 +204,13 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
   def to_lower() : String
     let
       t_len = this.length()
-      data  = this.data
+      cstring  = this.cstring
     in
       new String(EMBED (CString)
                    char *str = encore_alloc(*_ctx, #{t_len} + 1);
                    for (int i = 0; i < #{t_len}; ++i)
                      {
-                       str[i] = tolower(((char *)#{data})[i]);
+                       str[i] = tolower(((char *)#{cstring})[i]);
                      }
                    str[#{t_len}] = '\0';
                    str;
@@ -236,14 +236,14 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
     else
       let
         t_len = this.length()
-        data  = this.data
+        cstring  = this.cstring
       in
         if from >= 0 then
           Just(new String(EMBED (CString)
                             int siz = #{to} - #{from};
                             siz = siz < #{t_len} ? siz : #{t_len};
                             char *str = encore_alloc(*_ctx, siz + 1);
-                            strncpy(str, ((char *)#{data})+#{from}, siz);
+                            strncpy(str, ((char *)#{cstring})+#{from}, siz);
                             str[siz] = '\0';
                             str;
                           END))
@@ -292,8 +292,8 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
     end
   end
 
-  def getData(): CString
-    this.data
+  def getCstring(): CString
+    this.cstring
   end
 
   -- Removes trailing whitespace
@@ -301,7 +301,7 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
   def trim() : String
     let
       len = this.length()
-      str = this.data
+      str = this.cstring
       start_index = EMBED (int) int s = 0;        while (#{str}[s] && isspace(#{str}[s])) ++s; s; END
       stop_index  = EMBED (int) int s = #{len}-1; while (#{str}[s] && isspace(#{str}[s])) --s; s; END
     in
@@ -331,14 +331,14 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
       -1
     else
       EMBED (int)
-        char *str = _this->_enc__field_data;
-        char *pattern = #{a}->_enc__field_data;
+        char *str = _this->_enc__field_cstring;
+        char *pattern = #{a}->_enc__field_cstring;
         char *loc = strstr(str + #{b}, pattern);
         loc ? loc - str : -1;
       END
     end
   end
-  
+
   def starts_with(s : String) : bool
     this.find_from(s, 0) == 0
   end
@@ -351,8 +351,8 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
     in
       new String(EMBED (CString)
                    const int STACK_ALLOC_MAX = 16536;
-                   char *from = _this->_enc__field_data;
-                   char *pattern  = #{s}->_enc__field_data;
+                   char *from = _this->_enc__field_cstring;
+                   char *pattern  = #{s}->_enc__field_cstring;
                    char *tmp = NULL;
 
                    if (#{to_len} > STACK_ALLOC_MAX) {
@@ -384,7 +384,7 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
 
   def char_at(i : int) : Maybe[char]
     let
-      s = this.data
+      s = this.cstring
       len = this.length()
     in
       if (i >= 0) && (i < len) then
@@ -396,7 +396,7 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
   end
 
   def at(i : int) : char
-    val s = this.data
+    val s = this.cstring
     if (i >= 0) && (i < this.length()) then
       EMBED (char) #{s}[#{i}]; END
     else
@@ -456,7 +456,7 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
   end
 
   def to_int() : Maybe[int]
-    val s = this.data
+    val s = this.cstring
     var n = 0
     var success = false
     EMBED (unit)
@@ -489,7 +489,7 @@ read class String : Id + Hashable + Eq[String](compare(),length,data)
   def to_real() : Maybe[real]
     -- TODO: Proper error checking!!
     -- TODO: Tests
-    val s = this.data
+    val s = this.cstring
     var n : real = 0.0
     var success = false
     EMBED (unit)

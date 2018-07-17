@@ -82,6 +82,7 @@ module Types(
             ,setRefNamespace
             ,getRefSourceFile
             ,setRefSourceFile
+            ,transferRefSourceAndNamespace
             ,translateTypeNamespace
             ,getTypeParameters
             ,setTypeParameters
@@ -404,6 +405,16 @@ setRefNamespace ns ty
         applyInnerRefInfo (\info -> info{refNamespace = Just ns}) ty
     | otherwise = error $ "Types.hs: tried to set the namespace of " ++ show ty
 
+hasRefNamespace ty
+    | isRefAtomType ty || isTypeSynonym ty
+    , info <- refInfo $ inner ty = isJust $ refNamespace info
+    | otherwise = False
+
+transferRefNamespace from to
+  | hasRefNamespace from =
+      setRefNamespace (fromJust $ getRefNamespace from) to
+  | otherwise = error $ "Types.hs: can't transfer namespace from " ++ show from
+
 getRefSourceFile ty
     | isRefAtomType ty || isTypeSynonym ty =
         fromMaybe err $ refSourceFile (refInfo $ inner ty)
@@ -419,6 +430,15 @@ hasRefSourceFile ty
     | isRefAtomType ty || isTypeSynonym ty
     , info <- refInfo $ inner ty = isJust $ refSourceFile info
     | otherwise = False
+
+transferRefSourceFile from to
+  | hasRefSourceFile from =
+      setRefSourceFile (getRefSourceFile from) to
+  | otherwise = error $ "Types.hs: can't transfer source file from " ++ show from
+
+transferRefSourceAndNamespace from to =
+  transferRefSourceFile from $
+  transferRefNamespace from to
 
 translateTypeNamespace :: Map FilePath Namespace -> Type -> Type
 translateTypeNamespace table = typeMap translate
@@ -774,8 +794,8 @@ refTypeWithParams refId parameters =
 
 refType id = refTypeWithParams id []
 
-adtClassType :: String -> Int -> [Type] -> Type
-adtClassType name tag parameters =
+adtClassType :: String -> [Type] -> Int -> Type
+adtClassType name parameters tag =
   Type{inner = ClassType{refInfo = RefInfo{refId = name
                                           ,parameters
                                           ,mode = Nothing

@@ -162,7 +162,7 @@ instance Checkable TraitDecl where
       addTypeParams = addTypeParameters $ getTypeParameters tname
       addMinorThis =
         extendEnvironmentImmutable $
-          if (hasMinorMode tname && not (isFromADT tname))
+          if hasMinorMode tname && not (isFromADT tname)
           then [(thisName, makeSubordinate tname)]
           else [(thisName, tname)]
       addThis = extendEnvironmentImmutable [(thisName, tname)]
@@ -1049,12 +1049,13 @@ instance Checkable Expr where
         when (isActiveSingleType argType) $
           unless (isThisAccess arg) $
             tcError ActiveMatchError
-        eClauses <- if (isFromADT argType)
+        eClauses <- if isFromADT argType
                     then mapM (checkAdtClause argType) clauses
                     else mapM (checkClause argType) clauses
-        if (isFromADT(argType))
-        then checkForAdtExtractors eArg (map mcpattern eClauses)
-        else checkForPrivateExtractors eArg (map mcpattern eClauses)
+        if isFromADT argType then
+          checkForAdtExtractors eArg (map mcpattern eClauses)
+        else
+          checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
         let updateClauseType m@MatchClause{mchandler} =
                 m{mchandler = setType resultType mchandler}
@@ -1115,7 +1116,6 @@ instance Checkable Expr where
             local (pushBT pattern) $
               doGetPatternVars pt pattern
 
-
         getAdtPatternVars pt pattern =
             local (pushBT pattern) $
               doGetAdtPatternVars pt pattern
@@ -1125,23 +1125,7 @@ instance Checkable Expr where
             tcError ThisReassignmentError
           return [(qnlocal qname, pt)]
 
-        {-doGetAdtPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})-}
-            {-| isMaybeType pt =-}
-                {-let innerType = getResultType pt-}
-                {-in getAdtPatternVars innerType e-}
-            {-| otherwise = tcError $ PatternTypeMismatchError mcp pt-}
-
-        doGetAdtPatternVars pt fcall@(FunctionCall {qname, args = []}) = do
-          {-header <- findMethod pt (qnlocal qname)-}
-          {-let hType = htype header-}
-              {-extractedType = getResultType hType-}
-          {-unless (isUnitType extractedType) $ do-}
-                 {-let expectedLength = if isTupleType extractedType-}
-                                      {-then length (getArgTypes extractedType)-}
-                                      {-else 1-}
-                 {-tcError $ PatternArityMismatchError (qnlocal qname)-}
-                           {-expectedLength 0-}
-
+        doGetAdtPatternVars pt fcall@(FunctionCall {qname, args = []}) =
           getAdtPatternVars pt (fcall {args = [Skip {emeta = emeta fcall}]})
 
         doGetAdtPatternVars pt fcall@(FunctionCall {qname, args = [arg]}) = do

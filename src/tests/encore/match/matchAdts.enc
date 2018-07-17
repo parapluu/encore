@@ -3,8 +3,8 @@ case Bar(i : int, str : String) : Foo
 case Baz() : Foo
 
 data LinkedThingy[t]
-case Link[t](data : t, next : LinkedThingy[t]) : LinkedThingy[t]
-case Last[t](data : t) : LinkedThingy[t]
+case Link[t](elem : t, next : LinkedThingy[t]) : LinkedThingy[t]
+case Last[t](elem : t) : LinkedThingy[t]
 
 active class Main
   def simpleMatch() : unit
@@ -34,21 +34,21 @@ active class Main
 
   def matchLinked() : unit
     match Last("1") with
-      case Link(data, Link(data2, last)) => println("Bad")
-      case Last(data) => println("Works for depth 1")
+      case Link(elem, Link(elem2, last)) => println("Bad")
+      case Last(elem) => println("Works for depth 1")
     end
 
     match Link("1", Last("2")) with
-      case Link(data, Link(data2, last)) => println("Bad")
-      case Last(data) => println("Bad")
-      case Link(data, Last(data2)) => println("Works for depth 2")
+      case Link(elem, Link(elem2, last)) => println("Bad")
+      case Last(elem) => println("Bad")
+      case Link(elem, Last(elem2)) => println("Works for depth 2")
     end
 
     match Link("1", Link("2", Last("3"))) with
-      case Link(data, Link(data2, Link(data3, Link(data4, last)))) => println("Bad1")
-      case Last(data) => println("Bad1")
-      case Link(data, Last(data2)) => println("Bad1")
-      case Link(data, Link(data2, Last(data3))) => println("Works for 1, 2 and 3. According to engineers induction it works for arbitrary depth")
+      case Link(elem, Link(elem2, Link(elem3, Link(elem4, last)))) => println("Bad1")
+      case Last(elem) => println("Bad1")
+      case Link(elem, Last(elem2)) => println("Bad1")
+      case Link(elem, Link(elem2, Last(elem3))) => println("Works for 1, 2 and 3. According to engineers induction it works for arbitrary depth")
     end
   end
 

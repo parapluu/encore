@@ -176,6 +176,14 @@ data FunctionHeader =
         hparams     :: [ParamDecl]
     } deriving(Eq, Show)
 
+simpleHeader hname hparams htype =
+  Header{hmodifiers = []
+        ,kind = NonStreaming
+        ,htypeparams = []
+        ,hname
+        ,hparams
+        ,htype
+        }
 
 setHeaderType ty h = h{htype = ty}
 
@@ -233,9 +241,7 @@ data ClassDecl = Class {
 data AdtDecl = ADT {
   ameta        :: Meta AdtDecl,
   aname        :: Type,
-  aconstructor :: [AdtConstructor],
-  amethods     :: [MethodDecl],
-  identity     :: String
+  amethods     :: [MethodDecl]
 } deriving (Show)
 
 data AdtConstructor = ADTcons {
@@ -243,8 +249,7 @@ data AdtConstructor = ADTcons {
   acname         :: Type,
   acfields       :: [ParamDecl],
   acomposition   :: TraitComposition,
-  acmethods      :: [MethodDecl],
-  parentIdentity :: String
+  acmethods      :: [MethodDecl]
 } deriving (Show)
 
 fieldsFromClass :: ClassDecl -> [FieldDecl]
@@ -529,13 +534,7 @@ emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
     in Method{mmeta = meta pos
              ,mimplicit = True
-             ,mheader = Header{hmodifiers = []
-                              ,kind = NonStreaming
-                              ,htypeparams = []
-                              ,hname = constructorName
-                              ,hparams = []
-                              ,htype = unitType
-                              }
+             ,mheader = simpleHeader constructorName [] unitType
              ,mbody = Skip (meta pos)
              ,mlocals = []}
 
