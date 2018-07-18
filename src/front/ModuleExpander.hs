@@ -69,7 +69,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
                                     ,imports
                                     ,classes
                                     ,adts
-                                    ,adtCons
+                                    ,adtCases
                                     ,traits
                                     ,typedefs
                                     ,functions} = do
@@ -80,7 +80,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
   let imports'   = zipWith setImportSource sources withStdlib
       classes'   = map (setClassSource shortSource) classes
       adts'      = map (setADTSource shortSource) adts
-      adtCons'   = map (setADTConsSource shortSource) adtCons
+      adtCases'  = map (setADTCaseSource shortSource) adtCases
       traits'    = map (setTraitSource shortSource) traits
       typedefs'  = map (setTypedefSource shortSource) typedefs
       functions' = map (setFunctionSource shortSource) functions
@@ -88,7 +88,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
             ,imports   = imports'
             ,classes   = classes'
             ,adts      = adts'
-            ,adtCons   = adtCons'
+            ,adtCases  = adtCases'
             ,traits    = traits'
             ,typedefs  = typedefs'
             ,functions = functions'
@@ -107,9 +107,9 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
       adt{aname = setRefNamespace moduleNamespace $
                   setRefSourceFile source aname}
 
-    setADTConsSource source cons@ADTcons{acname} =
-      cons{acname = setRefNamespace moduleNamespace $
-                  setRefSourceFile source acname}
+    setADTCaseSource source c@ADTCase{acname} =
+      c{acname = setRefNamespace moduleNamespace $
+                 setRefSourceFile source acname}
 
     setClassSource source c@Class{cname} =
       c{cname = setRefNamespace moduleNamespace $

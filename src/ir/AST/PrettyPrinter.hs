@@ -49,7 +49,7 @@ ppType :: Type -> Doc
 ppType = text . show
 
 ppProgram :: Program -> Doc
-ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes, adts, adtCons} =
+ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes, adts, adtCases} =
     ppModuleDecl moduledecl $+$
     vcat (map ppEmbedded etl) <+>
     vcat (map ppImportDecl imports) $+$
@@ -59,7 +59,7 @@ ppProgram Program{moduledecl, etl, imports, typedefs, functions, traits, classes
     vcat (reverse $ map ppTraitDecl traits) $+$
     vcat (reverse $ map ppClassDecl classes) $+$
     vcat (reverse $ map ppAdtDecl adts) $+$
-    vcat (reverse $ map ppAdtConsDecl adtCons) $+$
+    vcat (reverse $ map ppAdtCaseDecl adtCases) $+$
     "" -- new line at end of file
 
 ppEmbedded EmbedTL{etlheader=header, etlbody=code} =
@@ -180,8 +180,8 @@ ppAdtDecl ADT {ameta, aname, amethods} =
     indent (vcat (map ppMethodDecl amethods)) $+$
   "end"
 
-ppAdtConsDecl :: AdtConstructor -> Doc
-ppAdtConsDecl ADTcons{acmeta, acname, acfields, acmethods} =
+ppAdtCaseDecl :: AdtCase -> Doc
+ppAdtCaseDecl ADTCase{acmeta, acname, acfields, acmethods} =
   "case" <+> text (showWithoutMode acname) <> parens (commaSep $ map ppParamDecl acfields) $+$
     indent (vcat (map ppMethodDecl acmethods)) $+$
   "end"

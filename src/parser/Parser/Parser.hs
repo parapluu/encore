@@ -426,9 +426,9 @@ typeVariable = do
   <?> "lower case type variable"
 
 data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function} | ADecl{adecl :: AdtDecl}
-           | ACDecl{acdecl :: AdtConstructor}
+           | ACDecl{acdecl :: AdtCase}
 
-partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function], [AdtDecl], [AdtConstructor])
+partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function], [AdtDecl], [AdtCase])
 partitionDecls = partitionDecls' [] [] [] [] [] []
   where
     partitionDecls' cs ts tds fds adts acons [] = (cs, ts, tds, fds, adts, acons)
@@ -460,9 +460,9 @@ program = do
                    ,TDef <$> typedef
                    ,FDecl <$> globalFunction
                    ,ADecl <$> adtDecl
-                   ,ACDecl <$> adtConstructor
+                   ,ACDecl <$> adtCase
                    ]
-  let (classes, traits, typedefs, functions, adts, adtCons) = partitionDecls decls
+  let (classes, traits, typedefs, functions, adts, adtCases) = partitionDecls decls
   eof
   return Program{source
                 ,moduledecl
@@ -473,7 +473,7 @@ program = do
                 ,traits
                 ,classes
                 ,adts
-                ,adtCons
+                ,adtCases
                 }
     where
       hashbang = do string "#!"
@@ -794,8 +794,8 @@ adtDecl = do
                  ,amethods
                  })
 
-adtConstructor :: EncParser AdtConstructor
-adtConstructor = do
+adtCase :: EncParser AdtCase
+adtCase = do
   acIndent <- L.indentLevel
   acmeta <- buildMeta
   (needsEnd, adtCase) <- indentBlock $ do
@@ -803,12 +803,12 @@ adtConstructor = do
     name <- lookAhead upperChar >> identifier
     params <- optionalTypeParameters
     let acname = setRefNamespace emptyNamespace $
-                 adtConsType name params
+                 adtCaseType name params
     acfields <- option [] $ parens (commaSep paramDecl)
     colon
     acparent <- parentType
-    adtConsLineDecl acIndent acmeta acname acfields acparent <|>
-      adtConsBlockDecl acmeta acname acfields acparent
+    adtCaseLineDecl acIndent acmeta acname acfields acparent <|>
+      adtCaseBlockDecl acmeta acname acfields acparent
   when needsEnd $
     atLevel acIndent $ reserved "end"
   return adtCase
@@ -825,27 +825,27 @@ adtConstructor = do
                         adtTraitType refId parameters
       return TraitLeaf{tcname, tcext = []}
 
-    adtConsLineDecl indent acmeta acname acfields acparent = do
+    adtCaseLineDecl indent acmeta acname acfields acparent = do
       notFollowedBy (nl >> (reserved "end" <|>
                             (indented indent anyChar >> return ())))
       return $ L.IndentNone
                  (False, -- No end needed
-                  ADTcons{acmeta
+                  ADTCase{acmeta
                          ,acname
                          ,acfields
                          ,acparent
                          ,acmethods = []
                          })
 
-    adtConsBlockDecl acmeta acname acfields acparent = do
+    adtCaseBlockDecl acmeta acname acfields acparent = do
         return $ L.IndentMany
                    Nothing
-                   (buildAdtCons acmeta acname acfields acparent)
+                   (buildAdtCase acmeta acname acfields acparent)
                    methodDecl
 
-    buildAdtCons acmeta acname acfields acparent acmethods =
+    buildAdtCase acmeta acname acfields acparent acmethods =
       return (True, -- end needed
-              ADTcons{acmeta
+              ADTCase{acmeta
                      ,acname
                      ,acfields
                      ,acparent

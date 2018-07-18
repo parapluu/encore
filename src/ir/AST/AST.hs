@@ -32,7 +32,7 @@ data Program = Program {
   traits :: [TraitDecl],
   classes :: [ClassDecl],
   adts :: [AdtDecl],
-  adtCons :: [AdtConstructor]
+  adtCases :: [AdtCase]
 } deriving (Show)
 
 setProgramSource source p = p{source}
@@ -244,8 +244,8 @@ data AdtDecl = ADT {
   amethods     :: [MethodDecl]
 } deriving (Show)
 
-data AdtConstructor = ADTcons {
-  acmeta         :: Meta AdtConstructor,
+data AdtCase = ADTCase {
+  acmeta         :: Meta AdtCase,
   acname         :: Type,
   acfields       :: [ParamDecl],
   acparent       :: TraitComposition,
@@ -289,12 +289,12 @@ instance HasMeta AdtDecl where
         error "AST.hs: Cannot set the type of an ADT"
     showWithKind ADT{aname} = "data '" ++ getId aname ++ "'"
 
-instance HasMeta AdtConstructor where
+instance HasMeta AdtCase where
     getMeta = acmeta
     setMeta ac m = ac{acmeta = m}
     setType _ _ =
         error "AST.hs: Cannot set the type of an ADT"
-    showWithKind ADTcons{acname} = "data '" ++ getId acname ++ "'" --TODO: ?
+    showWithKind ADTCase{acname} = "case '" ++ getId acname ++ "'"
 
 data Requirement =
     RequiredField {

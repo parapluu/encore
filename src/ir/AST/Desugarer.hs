@@ -88,7 +88,7 @@ desugarDefaultParametersClass p c@(Class{cmethods}) = c{cmethods = cmethods ++ c
 
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{traits, classes, functions, adts, adtCons}) =
+desugarProgram p@(Program{traits, classes, functions, adts, adtCases}) =
   p{
     traits = map desugarTrait $ traits ++ adtTraits
    ,classes =
@@ -97,7 +97,7 @@ desugarProgram p@(Program{traits, classes, functions, adts, adtCons}) =
    ,functions = (map desugarFunction $ functions ++ adtFunctions) ++ concatMap desugarDefaultParameters functions
   }
   where
-    (adtTraits, adtClasses, adtFunctions) = partitionADTs adts adtCons
+    (adtTraits, adtClasses, adtFunctions) = partitionADTs adts adtCases
 
     desugarTrait t@Trait{tmethods} = t{tmethods = map desugarMethod tmethods}
 
@@ -234,10 +234,10 @@ expandMiniLets (MiniLet{emeta, mutability, decl}:seq) =
         }]
 expandMiniLets (e:seq) = e:expandMiniLets seq
 
-partitionADTs :: [AdtDecl] -> [AdtConstructor] -> ([TraitDecl], [ClassDecl], [Function])
+partitionADTs :: [AdtDecl] -> [AdtCase] -> ([TraitDecl], [ClassDecl], [Function])
 partitionADTs adts cases =
   let deconstructed = map (partitionADT cases) adts
-      hasADT ADTcons{acparent} = any ((getId (tcname acparent) ==) . getId . aname) adts
+      hasADT ADTCase{acparent} = any ((getId (tcname acparent) ==) . getId . aname) adts
       -- For error handling, include the cases where the ADT is not known
       orphanedADTClasses = map buildOrphanedADTClass $
                            List.filter (not . hasADT) cases
@@ -247,7 +247,7 @@ partitionADTs adts cases =
   in
     concat3 deconstructed
   where
-    buildOrphanedADTClass ADTcons{acmeta, acname, acparent} =
+    buildOrphanedADTClass ADTCase{acmeta, acname, acparent} =
       let orphanedCapability =
             typeMap makeOrphan
             (capabilityFromTraitComposition (Just acparent))
@@ -264,7 +264,7 @@ partitionADTs adts cases =
       | isADT ty = refTypeWithParams (getId ty) (getTypeParameters ty)
       | otherwise = ty
 
-partitionADT :: [AdtConstructor] -> AdtDecl -> ([TraitDecl], [ClassDecl], [Function])
+partitionADT :: [AdtCase] -> AdtDecl -> ([TraitDecl], [ClassDecl], [Function])
 partitionADT allCases ADT{ameta, aname, amethods} =
   ([t], cs, fs)
     where
@@ -289,10 +289,10 @@ partitionADT allCases ADT{ameta, aname, amethods} =
              ,fexpr = Nothing
              }
 
-      headerFromCons ADTcons{acname} =
+      headerFromCons ADTCase{acname} =
         simpleHeader (Name $ getId acname) [] intType
 
-      buildADTClass a@ADTcons{acmeta, acname, acfields, acparent, acmethods} tag =
+      buildADTClass ADTCase{acmeta, acname, acfields, acparent, acmethods} tag =
         Class{cmeta = cloneMeta acmeta
              ,cname = transferRefSourceAndNamespace acname $
                       makeRead $
@@ -342,7 +342,7 @@ partitionADT allCases ADT{ameta, aname, amethods} =
                         }
 
           extractorMethods = map buildExtractorMethod cases
-          buildExtractorMethod c@ADTcons{acmeta, acname = acname'} =
+          buildExtractorMethod c@ADTCase{acmeta, acname = acname'} =
             Method{mmeta = cloneMeta acmeta
                   ,mimplicit = True
                   ,mheader = headerFromCons c
@@ -361,7 +361,7 @@ partitionADT allCases ADT{ameta, aname, amethods} =
                                }
                 | otherwise = IntLiteral{emeta, intLit = 0}
 
-      buildADTFunction ADTcons{acmeta, acname, acfields, acparent} =
+      buildADTFunction ADTCase{acmeta, acname, acfields, acparent} =
         let emeta = cloneMeta acmeta in
         Function{funmeta = cloneMeta acmeta
                 ,funheader = Header{hmodifiers = []

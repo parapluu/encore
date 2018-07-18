@@ -20,7 +20,7 @@ module Types(
             ,adtClassType
             ,classType
             ,adtType
-            ,adtConsType
+            ,adtCaseType
             ,isRefAtomType
             ,adtTraitType
             ,traitType
@@ -315,8 +315,8 @@ data InnerType =
         | ClassType{refInfo :: RefInfo
                    ,fromADT :: Bool
                    ,adtTag :: Int}
-        | AdtType{refInfo :: RefInfo}--TODO: Add more stuff
-        | AdtConsType{refInfo :: RefInfo}--TODO: Add more stuff
+        | AdtType{refInfo :: RefInfo}
+        | AdtCaseType{refInfo :: RefInfo}
         | CapabilityType{typeop :: TypeOp
                         ,ltype  :: Type
                         ,rtype  :: Type}
@@ -463,7 +463,7 @@ instance Show InnerType where
     show AbstractTraitType{refInfo} = show refInfo
     show ClassType{refInfo} = showRefInfoWithoutMode refInfo
     show AdtType{refInfo} = showRefInfoWithoutMode refInfo
-    show AdtConsType{refInfo} = showRefInfoWithoutMode refInfo
+    show AdtCaseType{refInfo} = showRefInfoWithoutMode refInfo
     show CapabilityType{typeop = Product, ltype, rtype} =
         let lhs = if isDisjunctiveType ltype
                   then "(" ++ show ltype ++ ")"
@@ -537,8 +537,8 @@ showWithKind ty = kind (inner ty) ++ " " ++ show ty
                                          else if isSharedSingleType (typ ty)
                                          then "shared class type"
                                          else "class type"
-    kind AdtType{}                     = "ADT type"
-    kind AdtConsType{}                 = "AdtCons type"
+    kind AdtType{}                     = "abstract data type"
+    kind AdtCaseType{}                 = "case type"
     kind CapabilityType{}              = "capability type"
     kind EmptyCapability{}             = "the empty capability type"
     kind UnionType{}                   = "union type"
@@ -835,9 +835,9 @@ adtType name parameters =
          ,box = Nothing
          }
 
-adtConsType :: String -> [Type] -> Type
-adtConsType name parameters =
-  Type{inner = AdtConsType{refInfo = RefInfo{refId = name
+adtCaseType :: String -> [Type] -> Type
+adtCaseType name parameters =
+  Type{inner = AdtCaseType{refInfo = RefInfo{refId = name
                                             ,parameters
                                             ,mode = Nothing
                                             ,refNamespace = Nothing
@@ -886,8 +886,9 @@ isRefAtomType Type{inner = Unresolved {}} = True
 isRefAtomType Type{inner = TraitType {}} = True
 isRefAtomType Type{inner = AbstractTraitType {}} = True
 isRefAtomType Type{inner = ClassType {}} = True
-isRefAtomType Type{inner = AdtType {}} = True -- TODO: Ask someone about this
-isRefAtomType Type{inner = AdtConsType {}} = True -- TODO: Ask someone about this
+-- ADTs are currently reference types, but may be value types in the future
+isRefAtomType Type{inner = AdtType {}} = True
+isRefAtomType Type{inner = AdtCaseType {}} = True
 isRefAtomType _ = False
 
 isRefType ty
@@ -904,13 +905,13 @@ isUnresolved Type{inner = Unresolved{}} = True
 isUnresolved _ = False
 
 getAdtTag Type{inner = ClassType{adtTag}} = adtTag
-getAdtTag _ = 0
+getAdtTag ty = error $ "Types.hs: Cannot get ADT tag from " ++ showWithKind ty
 
 isADT Type{inner = TraitType{fromADT}} = fromADT
 isADT Type{inner = ClassType{fromADT}} = fromADT
 isADT Type{inner = AbstractTraitType{fromADT}} = fromADT
 isADT Type{inner = AdtType{}} = True
-isADT Type{inner = AdtConsType{}} = True
+isADT Type{inner = AdtCaseType{}} = True
 isADT _ = False
 
 setFromADT ty@Type{inner = t@TraitType{}} bool = ty{inner = t{fromADT = bool}}

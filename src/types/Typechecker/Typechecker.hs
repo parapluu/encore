@@ -1310,11 +1310,11 @@ instance Checkable Expr where
           eArg <- checkAdtPattern arg $ tupleType fieldTypes
           return $ setArrowType (arrowType [] intType) $
                    setType argty AdtExtractorPattern {emeta
-                                                  ,ty = argty
-                                                  ,name
-                                                  ,arg = eArg
-                                                  ,fieldNames
-                                                  ,adtClassDecl}
+                                                     ,ty = argty
+                                                     ,name
+                                                     ,arg = eArg
+                                                     ,fieldNames
+                                                     ,adtClassDecl}
 
         doCheckAdtPattern pattern@(FunctionCall {args}) argty = do
           let tupMeta = getMeta $ head args
@@ -1334,10 +1334,10 @@ instance Checkable Expr where
 
         checkAdtClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
           vars <- getAdtPatternVars pt mcpattern
-          let withLocalEnv = local (extendEnvironmentImmutable vars) --
-          ePattern <- withLocalEnv $ checkAdtPattern mcpattern pt --
-          eHandler <- withLocalEnv $ typecheck mchandler --
-          eGuard <- withLocalEnv $ hasType mcguard boolType --
+          let withLocalEnv = local (extendEnvironmentImmutable vars)
+          ePattern <- withLocalEnv $ checkAdtPattern mcpattern pt
+          eHandler <- withLocalEnv $ typecheck mchandler
+          eGuard <- withLocalEnv $ hasType mcguard boolType
           return $ clause {mcpattern = extend makePattern ePattern
                           ,mchandler = eHandler
                           ,mcguard = eGuard}
