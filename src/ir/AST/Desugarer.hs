@@ -92,7 +92,7 @@ desugarProgram p@(Program{traits, classes, functions, adts, adtCons}) =
   p{
     traits = map desugarTrait $ traits ++ adtTraits
    ,classes =
-      map (desugarClass . desugarClassParams . desugarDefaultParametersClass p)
+      map (desugarClass . desugarClassParams . desugarDefaultParametersClass p) $
           classes ++ adtClasses
    ,functions = (map desugarFunction $ functions ++ adtFunctions) ++ concatMap desugarDefaultParameters functions
   }
@@ -277,7 +277,7 @@ partitionADT allCases ADT{ameta, aname, amethods} =
                ,treqs = RequiredField{rfield = tagField ameta}:
                         map (RequiredMethod . headerFromCons) cases
                ,tmethods = amethods
-             }
+               }
       cs = zipWith buildADTClass cases [1..]
       fs = map buildADTFunction cases
 
@@ -301,7 +301,7 @@ partitionADT allCases ADT{ameta, aname, amethods} =
              ,cfields
              ,cmethods = initMethod :
                          extractorMethods ++
-                         amethods ++ acmethods
+                         acmethods
              }
         where
           buildField Param{pmut, pname, ptype} =
