@@ -162,7 +162,7 @@ instance Checkable TraitDecl where
       addTypeParams = addTypeParameters $ getTypeParameters tname
       addMinorThis =
         extendEnvironmentImmutable $
-          if hasMinorMode tname && not (isFromADT tname)
+          if hasMinorMode tname && not (isADT tname)
           then [(thisName, makeSubordinate tname)]
           else [(thisName, tname)]
       addThis = extendEnvironmentImmutable [(thisName, tname)]
@@ -1049,10 +1049,10 @@ instance Checkable Expr where
         when (isActiveSingleType argType) $
           unless (isThisAccess arg) $
             tcError ActiveMatchError
-        eClauses <- if isFromADT argType
+        eClauses <- if isADT argType
                     then mapM (checkAdtClause argType) clauses
                     else mapM (checkClause argType) clauses
-        if isFromADT argType then
+        if isADT argType then
           checkForAdtExtractors eArg (map mcpattern eClauses)
         else
           checkForPrivateExtractors eArg (map mcpattern eClauses)

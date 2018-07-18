@@ -555,7 +555,7 @@ findMethodWithCalledType ty name
                tcError $ UnknownTypeUsageError "call method on" ty
         result <- asks $ methodAndCalledTypeLookup ty name
         when (isNothing result) $
-          if (isFromADT ty)
+          if (isADT ty)
           then tcError $ AdtConstructorNotFoundError name ty
           else tcError $ MethodNotFoundError name ty
         return $ fromJust result

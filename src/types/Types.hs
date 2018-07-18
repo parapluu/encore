@@ -25,7 +25,7 @@ module Types(
             ,adtTraitType
             ,traitType
             ,isRefType
-            ,isFromADT
+            ,isADT
             ,getAdtTag
             ,setFromADT
             ,isTraitType
@@ -906,10 +906,12 @@ isUnresolved _ = False
 getAdtTag Type{inner = ClassType{adtTag}} = adtTag
 getAdtTag _ = 0
 
-isFromADT Type{inner = TraitType{fromADT}} = fromADT
-isFromADT Type{inner = ClassType{fromADT}} = fromADT
-isFromADT Type{inner = AbstractTraitType{fromADT}} = fromADT
-isFromADT _ = False
+isADT Type{inner = TraitType{fromADT}} = fromADT
+isADT Type{inner = ClassType{fromADT}} = fromADT
+isADT Type{inner = AbstractTraitType{fromADT}} = fromADT
+isADT Type{inner = AdtType{}} = True
+isADT Type{inner = AdtConsType{}} = True
+isADT _ = False
 
 setFromADT ty@Type{inner = t@TraitType{}} bool = ty{inner = t{fromADT = bool}}
 setFromADT ty@Type{inner = t@ClassType{}} bool = ty{inner = t{fromADT = bool}}

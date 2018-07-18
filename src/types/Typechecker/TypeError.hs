@@ -216,6 +216,7 @@ data Error =
   | UnknownTraitError Type
   | UnknownADTError Type
   | UnknownRefTypeError Type
+  | NonADTCaseError Type
   | MalformedCapabilityError Type
   | MalformedBoundError Type
   | RecursiveTypesynonymError Type
@@ -468,6 +469,8 @@ instance Show Error where
               else "method '" ++ show name ++ "'"
     show (UnknownRefTypeError ty) =
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
+    show (NonADTCaseError ty) =
+        printf "Type '%s' is not an abstract data type" (show ty)
     show (MalformedCapabilityError ty) =
         printf "Cannot form capability with %s" (showWithKind ty)
     show (MalformedBoundError bound) =
@@ -526,7 +529,7 @@ instance Show Error where
         printf "Unbound function variable '%s'" (show name)
     show (NonFunctionTypeError ty) =
         printf "Cannot use value of type '%s' as a function" (show ty)
-    show BottomTypeInferenceError = "Not enough information to infer the type.\n" ++ 
+    show BottomTypeInferenceError = "Not enough information to infer the type.\n" ++
         "Try adding more type information."
     show IfInferenceError = "Cannot infer result type of if-statement"
     show (IfBranchMismatchError ty1 ty2) =

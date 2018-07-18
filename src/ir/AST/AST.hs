@@ -248,7 +248,7 @@ data AdtConstructor = ADTcons {
   acmeta         :: Meta AdtConstructor,
   acname         :: Type,
   acfields       :: [ParamDecl],
-  acomposition   :: TraitComposition,
+  acparent       :: TraitComposition,
   acmethods      :: [MethodDecl]
 } deriving (Show)
 
