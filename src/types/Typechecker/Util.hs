@@ -24,7 +24,7 @@ module Typechecker.Util(TypecheckM
                        ,assertDistinctThing
                        ,assertDistinct
                        ,findTrait
-                       ,findClass
+                       ,findADTClass
                        ,findField
                        ,findMethod
                        ,findMethodWithCalledType
@@ -476,8 +476,8 @@ assertDistinct something l =
     unless (null duplicates) $
       tcError $ DuplicateThingError something (AST.showWithKind first)
 
-findClass :: Type -> TypecheckM ClassDecl
-findClass t = do
+findADTClass :: Type -> TypecheckM ClassDecl
+findADTClass t = do
   result <- asks $ classLookup t
   case result of
     Just [] ->
@@ -555,9 +555,7 @@ findMethodWithCalledType ty name
                tcError $ UnknownTypeUsageError "call method on" ty
         result <- asks $ methodAndCalledTypeLookup ty name
         when (isNothing result) $
-          if (isADT ty)
-          then tcError $ AdtConstructorNotFoundError name ty
-          else tcError $ MethodNotFoundError name ty
+             tcError $ MethodNotFoundError name ty
         return $ fromJust result
 
 findCapability :: Type -> TypecheckM Type

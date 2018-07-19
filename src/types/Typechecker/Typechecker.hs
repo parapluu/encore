@@ -1049,7 +1049,7 @@ instance Checkable Expr where
         when (isActiveSingleType argType) $
           unless (isThisAccess arg) $
             tcError ActiveMatchError
-        eClauses <- mapM (checkClause (isADT argType) argType) clauses
+        eClauses <- mapM (checkClause argType) clauses
         checkForPrivateExtractors eArg (map mcpattern eClauses)
         resultType <- checkAllHandlersSameType eClauses
         let updateClauseType m@MatchClause{mchandler} =
@@ -1098,177 +1098,173 @@ instance Checkable Expr where
             in all (not . isBottomType) (typeComponents ty) &&
                not (isNullType ty)
 
-        -- TODO: Should we check ADTness recursively?
-        getPatternVars isADT pt pattern =
+        getPatternVars pt pattern =
             local (pushBT pattern) $
-              doGetPatternVars isADT pt pattern
+              doGetPatternVars pt pattern
 
-        doGetPatternVars _ pt va@(VarAccess {qname}) = do
+        doGetPatternVars pt va@(VarAccess {qname}) = do
           when (isThisAccess va) $
             tcError ThisReassignmentError
           return [(qnlocal qname, pt)]
 
-        doGetPatternVars isADT pt mcp@(MaybeValue{mdt = JustData {e}})
-            | isMaybeType pt =
-                let innerType = getResultType pt
-                in getPatternVars isADT innerType e
-            | otherwise = tcError $ PatternTypeMismatchError mcp pt
+        doGetPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
+          | isMaybeType pt =
+              let innerType = getResultType pt
+              in getPatternVars innerType e
+          | otherwise = tcError $ PatternTypeMismatchError mcp pt
 
-        doGetPatternVars isADT@False pt fcall@(FunctionCall {qname, args = []}) = do
-          header <- findMethod pt (qnlocal qname)
-          let hType = htype header
-              extractedType = getResultType hType
-          unless (isUnitType extractedType) $ do
-                 let expectedLength = if isTupleType extractedType
-                                      then length (getArgTypes extractedType)
-                                      else 1
-                 tcError $ PatternArityMismatchError (qnlocal qname)
-                           expectedLength 0
+        doGetPatternVars pt fcall@(FunctionCall {qname, args = []})
+          | isADT pt =
+              getPatternVars pt (fcall {args = [Skip {emeta = emeta fcall}]})
+          | otherwise = do
+              header <- findMethod pt (qnlocal qname)
+              let hType = htype header
+                  extractedType = getResultType hType
+              unless (isUnitType extractedType) $ do
+                     let expectedLength = if isTupleType extractedType
+                                          then length (getArgTypes extractedType)
+                                          else 1
+                     tcError $ PatternArityMismatchError (qnlocal qname)
+                               expectedLength 0
+              getPatternVars pt (fcall {args = [Skip {emeta = emeta fcall}]})
 
-          getPatternVars isADT pt (fcall {args = [Skip {emeta = emeta fcall}]})
+        doGetPatternVars pt fcall@(FunctionCall {qname, args = [arg]})
+          | isADT pt = do
+              c <- findADTClass (classType  (show $ qnlocal qname) [])
+              let fields = drop 1 $ fieldsFromClass c
+                  fieldTypes = map (\f@Field{ftype} -> ftype) fields
+                  expectedLength = length fields
+                  actualLength
+                    | Tuple{args} <- arg = length args
+                    | Skip{} <- arg = 0
+                    | otherwise = 1
+              unless (actualLength == expectedLength) $
+                     tcError $ PatternArityMismatchError (qnlocal qname)
+                               expectedLength actualLength
+              case arg of
+                Tuple{args} -> do
+                  vars <- zipWithM getPatternVars fieldTypes args
+                  return $ concat $ reverse vars
+                Skip{} -> return []
+                _ -> doGetPatternVars (head fieldTypes) arg
+          | otherwise = do
+              unless (isRefType pt) $
+                tcError $ NonCallableTargetError pt
+              header <- findMethod pt (qnlocal qname)
+              let hType = htype header
+              unless (isMaybeType hType) $
+                tcError $ NonMaybeExtractorPatternError fcall
+              let extractedType = getResultType hType
+                  expectedLength
+                    | isTupleType extractedType = length (getArgTypes extractedType)
+                    | isUnitType extractedType = 0
+                    | otherwise = 1
+                  actualLength
+                    | Tuple{args} <- arg = length args
+                    | Skip{} <- arg = 0
+                    | otherwise = 1
+              unless (actualLength == expectedLength) $
+                     tcError $ PatternArityMismatchError (qnlocal qname)
+                               expectedLength actualLength
+              getPatternVars extractedType arg
 
-        doGetPatternVars isADT@True pt fcall@(FunctionCall {qname, args = []}) =
-          getPatternVars isADT pt (fcall {args = [Skip {emeta = emeta fcall}]})
-
-        doGetPatternVars isADT@False pt fcall@(FunctionCall {qname, args = [arg]}) = do
-          unless (isRefType pt) $
-            tcError $ NonCallableTargetError pt
-          header <- findMethod pt (qnlocal qname)
-          let hType = htype header
-          unless (isMaybeType hType) $
-            tcError $ NonMaybeExtractorPatternError fcall
-          let extractedType = getResultType hType
-              expectedLength
-                | isTupleType extractedType = length (getArgTypes extractedType)
-                | isUnitType extractedType = 0
-                | otherwise = 1
-              actualLength
-                | Tuple{args} <- arg = length args
-                | Skip{} <- arg = 0
-                | otherwise = 1
-          unless (actualLength == expectedLength) $
-                 tcError $ PatternArityMismatchError (qnlocal qname)
-                           expectedLength actualLength
-          getPatternVars isADT extractedType arg
-
-        doGetPatternVars isADT@True pt fcall@(FunctionCall {qname, args = [arg]}) = do
-          c <- findClass (classType  (show $ qnlocal qname) [])
-          let fields = drop 1 $ fieldsFromClass c
-              fieldTypes = map (\f@Field{ftype} -> ftype) fields
-              expectedLength = length fields
-              actualLength
-                | Tuple{args} <- arg = length args
-                | Skip{} <- arg = 0
-                | otherwise = 1
-          unless (actualLength == expectedLength) $
-                 tcError $ PatternArityMismatchError (qnlocal qname)
-                           expectedLength actualLength
-          setVarTypes fieldTypes arg
-          where
-          setVarTypes types Tuple{args} = do
-            vars <- zipWithM (getPatternVars isADT) types args
-            return $ concat $ reverse vars
-          setVarTypes types Skip{} = return []
-          setVarTypes [ty] arg = doGetPatternVars isADT ty arg
-
-        doGetPatternVars isADT pt fcall@(FunctionCall {args}) = do
+        doGetPatternVars pt fcall@(FunctionCall {args}) = do
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args}
-          getPatternVars isADT pt (fcall {args = [tupArg]})
+          getPatternVars pt (fcall {args = [tupArg]})
 
-        doGetPatternVars isADT pt tuple@(Tuple {args}) = do
+        doGetPatternVars pt tuple@(Tuple {args}) = do
           unless (isTupleType pt) $
             tcError $ PatternTypeMismatchError tuple pt
           let elemTypes = getArgTypes pt
 
-          varLists <- zipWithM (getPatternVars isADT) elemTypes args
+          varLists <- zipWithM getPatternVars elemTypes args
           return $ concat $ reverse varLists
 
-        doGetPatternVars isADT pt typed@(TypedExpr {body}) =
-          getPatternVars isADT pt body
+        doGetPatternVars pt typed@(TypedExpr {body}) =
+          getPatternVars pt body
 
-        doGetPatternVars isADT pt pattern = return []
+        doGetPatternVars pt pattern = return []
 
-        checkPattern isADT pattern argty =
+        checkPattern pattern argty =
             local (pushBT pattern) $
-              doCheckPattern isADT pattern argty
+              doCheckPattern pattern argty
 
-        doCheckPattern isADT pattern@(FunctionCall {args = []}) argty = do
+        doCheckPattern pattern@(FunctionCall {args = []}) argty = do
           let meta = getMeta pattern
               unitArg = Skip {emeta = meta}
-          checkPattern isADT (pattern {args = [unitArg]}) argty
+          checkPattern (pattern {args = [unitArg]}) argty
 
-        doCheckPattern isADT@False pattern@(FunctionCall {emeta
-                                                         ,qname
-                                                         ,args = [arg]}) argty = do
-          let name = qnlocal qname
-          header <- findMethod argty name
-          let hType = htype header
-              extractedType = getResultType hType
-          eArg <- checkPattern isADT arg extractedType
-          matchArgumentLength argty header []
-          checkReturnEncapsulation (qnlocal qname) extractedType argty
-          return $ setArrowType (arrowType [] hType) $
-                   setType argty ExtractorPattern {emeta
-                                                  ,ty = argty
-                                                  ,name
-                                                  ,arg = eArg
-                                                  }
+        doCheckPattern pattern@(FunctionCall {emeta
+                                             ,qname
+                                             ,args = [arg]}) argty
+          | isADT argty
+          , Tuple{} <- arg = do
+              let name = qnlocal qname
+              header <- findMethod argty name
+              c <- findADTClass (classType  (show name) [])
+              let fields = drop 1 $ fieldsFromClass c
+                  fieldTypes = if (length fields > 0)
+                               then map (\f@Field{ftype} -> ftype) fields
+                               else [unitType]
+                  fieldNames =
+                    map (\f@Field{fname} -> "_enc__field_" ++ show fname) fields
+                  adtClassDecl = c
+              eArg <- checkPattern arg $ tupleType fieldTypes
+              return $ setArrowType (arrowType [] intType) $
+                       setType argty AdtExtractorPattern {emeta
+                                                         ,ty = argty
+                                                         ,name
+                                                         ,arg = eArg
+                                                         ,fieldNames
+                                                         ,adtClassDecl}
+          | not (isADT argty) = do
+              let name = qnlocal qname
+              header <- findMethod argty name
+              let hType = htype header
+                  extractedType = getResultType hType
+              eArg <- checkPattern arg extractedType
+              matchArgumentLength argty header []
+              checkReturnEncapsulation (qnlocal qname) extractedType argty
+              return $ setArrowType (arrowType [] hType) $
+                       setType argty ExtractorPattern {emeta
+                                                      ,ty = argty
+                                                      ,name
+                                                      ,arg = eArg}
 
-        doCheckPattern isADT@True pattern@(FunctionCall {emeta
-                                                        ,qname
-                                                        ,args = [arg@Tuple{}]}) argty = do
-          let name = qnlocal qname
-          header <- findMethod argty name
-          c <- findClass (classType  (show name) [])
-          let fields = drop 1 $ fieldsFromClass c
-          let fieldTypes = if (length fields > 0)
-                           then map (\f@Field{ftype} -> ftype) fields
-                           else [unitType]
-          let fieldNames = map (\f@Field{fname} -> "_enc__field_" ++ show fname) fields
-              adtClassDecl = c
-          eArg <- checkPattern isADT arg $ tupleType fieldTypes
-          return $ setArrowType (arrowType [] intType) $
-                   setType argty AdtExtractorPattern {emeta
-                                                     ,ty = argty
-                                                     ,name
-                                                     ,arg = eArg
-                                                     ,fieldNames
-                                                     ,adtClassDecl}
-
-        doCheckPattern isADT pattern@(FunctionCall {args}) argty = do
+        doCheckPattern pattern@(FunctionCall {args}) argty = do
           let tupMeta = getMeta $ head args
               tupArg = Tuple {emeta = tupMeta, args = args}
-          checkPattern isADT (pattern {args = [tupArg]}) argty
+          checkPattern (pattern {args = [tupArg]}) argty
 
-        doCheckPattern isADT pattern@(MaybeValue{mdt = JustData {e}}) argty = do
+        doCheckPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do
           unless (isMaybeType argty) $
             tcError $ PatternTypeMismatchError pattern argty
           let innerType = getResultType argty
-          eExpr <- checkPattern isADT e innerType
+          eExpr <- checkPattern e innerType
           return $ setType argty (pattern {mdt = JustData {e = eExpr}})
 
-        doCheckPattern isADT pattern@(Tuple{args}) tupty = do
+        doCheckPattern pattern@(Tuple{args}) tupty = do
           let argTypes = getArgTypes tupty
           unless (length argTypes == length args) $
             tcError $ PatternTypeMismatchError pattern tupty
-          eArgs <- zipWithM (checkPattern isADT) args argTypes
+          eArgs <- zipWithM checkPattern args argTypes
           return $ setType tupty (pattern {args=eArgs})
 
-        doCheckPattern isADT pattern@(TypedExpr{body, ty}) argty = do
-          eBody <- checkPattern isADT body argty
+        doCheckPattern pattern@(TypedExpr{body, ty}) argty = do
+          eBody <- checkPattern body argty
           ty' <- checkType ty
           argty `assertSubtypeOf` ty'
           return $ setType ty' eBody
 
-        doCheckPattern isADT pattern argty
+        doCheckPattern pattern argty
             | isValidPattern pattern = hasType pattern argty
             | otherwise = tcError $ InvalidPatternError pattern
 
-        checkClause isADT pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
-          vars <- getPatternVars isADT pt mcpattern
+        checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
+          vars <- getPatternVars pt mcpattern
           let withLocalEnv = local (extendEnvironmentImmutable vars)
-          ePattern <- withLocalEnv $ checkPattern isADT mcpattern pt
+          ePattern <- withLocalEnv $ checkPattern mcpattern pt
           eHandler <- withLocalEnv $ typecheck mchandler
           eGuard <- withLocalEnv $ hasType mcguard boolType
           return $ clause {mcpattern = extend makePattern ePattern

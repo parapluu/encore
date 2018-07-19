@@ -169,8 +169,12 @@ instance Pushable ImportDecl where
 
 refTypeName :: Type -> String
 refTypeName ty
-    | isClassType ty = "class '" ++ getId ty ++ "'"
-    | isTraitType ty = "trait '" ++ getId ty ++ "'"
+    | isClassType ty = if isADT ty
+                       then "abstract data type case '" ++ getId ty ++ "'"
+                       else "class '" ++ getId ty ++ "'"
+    | isTraitType ty = if isADT ty
+                       then "abstract data type '" ++ getId ty ++ "'"
+                       else "trait '" ++ getId ty ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | isUnionType ty = "union '" ++ show ty ++ "'"
     | isTypeVar ty
@@ -228,7 +232,6 @@ data Error =
   | MainConstructorError
   | FieldNotFoundError Name Type
   | MethodNotFoundError Name Type
-  | AdtConstructorNotFoundError Name Type
   | BreakOutsideOfLoopError
   | BreakUsedAsExpressionError
   | ContinueOutsideOfLoopError
@@ -491,8 +494,6 @@ instance Show Error where
     show (FieldNotFoundError name ty) =
         printf "No field '%s' in %s"
                (show name) (refTypeName ty)
-    show (AdtConstructorNotFoundError name ty) =
-        printf "No constructor %s in ADT %s" (show name) (showWithoutMode ty)
     show (MethodNotFoundError name ty) =
         let nameWithKind = if name == constructorName
                            then "constructor"
