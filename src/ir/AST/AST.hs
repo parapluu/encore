@@ -252,9 +252,6 @@ data AdtCase = ADTCase {
   acmethods      :: [MethodDecl]
 } deriving (Show)
 
-fieldsFromClass :: ClassDecl -> [FieldDecl]
-fieldsFromClass c@Class{cfields} = cfields
-
 instance Eq ClassDecl where
   a == b = getId (cname a) == getId (cname b)
 

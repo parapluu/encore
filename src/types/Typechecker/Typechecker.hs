@@ -1131,7 +1131,7 @@ instance Checkable Expr where
         doGetPatternVars pt fcall@(FunctionCall {qname, args = [arg]})
           | isADT pt = do
               c <- findADTClass (classType  (show $ qnlocal qname) [])
-              let fields = drop 1 $ fieldsFromClass c
+              let fields = drop 1 $ cfields c
                   fieldTypes = map (\f@Field{ftype} -> ftype) fields
                   expectedLength = length fields
                   actualLength
@@ -1203,13 +1203,12 @@ instance Checkable Expr where
               let name = qnlocal qname
               header <- findMethod argty name
               c <- findADTClass (classType  (show name) [])
-              let fields = drop 1 $ fieldsFromClass c
+              let fields = drop 1 $ cfields c
                   fieldTypes = if (length fields > 0)
-                               then map (\f@Field{ftype} -> ftype) fields
+                               then map ftype fields
                                else [unitType]
                   fieldNames =
                     map (\f@Field{fname} -> "_enc__field_" ++ show fname) fields
-                  adtClassDecl = c
               eArg <- checkPattern arg $ tupleType fieldTypes
               return $ setArrowType (arrowType [] intType) $
                        setType argty AdtExtractorPattern {emeta
@@ -1217,7 +1216,7 @@ instance Checkable Expr where
                                                          ,name
                                                          ,arg = eArg
                                                          ,fieldNames
-                                                         ,adtClassDecl}
+                                                         ,adtClassDecl = c}
           | not (isADT argty) = do
               let name = qnlocal qname
               header <- findMethod argty name
@@ -1234,7 +1233,7 @@ instance Checkable Expr where
 
         doCheckPattern pattern@(FunctionCall {args}) argty = do
           let tupMeta = getMeta $ head args
-              tupArg = Tuple {emeta = tupMeta, args = args}
+              tupArg = Tuple {emeta = tupMeta, args}
           checkPattern (pattern {args = [tupArg]}) argty
 
         doCheckPattern pattern@(MaybeValue{mdt = JustData {e}}) argty = do

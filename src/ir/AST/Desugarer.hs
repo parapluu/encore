@@ -298,7 +298,7 @@ partitionADT allCases ADT{ameta, aname, amethods} =
                       makeRead $
                       adtCaseType (getId acname) (getTypeParameters acname) tag
              ,ccomposition = Just acparent{tcext = traitExtensions}
-             ,cfields
+             ,cfields = tagField acmeta : map buildField acfields
              ,cmethods = initMethod :
                          extractorMethods ++
                          acmethods
@@ -311,7 +311,6 @@ partitionADT allCases ADT{ameta, aname, amethods} =
                  ,ftype = ptype
                  ,fexpr = Nothing
                  }
-          cfields = tagField acmeta : map buildField acfields
           traitExtensions = map (FieldExtension . pname) acfields
 
           initMethod =
