@@ -803,7 +803,7 @@ adtCase = do
     name <- lookAhead upperChar >> identifier
     params <- optionalTypeParameters
     let acname = setRefNamespace emptyNamespace $
-                 adtCaseType name params
+                 adtCaseType name params 0
     acfields <- option [] $ parens (commaSep paramDecl)
     colon
     acparent <- parentType
@@ -820,9 +820,9 @@ adtCase = do
           refId = show $ last full
       parameters <- option [] $ brackets (commaSep1 typ)
       let tcname = if isEmptyNamespace ns
-                   then adtTraitType refId parameters
+                   then adtType refId parameters
                    else setRefNamespace ns $
-                        adtTraitType refId parameters
+                        adtType refId parameters
       return TraitLeaf{tcname, tcext = []}
 
     adtCaseLineDecl indent acmeta acname acfields acparent = do

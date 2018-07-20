@@ -255,7 +255,7 @@ partitionADTs adts cases =
         Class{cmeta = cloneMeta acmeta
              ,cname = transferRefSourceAndNamespace acname $
                       makeRead $
-                      adtClassType (getId acname) (getTypeParameters acname) 0
+                      adtCaseType (getId acname) (getTypeParameters acname) 0
              ,ccomposition = Just (traitCompositionFromCapability orphanedCapability)
              ,cfields = []
              ,cmethods = []
@@ -273,7 +273,7 @@ partitionADT allCases ADT{ameta, aname, amethods} =
       t = Trait{tmeta = cloneMeta ameta
                ,tname = transferRefSourceAndNamespace aname $
                         makeRead $
-                        adtTraitType (getId aname) (getTypeParameters aname)
+                        adtType (getId aname) (getTypeParameters aname)
                ,treqs = RequiredField{rfield = tagField ameta}:
                         map (RequiredMethod . headerFromCons) cases
                ,tmethods = amethods
@@ -296,7 +296,7 @@ partitionADT allCases ADT{ameta, aname, amethods} =
         Class{cmeta = cloneMeta acmeta
              ,cname = transferRefSourceAndNamespace acname $
                       makeRead $
-                      adtClassType (getId acname) (getTypeParameters acname) tag
+                      adtCaseType (getId acname) (getTypeParameters acname) tag
              ,ccomposition = Just acparent{tcext = traitExtensions}
              ,cfields
              ,cmethods = initMethod :
