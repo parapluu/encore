@@ -975,6 +975,7 @@ data Warning = StringDeprecatedWarning
              | ArrayInReadContextWarning
              | SharedArrayWarning
              | CapabilitySplitWarning
+             | ShadowingADTPatternWarning Name
 
 instance Show Warning where
     show StringDeprecatedWarning =
@@ -1004,3 +1005,6 @@ instance Show Warning where
     show CapabilitySplitWarning =
         "Unpacking linear capabilities is not fully supported and may be unsafe. " ++
         "This will be fixed in a later version of Encore."
+    show (ShadowingADTPatternWarning p) =
+        "Pattern '" ++ show p ++ "' shadows ADT case of same name. " ++
+        "You most likely want to write '" ++ show p ++ "()'."

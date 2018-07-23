@@ -1109,6 +1109,9 @@ instance Checkable Expr where
         doGetPatternVars pt va@(VarAccess {qname}) = do
           when (isThisAccess va) $
             tcError ThisReassignmentError
+          result <- asks $ classLookup (classType (show $ qnlocal qname) [])
+          unless (isNothing result || null (fromJust result)) $
+            tcWarning $ ShadowingADTPatternWarning (qnlocal qname)
           return [(qnlocal qname, pt)]
 
         doGetPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
@@ -1134,7 +1137,7 @@ instance Checkable Expr where
 
         doGetPatternVars pt fcall@(FunctionCall {qname, args = [arg]})
           | isADT pt = do
-              c <- findADTClass (classType  (show $ qnlocal qname) [])
+              c <- findADTClass (classType (show $ qnlocal qname) [])
               let fields = drop 1 $ cfields c
                   fieldTypes = map (\f@Field{ftype} -> ftype) fields
                   expectedLength = length fields
@@ -1205,8 +1208,10 @@ instance Checkable Expr where
           | isADT argty
           , Tuple{} <- arg = do
               let name = qnlocal qname
+              -- TODO: Catch MethodNotFoundError and rethrow as
+              -- ADTCaseNotFoundError (or similar)
               header <- findMethod argty name
-              c <- findADTClass (classType  (show name) [])
+              c <- findADTClass (classType (show name) [])
               let fields = drop 1 $ cfields c
                   fieldTypes = if (length fields > 0)
                                then map ftype fields
