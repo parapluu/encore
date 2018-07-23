@@ -1,6 +1,6 @@
 data Foo
 case Bar(i : int, str : String) : Foo
-case Baz() : Foo
+case Baz : Foo
 
 data LinkedThingy[t]
 case Link[t](elem : t, next : LinkedThingy[t]) : LinkedThingy[t]
@@ -8,6 +8,18 @@ case Last[t](elem : t) : LinkedThingy[t]
 
 active class Main
   def simpleMatch() : unit
+    match Bar(1, "Bar") with
+      case Bar(i, str) => println(str)
+      case Baz() => println("Baz")
+    end
+
+    match Baz() with
+      case Bar(i, str) => println(str)
+      case Baz() => println("Baz")
+    end
+  end
+
+  def nestedMatch() : unit
     match Bar(1, "Bar") with
       case Bar(i, str) => println(str)
       case Baz() => println("Baz")

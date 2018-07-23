@@ -1,0 +1,28 @@
+data Option
+
+case SomeInt(x : int) : Option
+case None : Option
+case SomeMaybe(x : Maybe[int]) : Option
+case OptOpt(x : Option) : Option
+
+active class Main
+  def main(args : [String]) : unit
+   match (Just(SomeInt(42))) with
+     case Just(None()) => println("This should not happen")
+     case Nothing => println("This REALLY should not happen")
+     case Just(SomeInt(n)) => println(n)
+   end
+   match (SomeMaybe(Just(43))) with
+     case None() => println("This should not happen")
+     case SomeMaybe(Nothing) => println("This also should not happen")
+     case SomeMaybe(Just(42)) => println("Lets hope this doesn't happen...")
+     case SomeMaybe(Just(n)) => println(n)
+   end
+   match (OptOpt(SomeMaybe(Just(44)))) with
+     case None() => println("This should not happen")
+     case OptOpt(SomeMaybe(Nothing)) => println("This should not happen")
+     case OptOpt(SomeMaybe(Just(n))) => println(n)
+     case OptOpt(None()) => println("Nope")
+   end
+  end
+end

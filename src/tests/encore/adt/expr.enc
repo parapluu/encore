@@ -1,0 +1,36 @@
+data Expr
+  def eval() : Expr
+    this
+  end
+end
+
+case Value(value : int) : Expr
+
+case Variable(id : String) : Expr
+
+case Addition(left : Expr, right : Expr) : Expr
+  def eval() : Expr
+    val this' = new Addition(this.left.eval(), this.right.eval())
+    match this' with
+      case Addition(Value(0), r) => r
+      case Addition(l, Value(0)) => l
+      case Addition(Value(l), Value(r)) => new Value(l + r)
+      case e => e
+    end
+  end
+end
+
+active class Main
+  def main() : unit
+    val zero = new Value(0)
+    val two = new Value(2)
+    val minusTwo = new Addition(zero, new Value(-2))
+    val x = new Variable("x")
+    val e = new Addition(x, new Addition(two, minusTwo))
+    match e.eval() with
+      case Variable(x) =>
+        println("Simplified to '{}'", x)
+      end
+    end
+  end
+end
