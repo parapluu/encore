@@ -619,13 +619,11 @@ data Expr = Skip {emeta :: Meta Expr}
           | Optional {emeta :: Meta Expr,
                       optTag :: OptionalPathComponent}
           | AdtExtractorPattern {emeta :: Meta Expr,
-                                 ty :: Type,
                                  name :: Name,
                                  arg :: Expr,
                                  fieldNames :: [String],
                                  adtClassDecl :: ClassDecl}
           | ExtractorPattern {emeta :: Meta Expr,
-                              ty :: Type,
                               name :: Name,
                               arg :: Expr}
           | FunctionCall {emeta :: Meta Expr,
@@ -891,6 +889,7 @@ isImpure Suspend {} = True
 isImpure Assign {} = True
 isImpure NewWithInit {} = True
 isImpure New {} = True
+isImpure Match {} = True
 isImpure _ = False
 
 hasBody :: Expr -> Bool

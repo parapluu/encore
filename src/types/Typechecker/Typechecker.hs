@@ -549,12 +549,16 @@ instance Checkable MethodDecl where
           header <- findMethod targetType name
           unless (isMatchMethodHeader header) $
                  pushError call $ ImpureMatchMethodError call
-        checkImpureExpr ext@ExtractorPattern{name, ty} = do
-          header <- findMethod ty name
-          unless (isMatchMethodHeader header) $
-                 pushError ext $ ImpureMatchMethodError ext
+        checkImpureExpr match@Match{arg, clauses} =
+          mapM_ (checkImpurePattern (AST.getType arg) . mcpattern) clauses
         checkImpureExpr Assign{lhs = VarAccess{}} = return ()
         checkImpureExpr e = pushError e $ ImpureMatchMethodError e
+
+        checkImpurePattern argTy p@ExtractorPattern{name} = do
+          header <- findMethod argTy name
+          unless (isMatchMethodHeader header) $
+                 pushError p $ ImpureMatchMethodError p
+        checkImpurePattern argTy _ = return ()
 
 instance Checkable ParamDecl where
     doTypecheck p@Param{ptype} = do
@@ -1212,7 +1216,6 @@ instance Checkable Expr where
               eArg <- checkPattern arg $ tupleType fieldTypes
               return $ setArrowType (arrowType [] intType) $
                        setType argty AdtExtractorPattern {emeta
-                                                         ,ty = argty
                                                          ,name
                                                          ,arg = eArg
                                                          ,fieldNames
@@ -1227,7 +1230,6 @@ instance Checkable Expr where
               checkReturnEncapsulation (qnlocal qname) extractedType argty
               return $ setArrowType (arrowType [] hType) $
                        setType argty ExtractorPattern {emeta
-                                                      ,ty = argty
                                                       ,name
                                                       ,arg = eArg}
 
