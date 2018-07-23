@@ -1139,7 +1139,9 @@ instance Checkable Expr where
           | isADT pt = do
               c <- findADTClass (classType (show $ qnlocal qname) [])
               let fields = drop 1 $ cfields c
-                  fieldTypes = map (\f@Field{ftype} -> ftype) fields
+                  bindings =
+                    zip (getTypeParameters (cname c)) (getTypeParameters pt)
+                  fieldTypes = map (replaceTypeVars bindings . ftype) fields
                   expectedLength = length fields
                   actualLength
                     | Tuple{args} <- arg = length args
@@ -1212,18 +1214,18 @@ instance Checkable Expr where
               -- ADTCaseNotFoundError (or similar)
               header <- findMethod argty name
               c <- findADTClass (classType (show name) [])
-              let fields = drop 1 $ cfields c
-                  fieldTypes = if (length fields > 0)
-                               then map ftype fields
-                               else [unitType]
-                  fieldNames =
-                    map (\f@Field{fname} -> "_enc__field_" ++ show fname) fields
+              let bindings =
+                    zip (getTypeParameters (cname c)) (getTypeParameters argty)
+                  fields = drop 1 $ cfields c
+                  fieldTypes =
+                    if null fields
+                    then [unitType]
+                    else map (replaceTypeVars bindings . ftype) fields
               eArg <- checkPattern arg $ tupleType fieldTypes
               return $ setArrowType (arrowType [] intType) $
                        setType argty AdtExtractorPattern {emeta
                                                          ,name
                                                          ,arg = eArg
-                                                         ,fieldNames
                                                          ,adtClassDecl = c}
           | not (isADT argty) = do
               let name = qnlocal qname

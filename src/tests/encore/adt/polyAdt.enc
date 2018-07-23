@@ -1,0 +1,13 @@
+data Option[t]
+
+case Some[t](x : t) : Option[t]
+case None[t] : Option[t]
+
+active class Main
+  def main(args : [String]) : unit
+    match (Just(Some(42))) with
+      case Just(Some(n)) => println(n)
+      case Just(None[int]()) => println("This should not happen")
+    end
+  end
+end

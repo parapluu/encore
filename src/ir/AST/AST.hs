@@ -621,7 +621,6 @@ data Expr = Skip {emeta :: Meta Expr}
           | AdtExtractorPattern {emeta :: Meta Expr,
                                  name :: Name,
                                  arg :: Expr,
-                                 fieldNames :: [String],
                                  adtClassDecl :: ClassDecl}
           | ExtractorPattern {emeta :: Meta Expr,
                               name :: Name,

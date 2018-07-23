@@ -817,37 +817,44 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
 
         translatePattern e@A.AdtExtractorPattern{A.name
                                                 ,A.arg = A.Tuple{A.args}
-                                                ,A.fieldNames
-                                                ,A.adtClassDecl = c@A.Class{A.cname}}
+                                                ,A.adtClassDecl =
+                                                   c@A.Class{A.cname
+                                                            ,A.cfields}}
                          argName argty assocs usedVars = do
           let eSelfArg = AsExpr argName
               tag = Ty.getAdtTag cname
               typeName = Ptr $ AsType (classTypeName cname)
               castArgName = Cast typeName argName
 
-          fieldCheck <- Var <$> Ctx.genNamedSym "adtFieldCheck"
+          fieldVar <- Var <$> Ctx.genNamedSym "adtFieldCheck"
           tmp <- Var <$> Ctx.genNamedSym "adtPatternResult"
           tFields <-
-            zipWithM (translateAdtField castArgName assocs usedVars fieldCheck)
-                     args (map Nam fieldNames)
+            zipWithM (translateAdtField castArgName assocs usedVars fieldVar)
+                     args (map (\f -> (A.fname f, A.ftype f)) (drop 1 cfields))
 
           let nullCheck = BinOp (translate ID.NEQ) eSelfArg Null
               actualTag = Cast typeName eSelfArg `Arrow` Nam "_enc__field__ADT_tag"
               tagCheck  = BinOp (translate ID.EQ) (AsExpr actualTag) (Int tag)
               eCheck    = BinOp (translate ID.AND) nullCheck tagCheck
-              fwdDecl   = Assign (Decl (translate Ty.intType, fieldCheck)) (Int 1)
+              fwdDecl   = Assign (Decl (translate Ty.intType, fieldVar)) (Int 1)
               result    = BinOp (translate ID.AND)
-                                eCheck (StatAsExpr fieldCheck (Seq tFields))
+                                eCheck (StatAsExpr fieldVar (Seq tFields))
               theAssign = Assign tmp result
 
           return (tmp, Seq [fwdDecl, theAssign], usedVars)
           where
-            translateAdtField argName assocs usedVars retVar field fieldName = do
-              let fieldLookup = argName `Arrow` fieldName
-                  fieldType = A.getType field
-
-              (nField, tField, _) <- translatePattern field fieldLookup fieldType assocs usedVars
-              let theAnd = BinOp (translate ID.AND) (AsExpr retVar) (AsExpr nField)
+            translateAdtField argName assocs usedVars retVar field (formalName, formalType) = do
+              let fieldType = A.getType field
+                  fieldCType = translate fieldType
+                  fieldAccess = argName `Arrow` fieldName formalName
+                  fieldLookup =
+                    if Ty.isTypeVar formalType
+                    then fromEncoreArgT fieldCType (AsExpr fieldAccess)
+                    else fieldAccess
+              (nField, tField, _) <-
+                translatePattern field fieldLookup fieldType assocs usedVars
+              let theAnd =
+                    BinOp (translate ID.AND) (AsExpr retVar) (AsExpr nField)
                   theRetAssign = Assign retVar theAnd
                   theHelpDecl = Statement $ Decl (translate Ty.intType, nField)
               return $ Seq [theHelpDecl, tField, theRetAssign]
