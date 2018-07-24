@@ -1109,9 +1109,6 @@ instance Checkable Expr where
         doGetPatternVars pt va@(VarAccess {qname}) = do
           when (isThisAccess va) $
             tcError ThisReassignmentError
-          result <- asks $ classLookup (classType (show $ qnlocal qname) [])
-          unless (isNothing result || null (fromJust result)) $
-            tcWarning $ ShadowingADTPatternWarning (qnlocal qname)
           return [(qnlocal qname, pt)]
 
         doGetPatternVars pt mcp@(MaybeValue{mdt = JustData {e}})
@@ -1571,7 +1568,11 @@ instance Checkable Expr where
 
       result <- findVar qname
       case result of
-        Just (qname', ty) ->
+        Just (qname', ty) -> do
+          result <- asks $ classLookup (classType (show $ qnlocal qname') [])
+          unless (isNothing result || null (fromJust result)) $
+            tcWarning $ ShadowingADTCaseWarning (qnlocal qname)
+
           if isArrowType ty
           then do
             let typeParams = getTypeParameters ty
