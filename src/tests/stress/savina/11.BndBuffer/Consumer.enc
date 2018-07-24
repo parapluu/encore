@@ -44,12 +44,12 @@ active class Consumer
     -- print("Consumer {} created\n", id)
   end
 
-  def doConsume(data: real) : unit
-    this.consItem = processItem(this.consItem + data, this.consCost)
+  def doConsume(payload: real) : unit
+    this.consItem = processItem(this.consItem + payload, this.consCost)
   end
 
-  def process(data: real) : unit
-    this.doConsume(data)
+  def process(payload: real) : unit
+    this.doConsume(payload)
     this.manager ! consumerAvailable(this)
   end
 end

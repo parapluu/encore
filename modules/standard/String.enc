@@ -292,7 +292,7 @@ read class String : Id + Hashable + Eq[String](compare(),length,cstring)
     end
   end
 
-  def getCstring(): CString
+  def getCString(): CString
     this.cstring
   end
 
