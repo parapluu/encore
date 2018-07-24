@@ -256,6 +256,7 @@ data Error =
   | PatternTypeMismatchError Expr Type
   | NonMaybeExtractorPatternError Expr
   | InvalidPatternError Expr
+  | DuplicatePatternVarError Name Expr
   | InvalidTupleTargetError Expr Int Type
   | InvalidTupleAccessError Expr Int
   | CannotReadFieldError Expr
@@ -560,6 +561,9 @@ instance Show Error where
     show (InvalidPatternError pattern) =
         printf "'%s' is not a valid pattern"
                (show $ ppSugared pattern)
+    show (DuplicatePatternVarError name pattern) =
+        printf "Variable '%s' is used multiple times in pattern '%s'"
+               (show name) (show $ ppSugared pattern)
     show (InvalidTupleTargetError target compartment ty) =
         printf "Compartment access %s.%d expects a tuple target, found %s"
                (show $ ppSugared target)

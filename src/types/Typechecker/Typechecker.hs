@@ -1271,6 +1271,10 @@ instance Checkable Expr where
 
         checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
           vars <- getPatternVars pt mcpattern
+          let duplicates = vars \\ nub vars
+          unless (null duplicates) $
+                 tcError $
+                 DuplicatePatternVarError (fst (head duplicates)) mcpattern
           let withLocalEnv = local (extendEnvironmentImmutable vars)
           ePattern <- withLocalEnv $ checkPattern mcpattern pt
           eHandler <- withLocalEnv $ typecheck mchandler

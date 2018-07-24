@@ -782,7 +782,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               varNames = map (ID.Name . fst) assocs
               lookupVar name = fromJust $ lookup (show name) assocs
 
-        translateMaybePattern e derefedArg argty assocs usedVars = do
+        translateMaybePattern e derefedArg argty assocs = do
           optionVar <- Ctx.genNamedSym "optionVal"
           nCheck <- Ctx.genNamedSym "optionCheck"
           let eMaybeVal = AsExpr $ Dot derefedArg (Nam "val")
@@ -790,7 +790,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               eMaybeField = fromEncoreArgT (translate valType) eMaybeVal
               tVal = Assign (Decl (translate valType, Var optionVar)) eMaybeField
 
-          (nRest, tRest, newUsedVars) <- translatePattern e (Var optionVar) valType assocs usedVars
+          (nRest, tRest) <- translatePattern e (Var optionVar) valType assocs
 
           let expectedTag = AsExpr $ AsLval $ Nam "JUST"
               actualTag = AsExpr $ Dot derefedArg $ Nam "tag"
@@ -802,7 +802,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               eCheck = BinOp (translate ID.AND) eTagsCheck eRest
               tCheck = Assign (Var nCheck) eCheck
 
-          return (Var nCheck, tCheck, newUsedVars)
+          return (Var nCheck, tCheck)
 
         translateComparison e1 e2 ty
           | Ty.isStringType ty = do
@@ -820,7 +820,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                 ,A.adtClassDecl =
                                                    c@A.Class{A.cname
                                                             ,A.cfields}}
-                         argName argty assocs usedVars = do
+                         argName argty assocs = do
           let eSelfArg = AsExpr argName
               tag = Ty.getAdtTag cname
               typeName = Ptr $ AsType (classTypeName cname)
@@ -829,7 +829,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           fieldVar <- Var <$> Ctx.genNamedSym "adtFieldCheck"
           tmp <- Var <$> Ctx.genNamedSym "adtPatternResult"
           tFields <-
-            zipWithM (translateAdtField castArgName assocs usedVars fieldVar)
+            zipWithM (translateAdtField castArgName assocs fieldVar)
                      args (map (\f -> (A.fname f, A.ftype f)) (drop 1 cfields))
 
           let nullCheck = BinOp (translate ID.NEQ) eSelfArg Null
@@ -841,9 +841,9 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                 eCheck (StatAsExpr fieldVar (Seq tFields))
               theAssign = Assign tmp result
 
-          return (tmp, Seq [fwdDecl, theAssign], usedVars)
+          return (tmp, Seq [fwdDecl, theAssign])
           where
-            translateAdtField argName assocs usedVars retVar field (formalName, formalType) = do
+            translateAdtField argName assocs retVar field (formalName, formalType) = do
               let fieldType = A.getType field
                   fieldCType = translate fieldType
                   fieldAccess = argName `Arrow` fieldName formalName
@@ -851,15 +851,15 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                     if Ty.isTypeVar formalType
                     then fromEncoreArgT fieldCType (AsExpr fieldAccess)
                     else fieldAccess
-              (nField, tField, _) <-
-                translatePattern field fieldLookup fieldType assocs usedVars
+              (nField, tField) <-
+                translatePattern field fieldLookup fieldType assocs
               let theAnd =
                     BinOp (translate ID.AND) (AsExpr retVar) (AsExpr nField)
                   theRetAssign = Assign retVar theAnd
                   theHelpDecl = Statement $ Decl (translate Ty.intType, nField)
               return $ Seq [theHelpDecl, tField, theRetAssign]
 
-        translatePattern (A.ExtractorPattern {A.name, A.arg}) narg argty assocs usedVars = do
+        translatePattern (A.ExtractorPattern {A.name, A.arg}) narg argty assocs = do
           let eSelfArg = AsExpr narg
               eNullCheck = BinOp (translate ID.NEQ) eSelfArg Null
               innerTy = A.getType arg
@@ -884,8 +884,8 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 return (Var tmp, Seq $ argDecls ++ [theAssign])
 
           let derefedCall = Deref nCall
-          (nRest, tRest, newUsedVars) <-
-              translateMaybePattern arg derefedCall tmpTy assocs usedVars
+          (nRest, tRest) <-
+              translateMaybePattern arg derefedCall tmpTy assocs
 
           nCheck <- Ctx.genNamedSym "extractoCheck"
           let tDecl = Statement $ Decl (translate Ty.intType, nRest)
@@ -893,20 +893,20 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
               eCheck = BinOp (translate ID.AND) eNullCheck $ StatAsExpr nRest tRestWithDecl
               tAssign = Assign (Var nCheck) eCheck
 
-          return (Var nCheck, tAssign, newUsedVars)
+          return (Var nCheck, tAssign)
 
-        translatePattern (tuple@A.Tuple {A.args}) larg argty assocs usedVars = do
+        translatePattern (tuple@A.Tuple {A.args}) larg argty assocs = do
           tmp <- Ctx.genNamedSym "tupleCheck"
 
           let elemTypes = Ty.getArgTypes $ A.getType tuple
               elemInfo = zip elemTypes args
               theInit = Assign (Var tmp) (Int 1)
 
-          (tChecks, newUsedVars) <- checkElems elemInfo (Var tmp) larg assocs usedVars 0
-          return (Var tmp, Seq $ theInit:tChecks, newUsedVars)
+          tChecks <- checkElems elemInfo (Var tmp) larg assocs 0
+          return (Var tmp, Seq $ theInit:tChecks)
             where
-              checkElems [] _ _ _ usedVars _ = return ([], usedVars)
-              checkElems ((ty, arg):rest) retVar larg assocs usedVars index = do
+              checkElems [] _ _ _ _ = return []
+              checkElems ((ty, arg):rest) retVar larg assocs index = do
                 accessName <- Ctx.genNamedSym "tupleAccess"
                 let elemTy = translate ty
                     theDecl = Decl (elemTy, Var accessName)
@@ -914,50 +914,40 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                     theCast = Cast elemTy theCall
                     theAssign = Assign theDecl theCall
 
-                (ncheck, tcheck, newUsedVars) <- translatePattern arg (Var accessName) ty assocs usedVars
-                (tRest, newNewUsedVars) <- checkElems rest retVar larg assocs newUsedVars (index + 1)
+                (ncheck, tcheck) <- translatePattern arg (Var accessName) ty assocs
+                tRest <- checkElems rest retVar larg assocs (index + 1)
 
                 let theAnd = BinOp (translate ID.AND) (AsExpr retVar) (AsExpr ncheck)
                     theRetAssign = Assign retVar theAnd
                     theHelpDecl = Statement $ Decl (translate Ty.intType, ncheck)
-                return (theAssign : theHelpDecl : tcheck : theRetAssign : tRest, newNewUsedVars)
+                return (theAssign : theHelpDecl : tcheck : theRetAssign : tRest)
 
-        translatePattern (A.MaybeValue {A.mdt=A.JustData{A.e}}) larg argty assocs usedVars = do
+        translatePattern (A.MaybeValue {A.mdt=A.JustData{A.e}}) larg argty assocs = do
           let derefedArg = Deref larg
-          translateMaybePattern e derefedArg argty assocs usedVars
+          translateMaybePattern e derefedArg argty assocs
 
-        translatePattern (A.VarAccess{A.qname}) larg argty assocs usedVars
-          | name <- ID.qnlocal qname
-          , Set.member name usedVars = do
-              tmp <- Ctx.genNamedSym "varBinding"
-              let eVar = AsExpr $ fromJust $ lookup (show name) assocs
-                  eArg = AsExpr larg
-              eComp <- translateComparison eVar eArg argty
-              let tBindRet = Assign (Var tmp) eComp
-              return (Var tmp, tBindRet, usedVars)
-          | otherwise = do
-              tmp <- Ctx.genNamedSym "varBinding"
-              let name = ID.qnlocal qname
-                  lVar = fromJust $ lookup (show name) assocs
-                  eArg = AsExpr larg
-                  tBindVar = Assign lVar eArg
-                  tBindRet = Assign (Var tmp) (Int 1)
-                  newUsedVars = Set.insert name usedVars
-                  tBindAll = Seq [tBindVar, tBindRet]
-              return (Var tmp, tBindAll, newUsedVars)
+        translatePattern (A.VarAccess{A.qname}) larg argty assocs = do
+          tmp <- Ctx.genNamedSym "varBinding"
+          let name = ID.qnlocal qname
+              lVar = fromJust $ lookup (show name) assocs
+              eArg = AsExpr larg
+              tBindVar = Assign lVar eArg
+              tBindRet = Assign (Var tmp) (Int 1)
+              tBindAll = Seq [tBindVar, tBindRet]
+          return (Var tmp, tBindAll)
 
-        translatePattern value larg argty _ usedVars = do
+        translatePattern value larg argty _ = do
           tmp <- Ctx.genNamedSym "valueCheck"
           (nvalue, tvalue) <- translate value
           let eValue = StatAsExpr nvalue tvalue
               eArg = AsExpr larg
           eComp <- translateComparison eValue eArg argty
           let tAssign = Assign (Var tmp) eComp
-          return (Var tmp, tAssign, usedVars)
+          return (Var tmp, tAssign)
 
         translateIfCond (A.MatchClause {A.mcpattern, A.mcguard})
                         narg argty assocs = do
-          (nPattern, tPatternNoDecl, _) <- translatePattern mcpattern narg argty assocs Set.empty
+          (nPattern, tPatternNoDecl) <- translatePattern mcpattern narg argty assocs
 
           -- The binding expression should evaluate to true,
           -- regardless of the values that are bound.
