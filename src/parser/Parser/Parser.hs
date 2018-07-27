@@ -424,16 +424,19 @@ typeVariable = do
   typeVar <$> identifier
   <?> "lower case type variable"
 
-data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function}
+data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function} | ADecl{adecl :: AdtDecl}
+           | ACDecl{acdecl :: AdtConstructor}
 
-partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function])
-partitionDecls = partitionDecls' [] [] [] []
+partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function], [AdtDecl], [AdtConstructor])
+partitionDecls = partitionDecls' [] [] [] [] [] []
   where
-    partitionDecls' cs ts tds fds [] = (cs, ts, tds, fds)
-    partitionDecls' cs ts tds fds (CDecl{cdecl}:ds) = partitionDecls' (cdecl:cs) ts tds fds ds
-    partitionDecls' cs ts tds fds (TDecl{tdecl}:ds) = partitionDecls' cs (tdecl:ts) tds fds ds
-    partitionDecls' cs ts tds fds (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds ds
-    partitionDecls' cs ts tds fds (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) ds
+    partitionDecls' cs ts tds fds adts acons [] = (cs, ts, tds, fds, adts, acons)
+    partitionDecls' cs ts tds fds adts acons (CDecl{cdecl}:ds) = partitionDecls' (cdecl:cs) ts tds fds adts acons ds
+    partitionDecls' cs ts tds fds adts acons (TDecl{tdecl}:ds) = partitionDecls' cs (tdecl:ts) tds fds adts acons ds
+    partitionDecls' cs ts tds fds adts acons (TDef{tdef}:ds) = partitionDecls' cs ts (tdef:tds) fds adts acons ds
+    partitionDecls' cs ts tds fds adts acons (FDecl{fdecl}:ds) = partitionDecls' cs ts tds (fdecl:fds) adts acons ds
+    partitionDecls' cs ts tds fds adts acons (ADecl{adecl}:ds) = partitionDecls' cs ts tds fds (adecl:adts) acons ds
+    partitionDecls' cs ts tds fds adts acons (ACDecl{acdecl}:ds) = partitionDecls' cs ts tds fds adts (acdecl:acons) ds
 
 program :: EncParser Program
 program = do
@@ -455,8 +458,10 @@ program = do
                    ,TDecl <$> traitDecl
                    ,TDef <$> typedef
                    ,FDecl <$> globalFunction
+                   ,ADecl <$> adtDecl
+                   ,ACDecl <$> adtConstructor
                    ]
-  let (classes, traits, typedefs, functions) = partitionDecls decls
+  let (classes, traits, typedefs, functions, adts, adtCons) = partitionDecls decls
   eof
   return Program{source
                 ,moduledecl
@@ -466,6 +471,8 @@ program = do
                 ,functions
                 ,traits
                 ,classes
+                ,adts
+                ,adtCons
                 }
     where
       hashbang = do string "#!"
@@ -642,6 +649,7 @@ partitionTraitAttributes = partitionTraitAttributes' [] []
     partitionTraitAttributes' rs ms (TMethodAttribute{tmdecl}:as) =
       partitionTraitAttributes' rs (tmdecl:ms) as
 
+
 mode :: EncParser (Type -> Type)
 mode = (reserved "linear" >> return makeLinear)
        <|>
@@ -749,6 +757,131 @@ partitionClassAttributes = partitionClassAttributes' [] []
       partitionClassAttributes' (flddecl:fs) ms as
     partitionClassAttributes' fs ms (MethodAttribute{mdecl}:as) =
       partitionClassAttributes' fs (mdecl:ms) as
+
+adtDecl :: EncParser AdtDecl
+adtDecl = do
+  (try adtBlockDecl) <|> adtLineDecl
+  where
+    adtLineDecl = do
+      ameta <- buildMeta
+      reserved "data"
+      name <- lookAhead upperChar >> identifier
+      params <- optionalTypeParameters
+      return ADT{ameta
+                ,aname = setRefNamespace emptyNamespace $ adtType name params
+                ,aconstructor = []
+                ,amethods = []
+                ,identity = name
+                }
+    adtBlockDecl = do
+      aIndent <- L.indentLevel
+      adecl <- indentBlock $ do
+        ameta <- buildMeta
+        reserved "data"
+        name <- lookAhead upperChar >> identifier
+        params <- optionalTypeParameters
+        return $ L.IndentSome
+                   Nothing
+                   (buildADT ameta name params)
+                   methodDecl
+      atLevel aIndent $ reserved "end"
+      return adecl
+    buildADT ameta name params methods =
+      return ADT{ameta
+                ,aname = setRefNamespace emptyNamespace $ adtType name params
+                ,aconstructor = []
+                ,amethods = methods
+                ,identity = name
+                }
+
+
+--adtDecl :: EncParser AdtDecl
+--adtDecl = do
+--  aIndent <- L.indentLevel
+--  ameta <- meta <$> getPosition
+--  reserved "data"
+--  decl <- (try (blockDecl ameta aIndent)) <|> lineDecl ameta
+--  return decl
+--  where
+--    blockDecl ameta aIndent = indentBlock $ do
+--      name <- lookAhead upperChar >> identifier
+--      params <- optionalTypeParameters
+--      return $ L.IndentSome
+--        Nothing
+--        (buildADT aIndent ameta name params)
+--        methodDecl
+--
+--    buildADT aIndent ameta name params methods = do
+--      atLevel aIndent $ reserved "end"
+--      return ADT{ameta
+--                ,aname = setRefNamespace emptyNamespace $ adtType name params
+--                ,aconstructor = []
+--                ,amethods = methods
+--                ,identity = name
+--                }
+--
+--    lineDecl ameta = do
+--      name <- lookAhead upperChar >> identifier
+--      params <- optionalTypeParameters
+--      return ADT{ameta
+--                ,aname = setRefNamespace emptyNamespace $ adtType name params
+--                ,aconstructor = []
+--                ,amethods = []
+--                ,identity = name
+--                }
+
+adtConstructor :: EncParser AdtConstructor
+adtConstructor = do
+  (try adtConsBlockDecl) <|> adtConsLineDecl
+  where
+    adtConsLineDecl = do
+      acmeta <- buildMeta
+      reserved "case"
+      name <- lookAhead upperChar >> identifier
+      params <- optionalTypeParameters
+      acfields <- parens (commaSep paramDecl)
+      colon
+      parentIdentity <- lookAhead parentID
+      acomposition <- traitComposition
+      return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
+                        adtConsType name params
+                     ,acfields
+                     ,acomposition
+                     ,acmethods = []
+                     ,parentIdentity
+                     }
+    parentID = do
+      c <- upperChar
+      rest <- identifier
+      return (c:rest)
+
+    adtConsBlockDecl :: EncParser AdtConstructor
+    adtConsBlockDecl = do
+      acIndent <- L.indentLevel
+      acdecl <- indentBlock $ do
+        acmeta <- buildMeta
+        reserved "case"
+        name <- lookAhead upperChar >> identifier
+        params <- optionalTypeParameters
+        acfields <- parens (commaSep paramDecl)
+        colon
+        parentIdentity <- lookAhead parentID
+        acomposition <- traitComposition
+        return $ L.IndentMany
+                   Nothing
+                   (buildAdtCons acmeta name params acfields acomposition parentIdentity)
+                   methodDecl
+      atLevel acIndent $ reserved "end"
+      return acdecl
+
+    buildAdtCons acmeta name params acfields acomposition parentIdentity acmethods =
+      return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
+                        adtConsType name params
+                     ,acfields
+                     ,acomposition
+                     ,acmethods
+                     ,parentIdentity
+                     }
 
 -- TODO: Allow linebreak (with indent) for trait inclusion
 classDecl :: EncParser ClassDecl

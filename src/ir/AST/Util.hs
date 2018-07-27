@@ -73,6 +73,7 @@ getChildren Optional {optTag = QuestionBang e} = [e]
 getChildren MethodCall {target, args} = target : args
 getChildren MessageSend {target, args} = target : args
 getChildren ExtractorPattern {arg} = [arg]
+getChildren AdtExtractorPattern {arg} = [arg]
 getChildren FunctionCall {args} = args
 getChildren FunctionAsValue {} = []
 getChildren PartySeq {par, seqfunc} = [par, seqfunc]
@@ -153,6 +154,7 @@ putChildren [body@FieldAccess {}] e@(Optional {}) = e{optTag = QuestionDot body}
 putChildren (target : args) e@(MethodCall {}) = e{target = target, args = args}
 putChildren (target : args) e@(MessageSend {}) = e{target = target, args = args}
 putChildren [arg] e@(ExtractorPattern {}) = e{arg = arg}
+putChildren [arg] e@(AdtExtractorPattern {}) = e{arg = arg}
 putChildren args e@(FunctionCall {}) = e{args = args}
 putChildren [par, seqfunc] e@(PartySeq {}) = e{par=par, seqfunc=seqfunc}
 putChildren [l, r] e@(PartyPar {}) = e{parl=l, parr=r}
@@ -230,6 +232,7 @@ putChildren _ e@(Optional {}) = error "'putChildren l Option' expects l to have 
 putChildren _ e@(MethodCall {}) = error "'putChildren l MethodCall' expects l to have at least 1 element"
 putChildren _ e@(MessageSend {}) = error "'putChildren l MessageSend' expects l to have at least 1 element"
 putChildren _ e@(ExtractorPattern {}) = error "'putChildren l ExtractorPattern' expects l to have 1 element"
+putChildren _ e@(AdtExtractorPattern {}) = error "'putChildren l AdtExtractorPattern' expects l to have 1 element"
 putChildren _ e@(FunctionAsValue {}) = error "'putChildren l FunctionAsValue' expects l to have 0 elements"
 putChildren _ e@(PartySeq {}) = error "'putChildren l PartySeq' expects l to have 2 elements"
 putChildren _ e@(PartyPar {}) = error "'putChildren l PartyPar' expects l to have 2 elements"

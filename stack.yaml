@@ -4,5 +4,4 @@ packages:
 - '.'
 extra-deps:
 - megaparsec-5.1.2
-- pretty-1.1.3.6
-resolver: lts-6.0
+resolver: lts-9.17

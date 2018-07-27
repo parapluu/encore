@@ -1,0 +1,283 @@
+module Parser(parse, Parser)
+
+-- A JSON Parser that produces a partially interpreted/untyped represention,
+-- namely JSON.Encode.Value. JSON decoders (cf. JSON.Decode) convert that
+-- into an application specific one.
+--
+-- Either use global function parse :: String -> Maybe(Value)
+--
+--   e.g, parse("{\"freddy\":\"json\"}")
+--
+-- Alternatively, create an instance of class Parser with the string
+-- you want to parse as input. Then call whatever parse methods
+-- you wish:
+-- 
+--  val p = new Parser("{\"freddy\":\"json\"}")
+--  p.parse_object()
+-- 
+
+import Collections.Mutable.HashMap
+import Collections.Mutable.LinkedList
+import JSON.Encode
+import Data.Maybe
+import Data.Char as Char
+
+
+-- main parsing function
+fun parse(str : String) : Maybe[Value]
+  (new Parser(str)).parse()
+end
+
+-- implementation of the underlying parser
+local class Parser
+  var index : int = 0
+  val str : String
+  val len : int
+  
+  def init(s : String) : unit
+    this.str = s
+    this.len = s.length()
+  end
+  
+  def current() : char
+    if this.index < this.len then
+      this.str.at(this.index)
+    else
+      EMBED (char) (char)(-1); END       -- TODO: find a better way
+    end
+  end
+  
+  def parse() : Maybe[Value]
+    this.skip()
+    val res = this.parse_value()
+    this.skip()
+    if this.at_end() then
+      res
+    else
+      Nothing -- "unexpected character(s) after JSON value"
+    end  
+  end
+  
+  def parse_value() : Maybe[Value]
+    match this.current() with
+      case 'n' => this.parse_null()
+      case 't' => this.parse_true()
+      case 'f' => this.parse_false()
+      case '"' => this.parse_string()
+      case '[' => this.parse_array()
+      case '{' => this.parse_object()
+      case n when n == '-' || n == '0' || n == '1' || n == '2' || n == '3' || n == '4' || n == '5' || n == '6' || n == '7' || n == '8' || n == '9' =>  this.parse_number()
+      case _ => Nothing
+    end
+  end
+
+  def parse_null() : Maybe[Value]
+    if this.symbol('n') && this.symbol('u') && this.symbol('l') && this.symbol('l') then
+      Just(new Null())
+    else
+      Nothing -- expected null
+    end
+  end
+
+  def parse_true() : Maybe[RawBool]
+    if this.symbol('t') && this.symbol('r') && this.symbol('u') && this.symbol('e') then
+      Just(new RawBool(true))
+    else
+      Nothing -- expected null
+    end
+  end
+
+  def parse_false() : Maybe[RawBool]
+    if this.symbol('f') && this.symbol('a') && this.symbol('l') && this.symbol('s') && this.symbol('e') then
+      Just(new RawBool(false))
+    else
+      Nothing -- expected null
+    end
+  end
+
+  def parse_number() : Maybe[RawNumber]
+    val start = this.index
+    this.read_char('-')  -- consume a possible '-'
+    val first = this.current()
+    if not this.read_digit() then
+      return Nothing : Maybe[RawNumber]  -- expected a digit
+    end
+    if first != '0' then
+      while this.read_digit() do
+        ()
+      end
+    end
+    
+    if is_nothing(this.read_fraction()) || is_nothing(this.read_exponent()) then
+      return Nothing : Maybe[RawNumber] -- error in fraction or exponent
+    end
+    
+    Just(new RawNumber(unjust(this.str.substring(start, this.index))))
+  end
+    
+  def private read_digit() : bool
+    if not isdigit(this.current()) then
+      false
+    else
+      this.read()
+      true
+    end
+  end
+  
+  def private read_fraction() : Maybe[bool]  
+    if not this.read_char('.') then
+      return Just(false)
+    end
+    if not this.read_digit() then
+      return Nothing  : Maybe[bool] -- expected a digit
+    end
+    while this.read_digit() do
+      ()
+    end
+    Just(true)
+  end
+  
+  def private read_exponent() : Maybe[bool]
+    if not this.read_char('e') && not this.read_char('E') then
+      return Just(false)
+    end
+    if not this.read_char('+') then
+      this.read_char('-')
+    end
+    if not this.read_digit() then
+      return Nothing : Maybe[bool] -- expected digit
+    end
+    while this.read_digit() do
+      ()
+    end
+    Just(true) 
+  end
+  
+
+  def parse_string() : Maybe[RawString]
+    this.symbol('"')   -- TODO: what if false
+    val start = this.index
+    while (this.current() != '"') do
+        this.read()
+    end
+    match this.str.substring(start, this.index) with
+      case Just(str) => 
+        this.read()  -- consume final '"'
+        Just(new RawString(str))
+      end
+      case Nothing => Nothing
+    end
+  end
+
+  def parse_array() : Maybe[RawArray]
+    val list = new LinkedList[Value]()
+    this.symbol('[')
+    this.skip()
+    if this.read_char(']') then
+      return Just(new RawArray(this.list_reverse_array(list)))
+    end
+    do
+      this.skip()
+      match this.parse_value() with
+        case Nothing => 
+          return Nothing : Maybe[RawArray] -- invalid value
+          () -- to hack the type system
+        end
+        case Just(value) => list.prepend(value)
+      end
+      this.skip()
+    while this.read_char(',')
+    if not this.read_char(']') then
+      return Nothing : Maybe[RawArray]-- expected ',' or ']'
+    end
+    return Just(new RawArray(this.list_reverse_array(list)))
+  end
+
+  def private list_reverse_array[t](list : LinkedList[t]) : [t]
+    val len = list.size()
+    val iter = list.iterator()
+    val res = new [t](len)
+    
+    for i <- [0 .. len - 1] do
+      res(len - i - 1) = iter.next()
+    end
+    res
+  end
+
+  def parse_object() : Maybe[RawObject]
+    val hash = new HashMap[String,Value]
+    this.symbol('{')
+    this.skip()
+    if this.read_char('}') then
+      return Just(new RawObject(hash))
+    end
+    do
+      this.skip()
+      match this.parse_name() with
+        case Nothing => return Nothing  : Maybe[RawObject]-- expected a name
+        case Just(RawString(name)) => 
+          this.skip()
+          if (not this.read_char(':')) then
+            return Nothing : Maybe[RawObject] -- expected ':'
+          end
+          this.skip()
+          match this.parse_value() with
+            case Nothing => 
+              return Nothing  : Maybe[RawObject] -- expected a name
+            end
+            case Just(value) =>
+              hash.set(name, value)
+              this.skip()
+              -- Nothing  : Maybe[RawObject] -- to fool the type checker
+            end
+          end
+        end
+      end
+    while this.read_char(',')
+    if not this.read_char('}') then
+      return Nothing  : Maybe[RawObject]-- expected ',' or '}'
+    end
+    Just(new RawObject(hash))
+  end
+
+  def parse_name() : Maybe[RawString]
+    if this.current() != '"' then
+      Nothing -- expected name
+    else
+      this.parse_string()
+    end
+  end
+  
+  def read() : unit
+    this.index += 1
+  end
+
+  def skip() : unit
+    while this.is_white_space() do
+      this.read()
+    end
+  end
+  
+  def private symbol(ch : char) : bool
+    val res = this.current() == ch
+    this.read()
+    res
+  end
+
+  def private is_white_space() : bool
+    this.current() == ' ' || this.current() == '\t' || this.current() == '\n' || this.current() == '\r'
+  end
+  
+  def private at_end() : bool
+    this.index >= this.len
+  end
+  
+  def private read_char(ch : char) : bool
+    if this.current() != ch then
+      false
+    else
+      this.read()
+      true
+    end
+  end
+end

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstrainedClassMethods #-}
 {-|
 
 The backtrace of the typechecker passes, used for tracking the

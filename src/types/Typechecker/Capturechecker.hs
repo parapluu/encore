@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstrainedClassMethods #-}
 {-|
 
 Capturechecks an "AST.AST" and produces the same tree, extended

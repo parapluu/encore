@@ -30,7 +30,9 @@ data Program = Program {
   typedefs :: [Typedef],
   functions :: [Function],
   traits :: [TraitDecl],
-  classes :: [ClassDecl]
+  classes :: [ClassDecl],
+  adts :: [AdtDecl],
+  adtCons :: [AdtConstructor]
 } deriving (Show)
 
 setProgramSource source p = p{source}
@@ -228,6 +230,26 @@ data ClassDecl = Class {
   cmethods    :: [MethodDecl]
 } deriving (Show)
 
+data AdtDecl = ADT {
+  ameta        :: Meta AdtDecl,
+  aname        :: Type,
+  aconstructor :: [AdtConstructor],
+  amethods     :: [MethodDecl],
+  identity     :: String
+} deriving (Show)
+
+data AdtConstructor = ADTcons {
+  acmeta         :: Meta AdtConstructor,
+  acname         :: Type,
+  acfields       :: [ParamDecl],
+  acomposition   :: TraitComposition,
+  acmethods      :: [MethodDecl],
+  parentIdentity :: String
+} deriving (Show)
+
+fieldsFromClass :: ClassDecl -> [FieldDecl]
+fieldsFromClass c@Class{cfields} = cfields
+
 instance Eq ClassDecl where
   a == b = getId (cname a) == getId (cname b)
 
@@ -254,6 +276,20 @@ instance HasMeta ClassDecl where
     setType ty c@(Class {cmeta, cname}) =
       c {cmeta = Meta.setType ty cmeta, cname = ty}
     showWithKind Class{cname} = "class '" ++ getId cname ++ "'"
+
+instance HasMeta AdtDecl where
+    getMeta = ameta
+    setMeta a m = a{ameta = m}
+    setType _ _ =
+        error "AST.hs: Cannot set the type of an ADT"
+    showWithKind ADT{aname} = "data '" ++ getId aname ++ "'"
+
+instance HasMeta AdtConstructor where
+    getMeta = acmeta
+    setMeta ac m = ac{acmeta = m}
+    setType _ _ =
+        error "AST.hs: Cannot set the type of an ADT"
+    showWithKind ADTcons{acname} = "data '" ++ getId acname ++ "'" --TODO: ?
 
 data Requirement =
     RequiredField {
@@ -586,6 +622,12 @@ data Expr = Skip {emeta :: Meta Expr}
                          args :: Arguments}
           | Optional {emeta :: Meta Expr,
                       optTag :: OptionalPathComponent}
+          | AdtExtractorPattern {emeta :: Meta Expr,
+                                 ty :: Type,
+                                 name :: Name,
+                                 arg :: Expr,
+                                 fieldNames :: [String],
+                                 adtClassDecl :: ClassDecl}
           | ExtractorPattern {emeta :: Meta Expr,
                               ty :: Type,
                               name :: Name,
