@@ -14,6 +14,9 @@ import System.Directory
 import System.IO
 import System.Exit
 import System.Process
+import System.Posix.Process
+import qualified Data.ByteString.Lazy as B
+import System.Pager
 import System.Posix.Directory
 import Data.List
 import Data.List.Utils(split)
@@ -430,7 +433,12 @@ main =
             noExplanation errCode
             exit ""
           Just explain -> do
-            resetScreen >> exit (Pretty.render $ explain Pretty.<> Pretty.text "\n")
+            let fnom = standardLibLocation ++ "/explanations/testFile.txt"
+            B.readFile fnom >>= sendToPager
+            exitSuccess
+            --executeFile "less" True [standardLibLocation ++ "/explanations/testFile.txt"] Nothing
+
+            --resetScreen >> exit (Pretty.render $ explain Pretty.<> Pretty.text "\n")
           where
             resetScreen :: IO ()
             resetScreen = setSGR [Reset] >> clearScreen >> setCursorPosition 0 0

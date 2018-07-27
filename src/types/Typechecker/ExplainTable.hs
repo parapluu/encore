@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 module Typechecker.ExplainTable (
      Table
@@ -208,18 +209,18 @@ toKey (ManifestConflictError _ _)                     = Just "ManifestConflictEr
 toKey (ManifestClassConflictError _ _)                = Just "ManifestClassConflictError"
 toKey (UnmodedMethodExtensionError _ _)               = Just "UnmodedMethodExtensionError"
 toKey (ActiveTraitError _ _)                          = Just "ActiveTraitError"
-toKey (NewWithModeError)                              = Just "NewWithModeError"
-toKey (UnsafeTypeArgumentError _ _)                   = Just "UnsafeTypeArgumentError"
-toKey (OverlapWithBuiltins)                           = Just "OverlapWithBuiltins"
-toKey (SimpleError _)                                 = Just "SimpleError"
-toKey (ReverseBorrowingError)                         = Just "ReverseBorrowingError"
-toKey (BorrowedFieldError _)                          = Just "BorrowedFieldError"
-toKey (LinearClosureError _ _)                        = Just "LinearClosureError"
-toKey (BorrowedLeakError _)                           = Just "BorrowedLeakError"
-toKey (NonBorrowableError _)                          = Just "NonBorrowableError"
-toKey (ActiveBorrowError _ _)                         = Just "ActiveBorrowError"
-toKey (ActiveBorrowSendError _ _)                     = Just "ActiveBorrowSendError"
-toKey (DuplicateBorrowError _)                        = Just "DuplicateBorrowError"
-toKey (StackboundednessMismatchError _ _)             = Just "StackboundednessMismatchError"
-toKey (LinearCaptureError _ _)                        = Just "LinearCaptureError"
---toKey _                                               = Nothing
+--toKey (NewWithModeError)                              = Just "NewWithModeError"
+--toKey (UnsafeTypeArgumentError _ _)                   = Just "UnsafeTypeArgumentError"
+--toKey (OverlapWithBuiltins)                           = Just "OverlapWithBuiltins"
+--toKey (SimpleError _)                                 = Just "SimpleError"
+--toKey (ReverseBorrowingError)                         = Just "ReverseBorrowingError"
+--toKey (BorrowedFieldError _)                          = Just "BorrowedFieldError"
+--toKey (LinearClosureError _ _)                        = Just "LinearClosureError"
+--toKey (BorrowedLeakError _)                           = Just "BorrowedLeakError"
+--toKey (NonBorrowableError _)                          = Just "NonBorrowableError"
+--toKey (ActiveBorrowError _ _)                         = Just "ActiveBorrowError"
+--toKey (ActiveBorrowSendError _ _)                     = Just "ActiveBorrowSendError"
+--toKey (DuplicateBorrowError _)                        = Just "DuplicateBorrowError"
+--toKey (StackboundednessMismatchError _ _)             = Just "StackboundednessMismatchError"
+--toKey (LinearCaptureError _ _)                        = Just "LinearCaptureError"
+toKey _                                               = Nothing

@@ -48,6 +48,8 @@ executable encorec
                , boxes
                , filepath
                , ansi-terminal
+               , pager
+               , bytestring
   hs-source-dirs:      src/back src/front src/ir src/opt src/parser src/types
   ghc-options: -Werror
   default-language:    Haskell2010
