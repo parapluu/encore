@@ -65,8 +65,9 @@ toWarningStyle Code = return ()
 -- prettyError will need all lines of code it will print beforehand in its second argument
 
 prettyError ::  TCError -> [String] -> Doc TCStyle
-prettyError tcErr@(TCError err@(UnknownRefTypeError _) _) _ =
-    declareError err <+> description err $+$ nest 2 (showPosition $ currentPos tcErr)
+-- Do not show entire class if an unknown trait is declared
+prettyError tcErr@(TCError err@(UnknownRefTypeError ty) _) _
+    | isTraitType ty = declareError err <+> description err $+$ nest 2 (showPosition $ currentPos tcErr)
 
 -- Default errors
 prettyError (TCError err Env{bt = []}) _ =
@@ -80,29 +81,15 @@ prettyError tcErr@(TCError err _) code =
 pipe = char '|'
 
 declareError :: Error -> Doc TCStyle
-declareError _ = classify $ text "Error:"
+declareError _ = styleClassify $ text "Error:"
 
 description :: Error -> Doc TCStyle
-description err = desc $ text $ show err
+description err = styleDesc $ text $ show err
 
-codeLine ::Int -> String -> String -> Int -> Doc TCStyle
-codeLine digitSpace insertStr codeLine lineNo =
-    let
-        pad = digitSpace - (length $ show lineNo)
-    in
-        logistic (nest pad $ (int lineNo) <+> pipe) <>
-        highlight (text insertStr) <>
-        code (text codeLine)
 
 showPosition :: Position -> Doc TCStyle
-showPosition pos = logistic (text "-->") <+> (text $ show $ pos)
+showPosition pos = styleLogistic (text "-->") <+> (text $ show $ pos)
 
-lineHighlighter :: Int -> Int -> Char -> Doc ann
-lineHighlighter s e c = text $ replicate (s-1) ' ' ++ replicate (e-s) c
-
-multilineHighlighter :: Int -> Bool -> Char -> Doc ann
-multilineHighlighter col True c  = space <> space <> text (replicate (col-1) '_') <> char c
-multilineHighlighter col False c = space <> pipe  <> text (replicate (col-2) '_') <> char c
 
 codeViewer :: TCError -> [String] -> Doc TCStyle
 codeViewer _ [] = error "TypeError.hs: No code to view"
@@ -110,30 +97,48 @@ codeViewer err (cHead:cTail) =
     let
         pos = currentPos err
         ((sL, sC), (eL, eC)) = getPositions pos
-        digitLen = length $ show eL
-        tailCode = zipWith (codeLine digitLen " |") cTail (range (sL+1, eL))
+        digitLen = 1 + (length $ show eL) --One additional for the space between line-number and pipe
+        tailCode = zipWith (codeLine " |") cTail (range (sL+1, eL))
     in
         if sL == eL
             then
-                nest (digitLen+1) $ showPosition pos $+$
-                logistic pipe $+$
-                nest (-(digitLen+1)) (codeLine digitLen "" cHead sL) $+$
-                logistic pipe <>
-                highlight (lineHighlighter sC eC '^') <+>
-                smallSuggest err $+$
+                nest (digitLen) $ showPosition pos $+$
+                styleLogistic pipe $+$
+                codeLine "" cHead sL $+$
+                styleLogistic pipe <>
+                styleHighlight (lineHighlighter sC eC '^') <+>
+                styleHighlight (smallSuggest err) $+$
                 longSuggest err
             else
-                nest (digitLen+1) $ showPosition pos $+$
-                logistic pipe $+$
-                nest (-(digitLen+1)) (codeLine digitLen "  " cHead sL) $+$
-                logistic pipe <>
-                highlight (multilineHighlighter sC True '^') $+$
-                nest (-(digitLen+1)) (vcat tailCode) $+$
-                logistic pipe <>
-                highlight (multilineHighlighter eC False '^') <+>
-                smallSuggest err $+$
+                nest (digitLen) $ showPosition pos $+$
+                styleLogistic pipe $+$
+                codeLine "  " cHead sL $+$
+                styleLogistic pipe <>
+                styleHighlight (multilineHighlighter sC FirstLine '^') $+$
+                vcat tailCode $+$
+                styleLogistic pipe <>
+                styleHighlight (multilineHighlighter eC LastLine '^') <+>
+                styleHighlight (smallSuggest err) $+$
                 longSuggest err
 
+
+lineHighlighter :: Int -> Int -> Char -> Doc ann
+lineHighlighter s e c = text $ replicate (s-1) ' ' ++ replicate (e-s) c
+
+data MultiLineType = FirstLine | LastLine
+multilineHighlighter :: Int -> MultiLineType -> Char -> Doc ann
+multilineHighlighter col FirstLine c  = space <> space <> text (replicate (col-1) '_') <> char c
+multilineHighlighter col LastLine  c  = space <> pipe  <> text (replicate (col-2) '_') <> char c
+
+codeLine ::String -> String -> Int -> Doc TCStyle
+codeLine insertStr code lineNo =
+    let
+        pad = (length $ show lineNo) + 1 --One additional for the space between line-number and pipe
+    in
+        nest (-pad) $
+        styleLogistic ((int lineNo) <+> pipe) <>
+        styleHighlight (text insertStr) <>
+        styleCode (text code)
 
 getCodeLines :: Position -> IO [String]
 getCodeLines pos = do

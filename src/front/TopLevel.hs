@@ -244,7 +244,7 @@ compileProgram prog sourcePath options =
            customFlags = case find isCustomFlags options of
                            Just (CustomFlags str) -> str
                            Nothing                -> ""
-           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value" <+> customFlags <+> "-lpthread -latomic -ldl -lm -Wno-attributes"
+           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value" <+> customFlags <+> "-lpthread -ldl -lm -Wno-attributes"
            oFlag = "-o" <+> execName
            defines = getDefines options
            incs  = "-I" <+> incPath <+> "-I ."

@@ -22,11 +22,9 @@ import Types
 
 pipe = char '|'
 
-highlightPretty :: String -> Doc TCStyle
-highlightPretty s = highlight $ text s
 
 makeNotation :: Doc TCStyle
-makeNotation = logistic (pipe $+$ equals) <+> desc (text "note:")
+makeNotation = styleLogistic (pipe $+$ equals) <+> styleDesc (text "note:")
 
 -- How to determine if to use a smallSuggest or longSuggest:
 -- If a problem justifies it, you could use both, 
@@ -37,19 +35,19 @@ makeNotation = logistic (pipe $+$ equals) <+> desc (text "note:")
 -- about 32 characters seem to be a good maximum to strive for.
 -- If more are needed, use longSuggest instead.
 class Suggestable a where
-    smallSuggest :: a -> Doc TCStyle
+    smallSuggest :: a -> Doc ann
     longSuggest :: a -> Doc TCStyle
 
 instance Suggestable TCError where
-    smallSuggest (TCError (NonAssignableLHSError) _) = highlightPretty "Can only be used on var or fields"
+    smallSuggest (TCError (NonAssignableLHSError) _) = "Can only be used on var or fields"
     smallSuggest (TCError (MethodNotFoundError name ty) env)
-        | isMethodNameAFunction name ty env = highlightPretty $ printf "Did you mean function `%s`?" (show name)
+        | isMethodNameAFunction name ty env = text $ printf "Did you mean function `%s`?" (show name)
     smallSuggest _ = empty
 
     longSuggest (TCError (TypeWithCapabilityMismatchError actual cap expected) _) =
         let
-            expect = text "expected type" <+> desc (text $ show expected)
-            found  = text "   found type" <+> desc (text $ show actual)
+            expect = text "expected type" <+> styleDesc (text $ show expected)
+            found  = text "   found type" <+> styleDesc (text $ show actual)
         in
             makeNotation <+> vcat [expect, found]
     longSuggest (TCError (WrongNumberOfMethodArgumentsError name targetType _ _) env) = 
@@ -58,7 +56,7 @@ instance Suggestable TCError where
             types = hparams header
         in
             makeNotation <+> hang ("Method" <+> quotes (text $ show name) <+> "is declared:") 0
-                (desc (ppFunctionHeader header))
+                (styleDesc (ppFunctionHeader header))
     
     longSuggest _ = empty
 

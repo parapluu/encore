@@ -13,11 +13,11 @@ module Typechecker.TypeError (
                              ,TCWarning(TCWarning)
                              ,Warning(..)
                              ,TCStyle(..)
-                             ,classify
-                             ,desc
-                             ,logistic
-                             ,highlight
-                             ,code
+                             ,styleClassify
+                             ,styleDesc
+                             ,styleLogistic
+                             ,styleHighlight
+                             ,styleCode
                              ) where
 
 import Text.PrettyPrint.Annotated.HughesPJ
@@ -859,14 +859,9 @@ pipe = char '|'
 
 data TCStyle = Classification | Desc | Logistic | Highlight | Code
 
-classify, desc, logistic, highlight, code :: Doc TCStyle -> Doc TCStyle
-classify = annotate Classification
-desc = annotate Desc
-logistic = annotate Logistic
-highlight = annotate Highlight
-code = annotate Code
-
-
-        --hash (UnionMethodAmbiguityError _ _) = 3
-
-        --explain 3 = "stuff"
+styleClassify, styleDesc, styleLogistic, styleHighlight, styleCode :: Doc TCStyle -> Doc TCStyle
+styleClassify = annotate Classification
+styleDesc = annotate Desc
+styleLogistic = annotate Logistic
+styleHighlight = annotate Highlight
+styleCode = annotate Code
