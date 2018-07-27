@@ -15,7 +15,7 @@ fun show_int(i : int) : unit
 end
 
 fun show_string(s : String) : unit
-  print(s)   
+  print(s)
 end
 
 -- the tests
@@ -77,10 +77,10 @@ fun test_nclone() : unit
   show(show_int, M.unjust(nclone(arr,3)))
 end
 
-class Main
+active class Main
   def main() : unit
     test_new_with_default()
-    test_new_with_generator() 
+    test_new_with_generator()
     test_filter()
     test_count()
     test_map()

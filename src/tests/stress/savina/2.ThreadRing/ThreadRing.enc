@@ -1,18 +1,18 @@
-fun create_ring(ring_size : int) : Actor
-  val a = new Actor(1)
+fun create_ring(ring_size : int) : RingActor
+  val a = new RingActor(1)
   a!create_ring(2, ring_size, a)
   a
 end
 
-active class Actor
+active class RingActor
   var id : int
-  var next : Actor
+  var next : RingActor
   def init(id : int) : unit
     this.id = id
   end
-  def create_ring(id : int, ring_size : int, fst : Actor) : unit
+  def create_ring(id : int, ring_size : int, fst : RingActor) : unit
     if id <= ring_size then
-      this.next = new Actor(id)
+      this.next = new RingActor(id)
       this.next!create_ring(id + 1, ring_size, fst)
     else
       this.next = fst

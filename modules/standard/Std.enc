@@ -18,7 +18,24 @@ read trait Ord[self]
   require def compare(other:self) : int
 end
 
--- the identity function
+-- The identity function
 fun id[a](x : a) : a
   x
+end
+
+-- The default trait included by all active classes
+active trait Actor
+  def await[t](f : Fut[t]) : unit
+    EMBED (unit)
+      future_await(_ctx, #{f});
+    END
+  end
+  def suspend() : unit
+    EMBED (unit)
+      actor_suspend(_ctx);
+    END
+  end
+  def run_attached_closure[t](f : local(() -> t)) : t
+    f()
+  end
 end

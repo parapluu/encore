@@ -1,9 +1,8 @@
--- This file was automatically converted by encorec
-
 fun foo(x : int) : unit
   x = 42
 end
-class Main
+
+active class Main
   def main() : unit
     ()
   end

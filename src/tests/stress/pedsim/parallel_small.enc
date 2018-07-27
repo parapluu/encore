@@ -3,7 +3,7 @@ import Ped_util.Regions
 import Ped_util.Quad_tree
 
 
-class Main
+active class Main
   def main(args : [String]) : unit
     let
       agents = parse_file("400_scenario.xml")

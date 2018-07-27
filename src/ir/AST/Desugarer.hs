@@ -105,43 +105,23 @@ desugarProgram p@(Program{traits, classes, functions, adts, adtCons}) =
         funbody = desugarExpr funbody
        ,funlocals = (map desugarFunction funlocals) ++ concat (map desugarDefaultParameters funlocals)}
 
-  -- Automatically give await and supend to active classes
-  -- Then the Actor trait is in place, this desugaring step will be changed
-  -- so that the Actor trait is included instead
-    desugarClass c@(Class{cmeta, cmethods})
-      | isActive c = c{cmethods = map desugarMethod (await:suspend:cmethods)}
+    -- Automatically have active classes include the Actor trait.
+    desugarClass c@(Class{cmethods, ccomposition}) =
+      c{cmethods = map desugarMethod cmethods
+       ,ccomposition = if isActive c
+                       then addActorTrait ccomposition
+                       else ccomposition
+       }
       where
-        await = Method{mmeta
-                      ,mimplicit = True
-                      ,mheader=awaitHeader
-                      ,mlocals=[]
-                      ,mbody=Await emeta $ VarAccess emeta (qName "f")}
-        awaitHeader = Header{hmodifiers=[]
-                            ,kind=NonStreaming
-                            ,htypeparams=[typeVar "_t"]
-                            ,hname=Name "await"
-                            ,htype=unitType
-                            ,hparams=[awaitParam]}
-        awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t", pdefault=Nothing}
-        suspend = Method{mmeta
-                        ,mimplicit = True
-                        ,mheader = suspendHeader
-                        ,mlocals = []
-                        ,mbody = Suspend emeta}
-        suspendHeader = Header{hmodifiers=[]
-                              ,kind=NonStreaming
-                              ,htypeparams=[]
-                              ,hname=Name "suspend"
-                              ,htype=unitType
-                              ,hparams=[]}
-        pmeta = Meta.meta (Meta.getPos cmeta)
-        emeta = Meta.meta (Meta.getPos cmeta)
-        mmeta = Meta.meta (Meta.getPos cmeta)
+        std = explicitNamespace [Name "Std"]
+        actorExtension = TraitLeaf{tcname = setRefNamespace std $
+                                            traitType "Actor" []
+                                  ,tcext = []}
+        addActorTrait Nothing   = Just actorExtension
+        addActorTrait (Just cap) = Just(Conjunction{tcleft = actorExtension
+                                                  ,tcright = cap})
 
-    desugarClass c@(Class{cmethods})
-      | isPassive c || isShared c = c{cmethods = map desugarMethod cmethods}
-
-      -- Desugar default Parameter fields into assignments in the construcor
+      -- desugar default Parameter fields into assignments in the construcor
     desugarClassParams c@(Class{cmethods, cfields}) = c{cmethods = map (desugarClassParamsMethod c) (cmethods ++ createConstructor c)}
 
     createConstructor c = if hasConstructor c then []

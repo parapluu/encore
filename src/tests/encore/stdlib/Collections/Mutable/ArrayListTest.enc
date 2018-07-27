@@ -456,7 +456,7 @@ fun shift_left_three() : bool
 end
 
 
-class Main
+active class Main
   def main() : unit
     val tests = new TestSuite("ArrayList", 100)
     tests.assert_true("prepend #1", prepend_one)
@@ -489,4 +489,3 @@ class Main
     tests.run()
   end
 end
-

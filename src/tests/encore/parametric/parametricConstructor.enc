@@ -1,11 +1,10 @@
--- This file was automatically converted by encorec
-
 class Test
   def init[a](x : a) : unit
     ()
   end
 end
-class Main
+
+active class Main
   def main() : unit
     ()
   end

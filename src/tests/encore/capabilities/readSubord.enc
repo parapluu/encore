@@ -17,7 +17,7 @@ end
 class Victim : T + linear L
 end
 
-class Main
+active class Main
   def main() : unit
     val x = new Victim
     val t = new Thief
