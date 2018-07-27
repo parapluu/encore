@@ -1,4 +1,4 @@
 -- This file was automatically converted by encorec
 
-class Main[int]
+active class Main[int]
 end

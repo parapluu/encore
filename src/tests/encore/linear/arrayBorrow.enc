@@ -6,7 +6,7 @@ end
 linear class Token
 end
 
-class Main
+active class Main
   def main(): void
     val arr = new [borrowed Token](2)
     val x = new Token

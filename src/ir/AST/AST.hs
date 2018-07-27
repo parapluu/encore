@@ -257,7 +257,10 @@ isActive :: ClassDecl -> Bool
 isActive Class{cname, ccomposition} =
   isActiveSingleType cname ||
   isModeless cname &&
-  all isActiveSingleType (typesFromTraitComposition ccomposition)
+  all isActiveSingleType traits &&
+  not (null traits)
+  where
+    traits = typesFromTraitComposition ccomposition
 
 isPassive :: ClassDecl -> Bool
 isPassive cls = not (isActive cls) && not (isShared cls)

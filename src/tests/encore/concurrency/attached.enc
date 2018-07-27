@@ -1,0 +1,24 @@
+active class Foo
+  def foo() : int
+    42
+  end
+end
+
+active class Bar
+  var f : int
+  def bar(x : Foo) : unit
+    val fut = x!foo()
+    fut ~~>
+      fun (v : int)
+        this!run_attached_closure(fun () => {println(v); this.f = v})
+      end
+  end
+end
+
+active class Main
+  def main(args : [String]) : unit
+    val x = new Foo
+    val y = new Bar
+    y!bar(x)
+  end
+end

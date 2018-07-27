@@ -3,7 +3,7 @@ import CigaretteSmokers
 -- Sleeping barber
 -- correpsonds to savina/src/main/java/edu/rice/habanero/benchmarks/cigsmok/CigaretteSmokerConfig.java
 -- written by SD on 29.03.2017
-class Main
+active class Main
 
   def argToInt(str: String): int
     match str.to_int() with
