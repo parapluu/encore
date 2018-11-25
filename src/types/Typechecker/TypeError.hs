@@ -8,7 +8,9 @@ The machinery used by "Typechecker.Typechecker" and
 -}
 
 module Typechecker.TypeError (
-                              TCError(TCError)
+                              TCType
+                             ,currentBTPos
+                             ,TCError(TCError)
                              ,Error(..)
                              ,TCWarning(TCWarning)
                              ,Warning(..)
@@ -50,9 +52,15 @@ refTypeName ty
     | otherwise = error $ "TypeError.hs: No refTypeName for " ++
                           showWithKind ty
 
+class TCType a where
+    currentBTPos :: TCType a => a -> Position
+
 -- | The data type for a type checking error. Showing it will
 -- produce an error message and print the backtrace.
 data TCError = TCError Error Environment
+
+instance TCType TCError where
+    currentBTPos (TCError _ Env{bt = ((pos, _):_)}) = pos
 
 
 data Error =
@@ -812,13 +820,10 @@ instance Show Error where
                (show (ppSugared e)) (show ty)
 
 data TCWarning = TCWarning Warning Environment
-instance Show TCWarning where
-    show (TCWarning w Env{bt = []}) =
-        "Warning:\n" ++
-        show w
-    show (TCWarning w Env{bt = ((pos, _):_)}) =
-        "Warning at " ++ show pos ++ ":\n" ++
-        show w
+
+instance TCType TCWarning where
+    currentBTPos (TCWarning _ Env{bt = ((pos, _):_)}) = pos
+
 
 data Warning = StringDeprecatedWarning
              | StringIdentityWarning
@@ -860,8 +865,6 @@ instance Show Warning where
         "This will be fixed in a later version of Encore."
 
 
-
-pipe = char '|'
 
 data TCStyle = Classification | Desc | Logistic | Highlight | Code
 

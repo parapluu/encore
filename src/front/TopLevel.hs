@@ -410,7 +410,7 @@ main =
       verbose options str = when (Verbose `elem` options)
                                   (putStrLn str)
 
-      showWarnings = mapM print
+      showWarnings = mapM printWarning . reverse
       helpMessage =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
@@ -434,4 +434,4 @@ main =
       errorAbort e = do
         printf "*** Error during typechecking *** \n\n"
         printError e
-        abort $ "\nAborting due to previous error"
+        abort $ "Aborting due to previous error"

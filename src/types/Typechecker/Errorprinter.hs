@@ -1,5 +1,5 @@
 
-module Typechecker.Errorprinter (printError) where
+module Typechecker.Errorprinter (printError, printWarning) where
 
 
 -- Library dependencies
@@ -18,21 +18,34 @@ import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Typechecker.Suggestable
+import System.IO
 
 
-currentPos (TCError _ Env{bt = ((pos, _):_)}) = pos
 
 printError :: TCError -> IO ()
 printError err@(TCError _ Env{bt = []}) =
-    renderError $ prettyError err [] $+$ text ""
-printError error = do
-    code <- getCodeLines $ currentPos error
-    renderError $ prettyError error code $+$ text ""
+    renderTCType toErrorStyle $ prettyError err [] $+$ text "\n"
+printError err@(TCError _ env) = do
+    code <- getCodeLines $ currentBTPos err
+    renderTCType toErrorStyle $ prettyError err code $+$ text "\n"
 
 
-renderError :: Doc TCStyle -> IO ()
-renderError doc =
-    renderDecoratedM toErrorStyle endAnn textprinter endDoc doc
+printWarning :: TCWarning -> IO ()
+printWarning w@(TCWarning _ Env{bt = []}) =
+    renderTCType toWarningStyle $ prettyWarning w [] $+$ text "\n"
+printWarning w@(TCWarning _ env) = do
+    code <- getCodeLines $ currentBTPos w
+    renderTCType toWarningStyle $ prettyWarning w code $+$ text "\n"
+
+
+
+renderTCType :: (TCStyle -> IO ()) -> Doc TCStyle -> IO ()
+renderTCType colorStyle doc = do
+    istty <- hSupportsANSI stdout
+    if istty
+        then renderDecoratedM colorStyle endAnn textprinter endDoc doc
+        else printf $ render doc
+
     where
         endAnn :: TCStyle -> IO ()
         endAnn _ = setSGR [Reset]
@@ -67,30 +80,40 @@ toWarningStyle Code = return ()
 prettyError ::  TCError -> [String] -> Doc TCStyle
 -- Do not show entire class if an unknown trait is declared
 prettyError tcErr@(TCError err@(UnknownRefTypeError ty) _) _
-    | isTraitType ty = declareError err <+> description err $+$ nest 2 (showPosition $ currentPos tcErr)
+    | isTraitType ty = declareError err <+> description err $+$ nest 2 (showPosition $ currentBTPos tcErr)
 
 -- Default errors
 prettyError (TCError err Env{bt = []}) _ =
     declareError err <+> description err
 prettyError tcErr@(TCError err _) code =
-    declareError err <+> description err $+$ codeViewer tcErr code
+    declareError err <+> description err $+$ codeViewer_ver1 tcErr code
 -- Possible extensions:
 --  Duplicate Class -> print positions (File + line) of the two classes
 --  Type error in func call -> print a version of codeViewer that also shows the function head
+
+prettyWarning :: TCWarning -> [String] -> Doc TCStyle
+-- Default warnings
+prettyWarning (TCWarning w Env{bt = []}) _ =
+    declareWarning w <+> description w
+prettyWarning tcWarn@(TCWarning w _) code =
+        declareWarning w <+> description w $+$ codeViewer_ver1 tcWarn code
 
 pipe = char '|'
 
 declareError :: Error -> Doc TCStyle
 declareError _ = styleClassify $ text "Error:"
 
-description :: Error -> Doc TCStyle
-description err = styleDesc $ text $ show err
+declareWarning :: Warning -> Doc TCStyle
+declareWarning _ = styleClassify $ text "Warning:"
+
+description :: Show a => a -> Doc TCStyle
+description ty = styleDesc $ text $ show ty
 
 
 showPosition :: Position -> Doc TCStyle
 showPosition pos = styleLogistic (text "-->") <+> (text $ show $ pos)
 
-codeViewer_ver1 :: TCError -> [String] -> Doc TCStyle
+codeViewer_ver1 :: (TCType a, Suggestable a) => a -> [String] -> Doc TCStyle
 codeViewer_ver1 _ [] = error "TypeError.hs: No code to view"
 codeViewer_ver1 err (cHead:cTail) =
     nest (digitLen) $ showPosition pos $+$
@@ -101,7 +124,7 @@ codeViewer_ver1 err (cHead:cTail) =
     longSuggest err
 
     where
-        pos = currentPos err
+        pos = currentBTPos err
         ((sL, sC), (eL, eC)) = getPositions pos
         digitLen = 1 + (length $ show eL) --One additional for the space between line-number and pipe
         tailCode = zipWith (codeLine " |") cTail [(sL+1)..eL]
@@ -134,11 +157,11 @@ codeViewer_ver1 err (cHead:cTail) =
 
 
 
-codeViewer_ver2 :: TCError -> [String] -> Doc TCStyle
+codeViewer_ver2 :: (TCType a, Suggestable a) => a -> [String] -> Doc TCStyle
 codeViewer_ver2 _ [] = error "TypeError.hs: No code to view"
 codeViewer_ver2 err (cHead:cTail) =
     let
-        pos = currentPos err
+        pos = currentBTPos err
         ((sL, sC), (eL, eC)) = getPositions pos
         digitLen = 1 + (length $ show eL) --One additional for the space between line-number and pipe
         tailCode = zipWith (codeLine " |") cTail (range (sL+1, eL))

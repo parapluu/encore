@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Typechecker.Suggestable (
-                                smallSuggest
+                                Suggestable
+                                ,smallSuggest
                                 ,longSuggest
                                 )where
 
@@ -61,7 +62,7 @@ instance Suggestable TCError where
     longSuggest _ = empty
 
 
-instance Suggestable Warning where
+instance Suggestable TCWarning where
     smallSuggest _ = empty
     longSuggest _ = empty
 
