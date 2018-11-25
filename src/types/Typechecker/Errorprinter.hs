@@ -90,10 +90,53 @@ description err = styleDesc $ text $ show err
 showPosition :: Position -> Doc TCStyle
 showPosition pos = styleLogistic (text "-->") <+> (text $ show $ pos)
 
+codeViewer_ver1 :: TCError -> [String] -> Doc TCStyle
+codeViewer_ver1 _ [] = error "TypeError.hs: No code to view"
+codeViewer_ver1 err (cHead:cTail) =
+    nest (digitLen) $ showPosition pos $+$
+    styleLogistic pipe $+$
+    showCodeHead
+    showTailCode <+>
+    styleHighlight (smallSuggest err) $+$
+    longSuggest err
 
-codeViewer :: TCError -> [String] -> Doc TCStyle
-codeViewer _ [] = error "TypeError.hs: No code to view"
-codeViewer err (cHead:cTail) =
+    where
+        pos = currentPos err
+        ((sL, sC), (eL, eC)) = getPositions pos
+        digitLen = 1 + (length $ show eL) --One additional for the space between line-number and pipe
+        tailCode = zipWith (codeLine " |") cTail [(sL+1)..eL]
+
+        showCodeHead :: Doc TCStyle -> Doc TCStyle
+        showCodeHead tail
+            | sL == eL =
+                codeLine "  " cHead sL $+$
+                styleLogistic pipe <>
+                styleHighlight (singleLineHighlighter sC eC '^') <+> tail
+            | errorIsWholeLine cHead sC = codeLine " /" cHead sL $+$ tail
+            | otherwise =
+                codeLine "  " cHead sL $+$
+                styleLogistic pipe <>
+                styleHighlight (multilineHighlighter sC FirstLine '^') $+$ tail
+
+        showTailCode :: Doc TCStyle
+        showTailCode
+            | null tailCode = empty
+            | otherwise =
+                vcat tailCode $+$
+                styleLogistic pipe <>
+                styleHighlight (multilineHighlighter eC LastLine '^')
+
+        errorIsWholeLine _ 0 = True
+        errorIsWholeLine _ 1 = True
+        errorIsWholeLine (x:xs) n
+            | x == ' '  = errorIsWholeLine xs (n-1)
+            | otherwise = False
+
+
+
+codeViewer_ver2 :: TCError -> [String] -> Doc TCStyle
+codeViewer_ver2 _ [] = error "TypeError.hs: No code to view"
+codeViewer_ver2 err (cHead:cTail) =
     let
         pos = currentPos err
         ((sL, sC), (eL, eC)) = getPositions pos
@@ -122,8 +165,13 @@ codeViewer err (cHead:cTail) =
                 longSuggest err
 
 
+-- Remove if version 2 is not to be used
 lineHighlighter :: Int -> Int -> Char -> Doc ann
 lineHighlighter s e c = text $ replicate (s-1) ' ' ++ replicate (e-s) c
+
+-- Remove if version 1 is not to be used
+singleLineHighlighter :: Int -> Int -> Char -> Doc ann
+singleLineHighlighter s e c = space <+> text (replicate (s-1) ' ' ++ replicate (e-s) c)
 
 data MultiLineType = FirstLine | LastLine
 multilineHighlighter :: Int -> MultiLineType -> Char -> Doc ann
