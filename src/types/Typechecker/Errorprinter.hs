@@ -1,5 +1,5 @@
 
-module Typechecker.Errorprinter (printError, printWarning) where
+module Typechecker.Errorprinter (printError, printWarning, noExplanation) where
 
 
 -- Library dependencies
@@ -18,6 +18,7 @@ import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Typechecker.Suggestable
+import Typechecker.ExplainTable
 import System.IO
 
 
@@ -101,10 +102,23 @@ prettyWarning tcWarn@(TCWarning w _) code =
 pipe = char '|'
 
 declareError :: Error -> Doc TCStyle
-declareError _ = styleClassify $ text "Error:"
+declareError err =
+    let
+        hash = case lookupHash err of
+            Nothing -> empty
+            Just num -> text $ printf "[E%04d]" num
+    in
+        styleClassify $ text "Error" <> hash <> char ':'
+
 
 declareWarning :: Warning -> Doc TCStyle
-declareWarning _ = styleClassify $ text "Warning:"
+declareWarning w =
+    let
+        hash = case lookupHashW w of
+            Nothing -> empty
+            Just num -> text $ printf "[W%04d]" num
+    in
+        styleClassify $ text "Warning" <> hash <> char ':'
 
 description :: Show a => a -> Doc TCStyle
 description ty = styleDesc $ text $ show ty
@@ -220,3 +234,11 @@ getCodeLines pos = do
     case take end $ drop start $ lines contents of
         []  -> error "\nFile has been edited between parsing and type checking"
         l   -> return l
+
+noExplanation :: String -> IO ()
+noExplanation errCode =
+    let
+        err = styleClassify $ text "error"
+        info = styleDesc $ text $ printf ": no extended information for %s\n" errCode
+    in
+        renderTCType toErrorStyle $ err <> info

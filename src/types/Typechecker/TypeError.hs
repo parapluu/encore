@@ -817,7 +817,7 @@ instance Show Error where
              in toLower c:s
     show (LinearCaptureError e ty) =
         printf "Cannot capture expression '%s' of linear type '%s'"
-               (show (ppSugared e)) (show ty)
+              (show (ppSugared e)) (show ty)
 
 data TCWarning = TCWarning Warning Environment
 

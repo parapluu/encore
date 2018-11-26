@@ -45,6 +45,12 @@ instance Suggestable TCError where
         | isMethodNameAFunction name ty env = text $ printf "Did you mean function `%s`?" (show name)
     smallSuggest _ = empty
 
+    longSuggest (TCError (TypeMismatchError actual expected) _) =
+        let
+            expect = text "expected type" <+> styleDesc (text $ show expected)
+            found  = text "   found type" <+> styleDesc (text $ show actual)
+        in
+            makeNotation <+> vcat [expect, found]
     longSuggest (TCError (TypeWithCapabilityMismatchError actual cap expected) _) =
         let
             expect = text "expected type" <+> styleDesc (text $ show expected)

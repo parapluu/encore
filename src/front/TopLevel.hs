@@ -14,6 +14,9 @@ import System.Directory
 import System.IO
 import System.Exit
 import System.Process
+import System.Posix.Process
+import qualified Data.ByteString.Lazy as B
+import System.Pager
 import System.Posix.Directory
 import Data.List
 import Data.List.Utils(split)
@@ -25,6 +28,8 @@ import qualified Data.Map.Strict as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
+import System.Console.ANSI
+import qualified Text.PrettyPrint.Annotated as Pretty
 import qualified Text.PrettyPrint.Boxes as Box
 import System.FilePath (splitPath, joinPath)
 import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
@@ -73,6 +78,7 @@ data Option =
             | Verbose
             | Literate
             | NoGC
+            | Explain String
             | Help
             | Undefined String
             | Malformed String
@@ -123,6 +129,8 @@ optionMappings =
         "Compile and run the program, but do not produce executable file."),
        (NoArg NoGC, "", "--no-gc", "",
         "DEBUG: disable GC and use C-malloc for allocation."),
+       (Arg Explain, "-e", "--explain", "[error]",
+        "Display information for error code"),
        (NoArg Help, "", "--help", "",
         "Display this information.")
       ]
@@ -294,6 +302,9 @@ main =
        checkForUndefined options
        when (Help `elem` options)
            (exit helpMessage)
+       case find isExplain options of
+           Just (Explain errCode) -> explainError errCode
+           Nothing -> return ()
        when (null programs)
            (abort ("No program specified! Aborting.\n\n" <>
                     usage <> "\n" <>
@@ -411,6 +422,7 @@ main =
                                   (putStrLn str)
 
       showWarnings = mapM printWarning . reverse
+      
       helpMessage =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
@@ -435,3 +447,26 @@ main =
         printf "*** Error during typechecking *** \n\n"
         printError e
         abort $ "Aborting due to previous error"
+
+
+      isExplain (Explain _) = True
+      isExplain _ = False
+
+      explainError errCode = do
+        isHash <- isExplanationHash errCode
+        case isHash of
+          False -> do
+            noExplanation errCode
+            exitSuccess
+          True -> do
+            let fnom = standardLibLocation ++ "/explanations/" ++ errCode ++ ".txt"
+            B.readFile fnom >>= sendToPager
+            exitSuccess
+
+          where
+            resetScreen :: IO ()
+            resetScreen = setSGR [Reset] >> clearScreen >> setCursorPosition 0 0
+
+      isExplanationHash :: String -> IO Bool
+      isExplanationHash str@('E':_:_:_:_:[]) = doesFileExist $ standardLibLocation ++ "/explanations/" ++ str ++ ".txt"
+      isExplanationHash _ = return False
