@@ -1,0 +1,2 @@
+Welcome to the Encore Compiler!
+Here you will meet many wonderful methods and functions and whatnot!

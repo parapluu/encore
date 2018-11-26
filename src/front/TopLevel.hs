@@ -47,7 +47,6 @@ import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
 import Typechecker.Errorprinter
-import Typechecker.ExplainTable(getErrorExplanation)
 import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -424,25 +423,6 @@ main =
 
       showWarnings = mapM print
 
-      isExplain (Explain _) = True
-      isExplain _ = False
-
-      explainError errCode =
-        case getErrorExplanation errCode of
-          Nothing -> do
-            noExplanation errCode
-            exit ""
-          Just explain -> do
-            let fnom = standardLibLocation ++ "/explanations/testFile.txt"
-            B.readFile fnom >>= sendToPager
-            exitSuccess
-            --executeFile "less" True [standardLibLocation ++ "/explanations/testFile.txt"] Nothing
-
-            --resetScreen >> exit (Pretty.render $ explain Pretty.<> Pretty.text "\n")
-          where
-            resetScreen :: IO ()
-            resetScreen = setSGR [Reset] >> clearScreen >> setCursorPosition 0 0
-
       helpMessage =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
@@ -467,3 +447,26 @@ main =
         printf "*** Error during typechecking *** \n\n"
         printError e
         abort $ "\nAborting due to previous error"
+
+
+      isExplain (Explain _) = True
+      isExplain _ = False
+
+      explainError errCode = do
+        isHash <- isExplanationHash errCode
+        case isHash of
+          False -> do
+            noExplanation errCode
+            exitSuccess
+          True -> do
+            let fnom = standardLibLocation ++ "/explanations/" ++ errCode ++ ".txt"
+            B.readFile fnom >>= sendToPager
+            exitSuccess
+
+          where
+            resetScreen :: IO ()
+            resetScreen = setSGR [Reset] >> clearScreen >> setCursorPosition 0 0
+
+      isExplanationHash :: String -> IO Bool
+      isExplanationHash str@('E':_:_:_:_:[]) = doesFileExist $ standardLibLocation ++ "/explanations/" ++ str ++ ".txt"
+      isExplanationHash _ = return False

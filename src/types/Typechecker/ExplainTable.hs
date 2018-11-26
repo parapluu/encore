@@ -1,226 +1,164 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
 module Typechecker.ExplainTable (
      Table
     ,lookupHash
-    ,getErrorExplanation
     ) where
 
 import Typechecker.TypeError
 
-import Text.PrettyPrint.Annotated
-import Text.Read (readMaybe)
-import Text.Printf (printf)
-
 
 lookupHash :: Error -> Maybe Int
-lookupHash err
-    | Just k <- toKey err = let T t = table in lookup' t k 1
-    | otherwise = Nothing
-    where
-        lookup' [] k _ = Nothing
-        lookup' ((k', v):as) k x
-            |  k == k'= Just x
-            | otherwise = lookup' as k (x+1)
+lookupHash err = toKey err
 
 
-getErrorExplanation :: String -> Maybe (Doc a)
-getErrorExplanation ('E':err) =
-    case readMaybe err :: Maybe Int of
-        Just num
-            | num > 0 -> let T t = table in lookupExplain (num-1) t
-            | otherwise -> Nothing
-        Nothing -> Nothing
-getErrorExplanation _ = Nothing
 
-
-lookupExplain _ [] = Nothing
-lookupExplain 0 ((_, v):_) = Just v
-lookupExplain x (_:ls) =  lookupExplain (x-1) ls 
-
-
-newtype Table k v = T [(k, v)]
-
-table :: Table String (Doc a)
-table = 
-    T [
-        (
-            "MissingMainClass",
-            "Welcome to the Encore Compiler!" $$
-            "Here you will meet many wonderful methods and functions and whatnot!"
-        )
-        ,(
-            "TypeMismatchError",
-            "This error occurs when the compiler was unable to infer the concrete type of a" $+$
-            "variable. It can occur for several cases, the most common of which is a" $+$
-            "mismatch in the expected type that the compiler inferred for a variable's" $+$
-            "initializing expression, and the actual type explicitly assigned to the" $+$
-            "variable." $+$
-            "" $+$
-            "For example:" $+$
-            "" $+$
-            "```" $+$
-            "let x: i32 = \"I am not a number!\";" $+$
-            "//     ~~~   ~~~~~~~~~~~~~~~~~~~~" $+$
-            "//      |             |" $+$
-            "//      |    initializing expression;" $+$
-            "//      |    compiler infers type `&str`" $+$
-            "//      |" $+$
-            "//    type `i32` assigned to variable `x`" $+$
-            "```"
-        )
-    ]
-
-
--- I want to have a guarding Nothing in case if an error is introdused,
--- but the compiler gives me an overlapped-error....
-toKey :: Error -> Maybe String
-toKey (DistinctTypeParametersError _)                 = Just "DistinctTypeParametersError"
-toKey (WrongNumberOfMethodArgumentsError _ _ _ _)     = Just "WrongNumberOfMethodArgumentsError"
-toKey (WrongNumberOfFunctionArgumentsError _ _ _)     = Just "WrongNumberOfFunctionArgumentsError"
-toKey (WrongNumberOfFunctionTypeArgumentsError _ _ _) = Just "WrongNumberOfFunctionTypeArgumentsError"
-toKey (WrongNumberOfTypeParametersError _ _ _ _)      = Just "WrongNumberOfTypeParametersError"
-toKey (MissingFieldRequirementError _ _)              = Just "MissingFieldRequirementError"
-toKey (CovarianceViolationError _ _ _)                = Just "CovarianceViolationError"
-toKey (RequiredFieldMismatchError _ _ _ _)            = Just "RequiredFieldMismatchError"
-toKey (NonDisjointConjunctionError _ _ _)             = Just "NonDisjointConjunctionError"
-toKey (OverriddenMethodTypeError _ _ _ _)             = Just "OverriddenMethodTypeError"
-toKey (OverriddenMethodError _ _ _)                   = Just "OverriddenMethodError"
-toKey (IncludedMethodConflictError _ _ _)             = Just "IncludedMethodConflictError"
-toKey (MissingMethodRequirementError _ _)             = Just "MissingMethodRequirementError"
-toKey (MissingMainClass)                              = Just "MissingMainClass"
-toKey (SyncStreamCall)                                = Just "SyncStreamCall"
-toKey (UnknownTraitError _)                           = Just "UnknownTraitError"
-toKey (UnknownRefTypeError _)                         = Just "UnknownRefTypeError"
-toKey (MalformedCapabilityError _)                    = Just "MalformedCapabilityError"
-toKey (MalformedBoundError _)                         = Just "MalformedBoundError"
-toKey (RecursiveTypesynonymError _)                   = Just "RecursiveTypesynonymError"
-toKey (DuplicateThingError _ _)                       = Just "DuplicateThingError"
-toKey (PassiveStreamingMethodError)                   = Just "PassiveStreamingMethodError"
-toKey (PolymorphicConstructorError)                   = Just "PolymorphicConstructorError"
-toKey (StreamingConstructorError)                     = Just "StreamingConstructorError"
-toKey (MainMethodArgumentsError)                      = Just "MainMethodArgumentsError"
-toKey (MainConstructorError)                          = Just "MainConstructorError"
-toKey (FieldNotFoundError _ _)                        = Just "FieldNotFoundError"
-toKey (MethodNotFoundError _ _)                       = Just "MethodNotFoundError"
-toKey (BreakOutsideOfLoopError)                       = Just "BreakOutsideOfLoopError"
-toKey (BreakUsedAsExpressionError)                    = Just "BreakUsedAsExpressionError"
-toKey (ContinueOutsideOfLoopError)                    = Just "ContinueOutsideOfLoopError"
-toKey (ContinueUsedAsExpressionError)                 = Just "ContinueUsedAsExpressionError"
-toKey (NonCallableTargetError _)                      = Just "NonCallableTargetError"
-toKey (NonSendableTargetError _)                      = Just "NonSendableTargetError"
-toKey (MainMethodCallError)                           = Just "MainMethodCallError"
-toKey (ConstructorCallError)                          = Just "ConstructorCallError"
-toKey (ExpectingOtherTypeError _ _)                   = Just "ExpectingOtherTypeError"
-toKey (NonStreamingContextError _)                    = Just "NonStreamingContextError"
-toKey (UnboundFunctionError _)                        = Just "UnboundFunctionError"
-toKey (NonFunctionTypeError _)                        = Just "NonFunctionTypeError"
-toKey (BottomTypeInferenceError)                      = Just "BottomTypeInferenceError"
-toKey (IfInferenceError)                              = Just "IfInferenceError"
-toKey (IfBranchMismatchError _ _)                     = Just "IfBranchMismatchError"
-toKey (EmptyMatchClauseError)                         = Just "EmptyMatchClauseError"
-toKey (ActiveMatchError)                              = Just "ActiveMatchError"
-toKey (MatchInferenceError)                           = Just "MatchInferenceError"
-toKey (ThisReassignmentError)                         = Just "ThisReassignmentError"
-toKey (ImmutableVariableError _)                      = Just "ImmutableVariableError"
-toKey (PatternArityMismatchError _ _ _)               = Just "PatternArityMismatchError"
-toKey (PatternTypeMismatchError _ _)                  = Just "PatternTypeMismatchError"
-toKey (NonMaybeExtractorPatternError _)               = Just "NonMaybeExtractorPatternError"
-toKey (InvalidPatternError _)                         = Just "InvalidPatternError"
-toKey (InvalidTupleTargetError _ _ _)                 = Just "InvalidTupleTargetError"
-toKey (InvalidTupleAccessError _ _)                   = Just "InvalidTupleAccessError"
-toKey (CannotReadFieldError _)                        = Just "CannotReadFieldError"
-toKey (NonAssignableLHSError)                         = Just "NonAssignableLHSError"
-toKey (ValFieldAssignmentError _ _)                   = Just "ValFieldAssignmentError"
-toKey (UnboundVariableError _)                        = Just "UnboundVariableError"
-toKey (BuriedVariableError _)                         = Just "BuriedVariableError"
-toKey (ObjectCreationError _)                         = Just "ObjectCreationError"
-toKey (NonIterableError _)                            = Just "NonIterableError"
-toKey (EmptyArrayLiteralError)                        = Just "EmptyArrayLiteralError"
-toKey (NonIndexableError _)                           = Just "NonIndexableError"
-toKey (NonSizeableError _)                            = Just "NonSizeableError"
-toKey (FormatStringLiteralError)                      = Just "FormatStringLiteralError"
-toKey (UnprintableExpressionError _)                  = Just "UnprintableExpressionError"
-toKey (WrongNumberOfPrintArgumentsError _ _)          = Just "WrongNumberOfPrintArgumentsError"
-toKey (UnaryOperandMismatchError _ _)                 = Just "UnaryOperandMismatchError"
-toKey (BinaryOperandMismatchError _ _ _ _)            = Just "BinaryOperandMismatchError"
-toKey (UndefinedBinaryOperatorError _)                = Just "UndefinedBinaryOperatorError"
-toKey (NullTypeInferenceError)                        = Just "NullTypeInferenceError"
-toKey (CannotBeNullError _)                           = Just "CannotBeNullError"
-toKey (TypeMismatchError _ _)                         = Just "TypeMismatchError"
-toKey (TypeWithCapabilityMismatchError _ _ _)         = Just "TypeWithCapabilityMismatchError"
-toKey (TypeVariableAmbiguityError _ _ _)              = Just "TypeVariableAmbiguityError"
-toKey (FreeTypeVariableError _)                       = Just "FreeTypeVariableError"
-toKey (TypeVariableAndVariableCommonNameError _)      = Just "TypeVariableAndVariableCommonNameError"
-toKey (UnionMethodAmbiguityError _ _)                 = Just "UnionMethodAmbiguityError"
-toKey (MalformedUnionTypeError _ _)                   = Just "MalformedUnionTypeError"
-toKey (RequiredFieldMutabilityError _ _)              = Just "RequiredFieldMutabilityError"
-toKey (ProvidingTraitFootprintError _ _ _ _)          = Just "ProvidingTraitFootprintError"
-toKey (TypeArgumentInferenceError _ _)                = Just "TypeArgumentInferenceError"
-toKey (AmbiguousTypeError _ _)                        = Just "AmbiguousTypeError"
-toKey (UnknownTypeUsageError _ _)                     = Just "UnknownTypeUsageError"
-toKey (AmbiguousNameError _ _)                        = Just "AmbiguousNameError"
-toKey (UnknownNamespaceError _)                       = Just "UnknownNamespaceError"
-toKey (UnknownNameError _ _)                          = Just "UnknownNameError"
-toKey (ShadowedImportError _)                         = Just "ShadowedImportError"
-toKey (WrongModuleNameError _ _)                      = Just "WrongModuleNameError"
-toKey (BadSyncCallError)                              = Just "BadSyncCallError"
-toKey (PrivateAccessModifierTargetError _)            = Just "PrivateAccessModifierTargetError"
-toKey (ClosureReturnError)                            = Just "ClosureReturnError"
-toKey (ClosureForwardError)                           = Just "ClosureForwardError"
-toKey (MatchMethodNonMaybeReturnError)                = Just "MatchMethodNonMaybeReturnError"
-toKey (MatchMethodNonEmptyParameterListError)         = Just "MatchMethodNonEmptyParameterListError"
-toKey (ImpureMatchMethodError _)                      = Just "ImpureMatchMethodError"
-toKey (IdComparisonNotSupportedError _)               = Just "IdComparisonNotSupportedError"
-toKey (IdComparisonTypeMismatchError _ _)             = Just "IdComparisonTypeMismatchError"
-toKey (ForwardInPassiveContext _)                     = Just "ForwardInPassiveContext"
-toKey (ForwardInFunction)                             = Just "ForwardInFunction"
-toKey (ForwardTypeError _ _)                          = Just "ForwardTypeError"
-toKey (ForwardTypeClosError _ _)                      = Just "ForwardTypeClosError"
-toKey (CannotHaveModeError _)                         = Just "CannotHaveModeError"
-toKey (ModelessError _)                               = Just "ModelessError"
-toKey (ModeOverrideError _)                           = Just "ModeOverrideError"
-toKey (CannotConsumeError _)                          = Just "CannotConsumeError"
-toKey (CannotConsumeTypeError _)                      = Just "CannotConsumeTypeError"
-toKey (ImmutableConsumeError _)                       = Just "ImmutableConsumeError"
-toKey (CannotGiveReadModeError _)                     = Just "CannotGiveReadModeError"
-toKey (CannotGiveSharableModeError _)                 = Just "CannotGiveSharableModeError"
-toKey (NonValInReadContextError _)                    = Just "NonValInReadContextError"
-toKey (NonSafeInReadContextError _ _)                 = Just "NonSafeInReadContextError"
-toKey (NonSafeInExtendedReadTraitError _ _ _)         = Just "NonSafeInExtendedReadTraitError"
-toKey (ProvidingToReadTraitError _ _ _)               = Just "ProvidingToReadTraitError"
-toKey (SubordinateReturnError _ _)                    = Just "SubordinateReturnError"
-toKey (SubordinateArgumentError _)                    = Just "SubordinateArgumentError"
-toKey (SubordinateFieldError _)                       = Just "SubordinateFieldError"
-toKey (ThreadLocalFieldError _)                       = Just "ThreadLocalFieldError"
-toKey (ThreadLocalFieldExtensionError _ _)            = Just "ThreadLocalFieldExtensionError"
-toKey (ThreadLocalArgumentError _)                    = Just "ThreadLocalArgumentError"
-toKey (PolymorphicArgumentSendError _ _)              = Just "PolymorphicArgumentSendError"
-toKey (PolymorphicReturnError _ _)                    = Just "PolymorphicReturnError"
-toKey (ThreadLocalReturnError _ _)                    = Just "ThreadLocalReturnError"
-toKey (MalformedConjunctionError _ _ _)               = Just "MalformedConjunctionError"
-toKey (CannotUnpackError _)                           = Just "CannotUnpackError"
-toKey (CannotInferUnpackingError _)                   = Just "CannotInferUnpackingError"
-toKey (UnsplittableTypeError _)                       = Just "UnsplittableTypeError"
-toKey (DuplicatingSplitError _)                       = Just "DuplicatingSplitError"
-toKey (StackboundArrayTypeError _)                    = Just "StackboundArrayTypeError"
-toKey (ManifestConflictError _ _)                     = Just "ManifestConflictError"
-toKey (ManifestClassConflictError _ _)                = Just "ManifestClassConflictError"
-toKey (UnmodedMethodExtensionError _ _)               = Just "UnmodedMethodExtensionError"
-toKey (ActiveTraitError _ _)                          = Just "ActiveTraitError"
---toKey (NewWithModeError)                              = Just "NewWithModeError"
---toKey (UnsafeTypeArgumentError _ _)                   = Just "UnsafeTypeArgumentError"
---toKey (OverlapWithBuiltins)                           = Just "OverlapWithBuiltins"
---toKey (SimpleError _)                                 = Just "SimpleError"
---toKey (ReverseBorrowingError)                         = Just "ReverseBorrowingError"
---toKey (BorrowedFieldError _)                          = Just "BorrowedFieldError"
---toKey (LinearClosureError _ _)                        = Just "LinearClosureError"
---toKey (BorrowedLeakError _)                           = Just "BorrowedLeakError"
---toKey (NonBorrowableError _)                          = Just "NonBorrowableError"
---toKey (ActiveBorrowError _ _)                         = Just "ActiveBorrowError"
---toKey (ActiveBorrowSendError _ _)                     = Just "ActiveBorrowSendError"
---toKey (DuplicateBorrowError _)                        = Just "DuplicateBorrowError"
---toKey (StackboundednessMismatchError _ _)             = Just "StackboundednessMismatchError"
---toKey (LinearCaptureError _ _)                        = Just "LinearCaptureError"
+toKey :: Error -> Maybe Int
+-- toKey (DistinctTypeParametersError _)                 = Just 1
+-- toKey (WrongNumberOfMethodArgumentsError _ _ _ _)     = Just 2
+-- toKey (WrongNumberOfFunctionArgumentsError _ _ _)     = Just 3
+-- toKey (WrongNumberOfFunctionTypeArgumentsError _ _ _) = Just 4
+-- toKey (WrongNumberOfTypeParametersError _ _ _ _)      = Just 5
+-- toKey (MissingFieldRequirementError _ _)              = Just 6
+-- toKey (CovarianceViolationError _ _ _)                = Just 7
+-- toKey (RequiredFieldMismatchError _ _ _ _)            = Just 8
+-- toKey (NonDisjointConjunctionError _ _ _)             = Just 9
+-- toKey (OverriddenMethodTypeError _ _ _ _)             = Just 10
+-- toKey (OverriddenMethodError _ _ _)                   = Just 11
+-- toKey (IncludedMethodConflictError _ _ _)             = Just 12
+-- toKey (MissingMethodRequirementError _ _)             = Just 13
+toKey (MissingMainClass)                              = Just 14
+-- toKey (SyncStreamCall)                                = Just 15
+-- toKey (UnknownTraitError _)                           = Just 16
+-- toKey (UnknownRefTypeError _)                         = Just 17
+-- toKey (MalformedCapabilityError _)                    = Just 18
+-- toKey (MalformedBoundError _)                         = Just 19
+-- toKey (RecursiveTypesynonymError _)                   = Just 20
+-- toKey (DuplicateThingError _ _)                       = Just 21
+-- toKey (PassiveStreamingMethodError)                   = Just 22
+-- toKey (PolymorphicConstructorError)                   = Just 23
+-- toKey (StreamingConstructorError)                     = Just 24
+-- toKey (MainMethodArgumentsError)                      = Just 25
+-- toKey (MainConstructorError)                          = Just 26
+-- toKey (FieldNotFoundError _ _)                        = Just 27
+-- toKey (MethodNotFoundError _ _)                       = Just 28
+-- toKey (BreakOutsideOfLoopError)                       = Just 29
+-- toKey (BreakUsedAsExpressionError)                    = Just 30
+-- toKey (ContinueOutsideOfLoopError)                    = Just 31
+-- toKey (ContinueUsedAsExpressionError)                 = Just 32
+-- toKey (NonCallableTargetError _)                      = Just 33
+-- toKey (NonSendableTargetError _)                      = Just 34
+-- toKey (MainMethodCallError)                           = Just 35
+-- toKey (ConstructorCallError)                          = Just 36
+-- toKey (ExpectingOtherTypeError _ _)                   = Just 37
+-- toKey (NonStreamingContextError _)                    = Just 38
+-- toKey (UnboundFunctionError _)                        = Just 39
+-- toKey (NonFunctionTypeError _)                        = Just 40
+-- toKey (BottomTypeInferenceError)                      = Just 41
+-- toKey (IfInferenceError)                              = Just 42
+-- toKey (IfBranchMismatchError _ _)                     = Just 43
+-- toKey (EmptyMatchClauseError)                         = Just 44
+-- toKey (ActiveMatchError)                              = Just 45
+-- toKey (MatchInferenceError)                           = Just 46
+-- toKey (ThisReassignmentError)                         = Just 47
+-- toKey (ImmutableVariableError _)                      = Just 48
+-- toKey (PatternArityMismatchError _ _ _)               = Just 49
+-- toKey (PatternTypeMismatchError _ _)                  = Just 50
+-- toKey (NonMaybeExtractorPatternError _)               = Just 51
+-- toKey (InvalidPatternError _)                         = Just 52
+-- toKey (InvalidTupleTargetError _ _ _)                 = Just 53
+-- toKey (InvalidTupleAccessError _ _)                   = Just 54
+-- toKey (CannotReadFieldError _)                        = Just 55
+-- toKey (NonAssignableLHSError)                         = Just 56
+-- toKey (ValFieldAssignmentError _ _)                   = Just 57
+-- toKey (UnboundVariableError _)                        = Just 58
+-- toKey (BuriedVariableError _)                         = Just 59
+-- toKey (ObjectCreationError _)                         = Just 60
+-- toKey (NonIterableError _)                            = Just 61
+-- toKey (EmptyArrayLiteralError)                        = Just 62
+-- toKey (NonIndexableError _)                           = Just 63
+-- toKey (NonSizeableError _)                            = Just 64
+-- toKey (FormatStringLiteralError)                      = Just 65
+-- toKey (UnprintableExpressionError _)                  = Just 66
+-- toKey (WrongNumberOfPrintArgumentsError _ _)          = Just 67
+-- toKey (UnaryOperandMismatchError _ _)                 = Just 68
+-- toKey (BinaryOperandMismatchError _ _ _ _)            = Just 69
+-- toKey (UndefinedBinaryOperatorError _)                = Just 70
+-- toKey (NullTypeInferenceError)                        = Just 71
+-- toKey (CannotBeNullError _)                           = Just 72
+toKey (TypeMismatchError _ _)                         = Just 73
+-- toKey (TypeWithCapabilityMismatchError _ _ _)         = Just 74
+-- toKey (TypeVariableAmbiguityError _ _ _)              = Just 75
+-- toKey (FreeTypeVariableError _)                       = Just 76
+-- toKey (TypeVariableAndVariableCommonNameError _)      = Just 77
+-- toKey (UnionMethodAmbiguityError _ _)                 = Just 78
+-- toKey (MalformedUnionTypeError _ _)                   = Just 79
+-- toKey (RequiredFieldMutabilityError _ _)              = Just 80
+-- toKey (ProvidingTraitFootprintError _ _ _ _)          = Just 81
+-- toKey (TypeArgumentInferenceError _ _)                = Just 82
+-- toKey (AmbiguousTypeError _ _)                        = Just 83
+-- toKey (UnknownTypeUsageError _ _)                     = Just 84
+-- toKey (AmbiguousNameError _ _)                        = Just 85
+-- toKey (UnknownNamespaceError _)                       = Just 86
+-- toKey (UnknownNameError _ _)                          = Just 87
+-- toKey (ShadowedImportError _)                         = Just 88
+-- toKey (WrongModuleNameError _ _)                      = Just 89
+-- toKey (BadSyncCallError)                              = Just 90
+-- toKey (PrivateAccessModifierTargetError _)            = Just 91
+-- toKey (ClosureReturnError)                            = Just 92
+-- toKey (ClosureForwardError)                           = Just 93
+-- toKey (MatchMethodNonMaybeReturnError)                = Just 94
+-- toKey (MatchMethodNonEmptyParameterListError)         = Just 95
+-- toKey (ImpureMatchMethodError _)                      = Just 96
+-- toKey (IdComparisonNotSupportedError _)               = Just 97
+-- toKey (IdComparisonTypeMismatchError _ _)             = Just 98
+-- toKey (ForwardInPassiveContext _)                     = Just 99
+-- toKey (ForwardInFunction)                             = Just 100
+-- toKey (ForwardTypeError _ _)                          = Just 101
+-- toKey (ForwardTypeClosError _ _)                      = Just 102
+-- toKey (CannotHaveModeError _)                         = Just 103
+-- toKey (ModelessError _)                               = Just 104
+-- toKey (ModeOverrideError _)                           = Just 105
+-- toKey (CannotConsumeError _)                          = Just 106
+-- toKey (CannotConsumeTypeError _)                      = Just 107
+-- toKey (ImmutableConsumeError _)                       = Just 108
+-- toKey (CannotGiveReadModeError _)                     = Just 109
+-- toKey (CannotGiveSharableModeError _)                 = Just 110
+-- toKey (NonValInReadContextError _)                    = Just 111
+-- toKey (NonSafeInReadContextError _ _)                 = Just 112
+-- toKey (NonSafeInExtendedReadTraitError _ _ _)         = Just 113
+-- toKey (ProvidingToReadTraitError _ _ _)               = Just 114
+-- toKey (SubordinateReturnError _ _)                    = Just 115
+-- toKey (SubordinateArgumentError _)                    = Just 116
+-- toKey (SubordinateFieldError _)                       = Just 117
+-- toKey (ThreadLocalFieldError _)                       = Just 118
+-- toKey (ThreadLocalFieldExtensionError _ _)            = Just 119
+-- toKey (ThreadLocalArgumentError _)                    = Just 120
+-- toKey (PolymorphicArgumentSendError _ _)              = Just 121
+-- toKey (PolymorphicReturnError _ _)                    = Just 122
+-- toKey (ThreadLocalReturnError _ _)                    = Just 123
+-- toKey (MalformedConjunctionError _ _ _)               = Just 124
+-- toKey (CannotUnpackError _)                           = Just 125
+-- toKey (CannotInferUnpackingError _)                   = Just 126
+-- toKey (UnsplittableTypeError _)                       = Just 127
+-- toKey (DuplicatingSplitError _)                       = Just 128
+-- toKey (StackboundArrayTypeError _)                    = Just 129
+-- toKey (ManifestConflictError _ _)                     = Just 130
+-- toKey (ManifestClassConflictError _ _)                = Just 131
+-- toKey (UnmodedMethodExtensionError _ _)               = Just 132
+-- toKey (ActiveTraitError _ _)                          = Just 133
+-- toKey (NewWithModeError)                              = Just 134
+-- toKey (UnsafeTypeArgumentError _ _)                   = Just 135
+-- toKey (OverlapWithBuiltins)                           = Just 136
+-- toKey (SimpleError _)                                 = Just 137
+-- toKey (ReverseBorrowingError)                         = Just 138
+-- toKey (BorrowedFieldError _)                          = Just 139
+-- toKey (LinearClosureError _ _)                        = Just 140
+-- toKey (BorrowedLeakError _)                           = Just 141
+-- toKey (NonBorrowableError _)                          = Just 142
+-- toKey (ActiveBorrowError _ _)                         = Just 143
+-- toKey (ActiveBorrowSendError _ _)                     = Just 144
+-- toKey (DuplicateBorrowError _)                        = Just 145
+-- toKey (StackboundednessMismatchError _ _)             = Just 146
+-- toKey (LinearCaptureError _ _)                        = Just 147
 toKey _                                               = Nothing
