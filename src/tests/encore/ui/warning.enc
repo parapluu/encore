@@ -1,0 +1,9 @@
+
+active class Main
+
+    def foo(s : string) : unit
+        ()
+    end
+
+end
+
