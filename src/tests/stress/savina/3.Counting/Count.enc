@@ -1,38 +1,48 @@
 active class Counter
   var count : int
+
   def init() : unit
     this.count = 0
   end
+
   def increment() : unit
     this.count = this.count + 1
   end
-  def retrieve(p : Producer) : unit
+
+  def query(p : Producer) : unit
     p!resultMessage(this.count)
   end
 end
+
+
 active class Producer
   var counter : Counter
   var iterations : int
+
   def init(counter : Counter, iterations : int) : unit
     this.counter = counter
     this.iterations = iterations
   end
+
   def increment(max : int) : unit
     var i = 0
     while i < max do
       this.counter!increment()
       i = i + 1
     end
-    this.counter!retrieve(this)
+    this.counter!query(this)
   end
+
   def resultMessage(count : int) : unit
     if this.iterations != count then
-      print("ERROR: expected : {}, found: {}", this.iterations, count)
+      print("ERROR: expected : {}, found: {}\n", this.iterations, count)
     else
-      print("SUCCESS! received: {}", count)
+      print("SUCCESS! received: {}\n", count)
     end
   end
+
 end
+
 active class Main
   def main(args : [String]) : unit
     if |args| != 2 then
