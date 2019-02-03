@@ -1,20 +1,26 @@
 import Std
 
+-- Trait used by the Request and Response classes.
+-- Allows for simple message passing
 linear trait Action
   require var msg : String
   require var number : int
+
   def getMsg() : String
     this.msg
   end
+
   def setNumber(n : int) : unit
     this.number = n
   end
+
   def getNumber() : int
     this.number
   end
 end
 
 active class Main
+
   def main(args : [String]) : unit
     if |args| != 2 then
       print("input required: number-th of fibo not specified\n")
@@ -27,7 +33,6 @@ active class Main
               case Nothing =>
                 0
               end
-
             end
       in
         let
@@ -40,39 +45,48 @@ active class Main
   end
 end
 
+--
 linear class Request : Action
-  var msg : String
-  var number : int
+  var msg : String -- String identifying the actor as a Request
+  var number : int -- The degree of the Fibonacci number to be computed
+
   def init(n : int) : unit
     this.msg = "Request"
     this.number = n
   end
+
   def request(n : int) : unit
     this.number = n
   end
 end
 
 linear class Response : Action
-  var msg : String
-  var number : int
+  var msg : String -- String identifying the actor as a Response
+  var number : int -- The computed Fibonacci number to be returned
+
   def init(value : int) : unit
     this.msg = "Response"
     this.number = value
   end
+
   def response_one() : unit
     this.number = 1
   end
 end
 
+--
 active class FibonacciActor
   var result : int
   var respReceived : int
   var parent : Maybe[FibonacciActor]
+
   def init(parent : Maybe[FibonacciActor]) : unit
     this.result = 0
     this.respReceived = 0
     this.parent = parent
   end
+
+  -- Method processing either requests from parents or responses from children
   def process(msg : Action) : unit
     match msg.getMsg() with
       case "Request" =>
@@ -89,6 +103,7 @@ active class FibonacciActor
         end
         ()
       end
+
       case "Response" =>
         this.respReceived = this.respReceived + 1
         this.result = this.result + msg.getNumber()
@@ -99,6 +114,8 @@ active class FibonacciActor
 
     end
   end
+
+  -- Sends result back to parent or in the case of the root FibonacciActor prints the result
   def processResult(var response : Response) : unit
     match this.parent with
       case Just(p) => { p!process(consume response); (); }
