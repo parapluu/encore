@@ -1,0 +1,7 @@
+active class Main
+  def main(args : [String]) : unit
+    match (42, 45) with
+      case (x, x) => println(x)
+    end
+  end
+end

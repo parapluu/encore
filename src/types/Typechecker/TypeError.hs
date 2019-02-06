@@ -169,8 +169,12 @@ instance Pushable ImportDecl where
 
 refTypeName :: Type -> String
 refTypeName ty
-    | isClassType ty = "class '" ++ getId ty ++ "'"
-    | isTraitType ty = "trait '" ++ getId ty ++ "'"
+    | isClassType ty = if isADT ty
+                       then "abstract data type case '" ++ getId ty ++ "'"
+                       else "class '" ++ getId ty ++ "'"
+    | isTraitType ty = if isADT ty
+                       then "abstract data type '" ++ getId ty ++ "'"
+                       else "trait '" ++ getId ty ++ "'"
     | isCapabilityType ty = "capability '" ++ show ty ++ "'"
     | isUnionType ty = "union '" ++ show ty ++ "'"
     | isTypeVar ty
@@ -216,6 +220,7 @@ data Error =
   | UnknownTraitError Type
   | UnknownADTError Type
   | UnknownRefTypeError Type
+  | NonADTCaseError Type
   | MalformedCapabilityError Type
   | MalformedBoundError Type
   | RecursiveTypesynonymError Type
@@ -227,7 +232,6 @@ data Error =
   | MainConstructorError
   | FieldNotFoundError Name Type
   | MethodNotFoundError Name Type
-  | AdtConstructorNotFoundError Name Type
   | BreakOutsideOfLoopError
   | BreakUsedAsExpressionError
   | ContinueOutsideOfLoopError
@@ -252,6 +256,7 @@ data Error =
   | PatternTypeMismatchError Expr Type
   | NonMaybeExtractorPatternError Expr
   | InvalidPatternError Expr
+  | DuplicatePatternVarError Name Expr
   | InvalidTupleTargetError Expr Int Type
   | InvalidTupleAccessError Expr Int
   | CannotReadFieldError Expr
@@ -468,6 +473,8 @@ instance Show Error where
               else "method '" ++ show name ++ "'"
     show (UnknownRefTypeError ty) =
         printf "Couldn't find class, trait or typedef '%s'" (show ty)
+    show (NonADTCaseError ty) =
+        printf "Type '%s' is not an abstract data type" (show ty)
     show (MalformedCapabilityError ty) =
         printf "Cannot form capability with %s" (showWithKind ty)
     show (MalformedBoundError bound) =
@@ -488,8 +495,6 @@ instance Show Error where
     show (FieldNotFoundError name ty) =
         printf "No field '%s' in %s"
                (show name) (refTypeName ty)
-    show (AdtConstructorNotFoundError name ty) =
-        printf "No constructor %s in ADT %s" (show name) (showWithoutMode ty)
     show (MethodNotFoundError name ty) =
         let nameWithKind = if name == constructorName
                            then "constructor"
@@ -526,7 +531,7 @@ instance Show Error where
         printf "Unbound function variable '%s'" (show name)
     show (NonFunctionTypeError ty) =
         printf "Cannot use value of type '%s' as a function" (show ty)
-    show BottomTypeInferenceError = "Not enough information to infer the type.\n" ++ 
+    show BottomTypeInferenceError = "Not enough information to infer the type.\n" ++
         "Try adding more type information."
     show IfInferenceError = "Cannot infer result type of if-statement"
     show (IfBranchMismatchError ty1 ty2) =
@@ -556,6 +561,9 @@ instance Show Error where
     show (InvalidPatternError pattern) =
         printf "'%s' is not a valid pattern"
                (show $ ppSugared pattern)
+    show (DuplicatePatternVarError name pattern) =
+        printf "Variable '%s' is used multiple times in pattern '%s'"
+               (show name) (show $ ppSugared pattern)
     show (InvalidTupleTargetError target compartment ty) =
         printf "Compartment access %s.%d expects a tuple target, found %s"
                (show $ ppSugared target)
@@ -971,6 +979,7 @@ data Warning = StringDeprecatedWarning
              | ArrayInReadContextWarning
              | SharedArrayWarning
              | CapabilitySplitWarning
+             | ShadowingADTCaseWarning Name
 
 instance Show Warning where
     show StringDeprecatedWarning =
@@ -1000,3 +1009,6 @@ instance Show Warning where
     show CapabilitySplitWarning =
         "Unpacking linear capabilities is not fully supported and may be unsafe. " ++
         "This will be fixed in a later version of Encore."
+    show (ShadowingADTCaseWarning name) =
+        "Variable '" ++ show name ++ "' shadows ADT case of same name. " ++
+        "You most likely want to write '" ++ show name ++ "()'."

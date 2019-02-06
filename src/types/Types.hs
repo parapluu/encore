@@ -17,17 +17,14 @@ module Types(
             ,refTypeWithParams
             ,refType
             ,abstractTraitFromTraitType
-            ,adtClassType
             ,classType
             ,adtType
-            ,adtConsType
+            ,adtCaseType
             ,isRefAtomType
-            ,adtTraitType
             ,traitType
             ,isRefType
-            ,isFromADT
+            ,isADT
             ,getAdtTag
-            ,setFromADT
             ,isTraitType
             ,isAbstractTraitType
             ,isClassType
@@ -82,6 +79,7 @@ module Types(
             ,setRefNamespace
             ,getRefSourceFile
             ,setRefSourceFile
+            ,transferRefSourceAndNamespace
             ,translateTypeNamespace
             ,getTypeParameters
             ,setTypeParameters
@@ -299,8 +297,7 @@ instance Show Type where
 
 data InnerType =
           Unresolved{refInfo :: RefInfo}
-        | TraitType{refInfo :: RefInfo
-                   ,fromADT :: Bool}
+        | TraitType{refInfo :: RefInfo}
           -- | The @AbstractTraitType@ is used to type @this@ when
           -- overriding methods. A class that implements a trait
           -- @T@ and overrides one of its methods @m@ will
@@ -309,13 +306,12 @@ data InnerType =
           -- parameters that have the type @T@ from the included
           -- trait @T@, which might have been extended with
           -- additional attributes.
-        | AbstractTraitType{refInfo :: RefInfo
-                           ,fromADT :: Bool}
-        | ClassType{refInfo :: RefInfo
-                   ,fromADT :: Bool
-                   ,adtTag :: Int}
-        | AdtType{refInfo :: RefInfo}--TODO: Add more stuff
-        | AdtConsType{refInfo :: RefInfo}--TODO: Add more stuff
+        | AbstractTraitType{refInfo :: RefInfo}
+        | ClassType{refInfo :: RefInfo}
+        | AdtType{refInfo :: RefInfo}
+        | AbstractAdtType{refInfo :: RefInfo}
+        | AdtCaseType{refInfo :: RefInfo
+                     ,adtTag :: Int}
         | CapabilityType{typeop :: TypeOp
                         ,ltype  :: Type
                         ,rtype  :: Type}
@@ -404,6 +400,16 @@ setRefNamespace ns ty
         applyInnerRefInfo (\info -> info{refNamespace = Just ns}) ty
     | otherwise = error $ "Types.hs: tried to set the namespace of " ++ show ty
 
+hasRefNamespace ty
+    | isRefAtomType ty || isTypeSynonym ty
+    , info <- refInfo $ inner ty = isJust $ refNamespace info
+    | otherwise = False
+
+transferRefNamespace from to
+  | hasRefNamespace from =
+      setRefNamespace (fromJust $ getRefNamespace from) to
+  | otherwise = error $ "Types.hs: can't transfer namespace from " ++ show from
+
 getRefSourceFile ty
     | isRefAtomType ty || isTypeSynonym ty =
         fromMaybe err $ refSourceFile (refInfo $ inner ty)
@@ -419,6 +425,15 @@ hasRefSourceFile ty
     | isRefAtomType ty || isTypeSynonym ty
     , info <- refInfo $ inner ty = isJust $ refSourceFile info
     | otherwise = False
+
+transferRefSourceFile from to
+  | hasRefSourceFile from =
+      setRefSourceFile (getRefSourceFile from) to
+  | otherwise = error $ "Types.hs: can't transfer source file from " ++ show from
+
+transferRefSourceAndNamespace from to =
+  transferRefSourceFile from $
+  transferRefNamespace from to
 
 translateTypeNamespace :: Map FilePath Namespace -> Type -> Type
 translateTypeNamespace table = typeMap translate
@@ -443,7 +458,8 @@ instance Show InnerType where
     show AbstractTraitType{refInfo} = show refInfo
     show ClassType{refInfo} = showRefInfoWithoutMode refInfo
     show AdtType{refInfo} = showRefInfoWithoutMode refInfo
-    show AdtConsType{refInfo} = showRefInfoWithoutMode refInfo
+    show AbstractAdtType{refInfo} = showRefInfoWithoutMode refInfo
+    show AdtCaseType{refInfo} = showRefInfoWithoutMode refInfo
     show CapabilityType{typeop = Product, ltype, rtype} =
         let lhs = if isDisjunctiveType ltype
                   then "(" ++ show ltype ++ ")"
@@ -517,8 +533,8 @@ showWithKind ty = kind (inner ty) ++ " " ++ show ty
                                          else if isSharedSingleType (typ ty)
                                          then "shared class type"
                                          else "class type"
-    kind AdtType{}                     = "ADT type"
-    kind AdtConsType{}                 = "AdtCons type"
+    kind AdtType{}                     = "abstract data type"
+    kind AdtCaseType{}                 = "case type"
     kind CapabilityType{}              = "capability type"
     kind EmptyCapability{}             = "the empty capability type"
     kind UnionType{}                   = "union type"
@@ -774,20 +790,6 @@ refTypeWithParams refId parameters =
 
 refType id = refTypeWithParams id []
 
-adtClassType :: String -> Int -> [Type] -> Type
-adtClassType name tag parameters =
-  Type{inner = ClassType{refInfo = RefInfo{refId = name
-                                          ,parameters
-                                          ,mode = Nothing
-                                          ,refNamespace = Nothing
-                                          ,refSourceFile = Nothing
-                                          },
-                                   fromADT = True,
-                                   adtTag = tag
-                        }
-      ,box = Nothing
-      }
-
 classType :: String -> [Type] -> Type
 classType name parameters =
   Type{inner = ClassType{refInfo = RefInfo{refId = name
@@ -795,9 +797,7 @@ classType name parameters =
                                           ,mode = Nothing
                                           ,refNamespace = Nothing
                                           ,refSourceFile = Nothing
-                                          },
-                                   fromADT = False,
-                                   adtTag = 0
+                                          }
                         }
       ,box = Nothing
       }
@@ -815,30 +815,18 @@ adtType name parameters =
          ,box = Nothing
          }
 
-adtConsType :: String -> [Type] -> Type
-adtConsType name parameters =
-  Type{inner = AdtConsType{refInfo = RefInfo{refId = name
+adtCaseType :: String -> [Type] -> Int -> Type
+adtCaseType name parameters adtTag =
+  Type{inner = AdtCaseType{refInfo = RefInfo{refId = name
                                             ,parameters
                                             ,mode = Nothing
                                             ,refNamespace = Nothing
                                             ,refSourceFile = Nothing
                                             }
+                          ,adtTag
                           }
       ,box = Nothing
       }
-
-adtTraitType :: String -> [Type] -> Type
-adtTraitType name parameters =
-    Type{inner = TraitType{refInfo = RefInfo{refId = name
-                                            ,parameters
-                                            ,mode = Nothing
-                                            ,refNamespace = Nothing
-                                            ,refSourceFile = Nothing
-                                            },
-                           fromADT = True
-                          }
-        ,box = Nothing
-        }
 
 traitType :: String -> [Type] -> Type
 traitType name parameters =
@@ -847,8 +835,7 @@ traitType name parameters =
                                             ,mode = Nothing
                                             ,refNamespace = Nothing
                                             ,refSourceFile = Nothing
-                                            },
-                           fromADT = False
+                                            }
                           }
         ,box = Nothing
         }
@@ -856,9 +843,12 @@ traitType name parameters =
 -- | Calling @abstractTraitFromTraitType ty@ returns the *trait
 -- type* @ty@ as an *abstract* trait type. See the definition of
 -- @AbstractTraitType@ for more details.
-abstractTraitFromTraitType ty@Type{inner = TraitType{refInfo, fromADT}} =
-  ty{inner = AbstractTraitType{refInfo, fromADT}}
+abstractTraitFromTraitType ty@Type{inner = TraitType{refInfo}} =
+  ty{inner = AbstractTraitType{refInfo}}
+abstractTraitFromTraitType ty@Type{inner = AdtType{refInfo}} =
+  ty{inner = AbstractAdtType{refInfo}}
 abstractTraitFromTraitType ty@Type{inner = AbstractTraitType{}} = ty
+abstractTraitFromTraitType ty@Type{inner = AbstractAdtType{}} = ty
 abstractTraitFromTraitType ty =
   error $ "Types.hs: Can't form abstract trait from " ++ showWithKind ty
 
@@ -866,8 +856,10 @@ isRefAtomType Type{inner = Unresolved {}} = True
 isRefAtomType Type{inner = TraitType {}} = True
 isRefAtomType Type{inner = AbstractTraitType {}} = True
 isRefAtomType Type{inner = ClassType {}} = True
-isRefAtomType Type{inner = AdtType {}} = True -- TODO: Ask someone about this
-isRefAtomType Type{inner = AdtConsType {}} = True -- TODO: Ask someone about this
+-- ADTs are currently reference types, but may be value types in the future
+isRefAtomType Type{inner = AdtType {}} = True
+isRefAtomType Type{inner = AbstractAdtType {}} = True
+isRefAtomType Type{inner = AdtCaseType {}} = True
 isRefAtomType _ = False
 
 isRefType ty
@@ -883,24 +875,21 @@ isRefType ty
 isUnresolved Type{inner = Unresolved{}} = True
 isUnresolved _ = False
 
-getAdtTag Type{inner = ClassType{adtTag}} = adtTag
-getAdtTag _ = 0
+getAdtTag Type{inner = AdtCaseType{adtTag}} = adtTag
+getAdtTag ty = error $ "Types.hs: Cannot get ADT tag from " ++ showWithKind ty
 
-isFromADT Type{inner = TraitType{fromADT}} = fromADT
-isFromADT Type{inner = ClassType{fromADT}} = fromADT
-isFromADT Type{inner = AbstractTraitType{fromADT}} = fromADT
-isFromADT _ = False
-
-setFromADT ty@Type{inner = t@TraitType{}} bool = ty{inner = t{fromADT = bool}}
-setFromADT ty@Type{inner = t@ClassType{}} bool = ty{inner = t{fromADT = bool}}
-setFromADT ty@Type{inner = t@AbstractTraitType{}} bool = ty{inner = t{fromADT = bool}}
-setFromADT ty _ = ty
+isADT Type{inner = AdtType{}} = True
+isADT Type{inner = AdtCaseType{}} = True
+isADT _ = False
 
 isTraitType Type{inner = TraitType{}} = True
 isTraitType Type{inner = AbstractTraitType{}} = True
+isTraitType Type{inner = AdtType{}} = True
+isTraitType Type{inner = AbstractAdtType{}} = True
 isTraitType _ = False
 
 isAbstractTraitType Type{inner = AbstractTraitType{}} = True
+isAbstractTraitType Type{inner = AbstractAdtType{}} = True
 isAbstractTraitType _ = False
 
 isPassiveRefType ty =
@@ -909,6 +898,7 @@ isPassiveRefType ty =
   not (isSharedSingleType ty)
 
 isClassType Type{inner = ClassType{}} = True
+isClassType Type{inner = AdtCaseType{}} = True
 isClassType _ = False
 
 isPassiveClassType ty = isPassiveRefType ty && isClassType ty
@@ -956,6 +946,8 @@ isUnsafeSingleType = (Unsafe `elem`) . getModes
 isCapabilityType Type{inner = CapabilityType{}} = True
 isCapabilityType Type{inner = TraitType{}} = True
 isCapabilityType Type{inner = AbstractTraitType{}} = True
+isCapabilityType Type{inner = AdtType{}} = True
+isCapabilityType Type{inner = AbstractAdtType{}} = True
 isCapabilityType Type{inner = EmptyCapability{}} = True
 isCapabilityType _ = False
 

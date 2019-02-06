@@ -8,7 +8,7 @@ active class Master
   var numWorkSent: int = 0
   var numWorkCompleted: int = 0
   var resultCounter: int = 0
-  
+
   def init(numWorkers: int, priorities: int, solutionsLimit: int, threshold: int, size:int) : unit
     -- println("Creating Master")
     this.priorities = priorities
@@ -31,10 +31,10 @@ active class Master
       println("Program succesfully completed!")
     end
   end
-  
-  def sendWork(data: [int], depth: int, priorities: int) : unit
+
+  def sendWork(payload: [int], depth: int, priorities: int) : unit
     -- println("Master sends work to worker")
-    val f = this.workers(this.messageCounter)!nqueensKernelPar(data,depth,priorities)
+    val f = this.workers(this.messageCounter)!nqueensKernelPar(payload,depth,priorities)
     this.messageCounter = (this.messageCounter + 1) % |this.workers|
     -- println("Master: sending work to worker {}", this.messageCounter)
     await(f)
@@ -71,8 +71,8 @@ active class Worker
       for j <- [i+1..n-1] do
         q = board(j)
         -- print("i variable has value {}, j variable has value {}\n", i, j)
-        if q==p || q == p - (j - i) || q == p + (j - i) then 
-          return false 
+        if q==p || q == p - (j - i) || q == p + (j - i) then
+          return false
         end
       end
     end
@@ -80,20 +80,20 @@ active class Worker
     true
   end
 
-  def nqueensKernelPar(data : [int], depth : int, priority : int) : unit
+  def nqueensKernelPar(payload : [int], depth : int, priority : int) : unit
     -- println("Worker running nqueensKernelPar")
     -- println("size has value {}, depth has value {}", this.size, depth)
     if this.size != depth then
       if depth >= this.threshold then
     	  -- println("Worker reaches cut-off for nqueensKernelSeq")
-	      this.nqueensKernelSeq(data, depth)
-      else 
+	      this.nqueensKernelSeq(payload, depth)
+      else
       	-- println("Worker continues with nqueensKernelPar")
       	-- var newPriority = priority - 1
         -- var newDepth = depth+1
       	repeat i <- this.size do
           var b = new [int](depth+1)
-          this.arraycopy(data,0,b,0,depth)
+          this.arraycopy(payload,0,b,0,depth)
           b(depth) = i
           -- println("Checking position at depth {}", depth+1)
           if this.boardValid(depth+1, b) then
@@ -108,13 +108,13 @@ active class Worker
     end
   end -- nqueensKernelPar
 
-  def nqueensKernelSeq(data: [int], depth: int) : unit
+  def nqueensKernelSeq(payload: [int], depth: int) : unit
     -- println("size has value {}, depth has value {}", this.size, depth)
     if this.size != depth then
       -- println("SEQ: size != depth")
       var b = new [int](depth+1)
       repeat i <- this.size do
-        this.arraycopy(data, 0, b, 0, depth)
+        this.arraycopy(payload, 0, b, 0, depth)
         b(depth) = i
 	      -- println("Checking position at depth {}", depth)
         if this.boardValid(depth+1, b) then

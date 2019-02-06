@@ -18,8 +18,8 @@ local class File
                   mode
                 end
     this.fname = fin
-    var fin = fin.data
-    var mChar = this.mode.data
+    var fin = fin.cstring
+    var mChar = this.mode.cstring
     this.file = EMBED (EMBED FILE* END)
                   FILE *file = fopen(#{fin}, #{mChar});
                   if (!file) {
@@ -43,7 +43,7 @@ local class File
                 END
   end
   def write(content : String) : unit
-    this.writeChar(content.data)
+    this.writeChar(content.cstring)
   end
   def writeChar(content : EMBED char* END) : unit
     var file = this.file

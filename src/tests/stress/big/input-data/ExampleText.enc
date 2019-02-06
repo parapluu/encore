@@ -15,7 +15,7 @@ uint64_t strHash(char* input) {
 END
 
 fun stringID(s : String) : uint
-    var ans = EMBED (uint) (uint64_t) strHash(#{s.getData()}); END
+    var ans = EMBED (uint) (uint64_t) strHash(#{s.getCString()}); END
     ans
 end
 
