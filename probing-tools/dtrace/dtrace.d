@@ -1,6 +1,12 @@
-BEGIN { }
+#pragma D option quiet
 
-END { }
+BEGIN {
+	printf("Dtrace started!");
+}
+
+END {
+	printf("Dtrace finished!");
+}
 
 pony$target:::actor-alloc { }
 pony$target:::actor-msg-send { }
