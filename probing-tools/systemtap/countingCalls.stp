@@ -1,0 +1,83 @@
+#Counts the frequency of different probes being fired being made
+
+global actor-alloc
+global actor-msg-send
+global actor-msg-run
+global actor-scheduled
+global actor-descheduled
+global cpu-nanosleep
+global gc-end
+global gc-send-end
+global gc-send-start
+global gc-recv-end
+global gc-recv-start
+global gc-threshold
+global heap-alloc
+global heap-alloc
+global rt-init
+global rt-end
+global rt-star
+global work-steal-successful
+global work-steal-failure
+
+
+probe process.mark("actor-alloc"){
+      actor-alloc <<< 1
+}
+probe process.mark("actor-msg-send"){
+      actor-msg-send <<< 1
+}
+pr*obe process.mark("actor-msg-run"){
+       actor-msg-run <<< 1
+}
+probe process.mark("actor-scheduled"){
+      actor-scheduled <<< 1
+      
+}
+probe process.mark("actor-descheduled"){
+      actor-descheduled <<< 1
+}
+probe process.mark("cpu-nanosleep"){
+      cpu-nanosleep <<< 1
+}
+probe process.mark("gc-end"){
+      gc-end <<< 1
+}
+probe process.mark("gc-send-end"){
+      gc-send-end <<< 1
+}
+probe process.mark("gc-send-start"){
+      gc-send-start <<< 1
+}
+probe process.mark("gc-recv-end"){
+      gc-recv-end <<< 1
+}
+probe process.mark("gc-recv-start"){
+      gc-recv-start <<< 1
+      
+}
+probe process.mark("gc-start"){
+      gc-start <<< 1
+      
+}
+probe process.mark("gc-threshold"){
+      gc-threshold <<< 1
+}
+probe process.mark("heap-alloc"){
+      heap-alloc <<< 1
+}
+probe process.mark("rt-init"){
+            rt-init <<< 1
+}
+probe process.mark("rt-end"){
+      rt-end <<< 1
+}
+probe process.mark("rt-star"){
+      rt-star <<< 1
+}
+probe process.mark("work-steal-successful"){
+      work-steal-successful <<<1
+}
+probe process.mark("work-steal-failure"){
+      work-steal-failure <<< 1
+}
