@@ -1,0 +1,80 @@
+#Number of messages sent --Done
+#Creation of futures ---Done
+#Uses of the forward construct...? --Todo
+#Future fulfillment -- Working on it
+#Getting the results of a future
+#Chaining on a future
+#Lifetime of a future -- done
+#When a chaining funciton is run
+#who runs the chaining?
+
+#Ration of messages vs futures
+#How much time ipent blocking a future
+#Which classes blocks futures
+
+#-------------------------------------------Begin
+global actor_msg_send
+global future_created
+global future_list
+global blocks
+global future_block_list
+
+probe process.mark("actor-msg-send")
+{
+      actor_msg_send <<< 1;
+}
+
+probe process.mark("future-create") {
+      future_created <<< 1;
+      created_future = sprint($arg2)
+      future_list[created_future] = $arg2
+      future_block_list[created_future] = 0
+      start_stopwatch(created_future)
+      
+      
+
+}
+
+global actor_blocked
+
+probe process.mark("future-block") {
+      blocks <<< 1;
+      blocked_future = sprint($arg2)
+      future_block_list[blocked_future] += 1
+
+      block_block_fut = sprint("block", $arg2)
+      start_stopwatch(block_block_fut)
+}
+
+probe process.mark("future-unblock") {
+      fulfilled_fut = sprint("block", $arg2)
+      stop_stopwatch(fulfilled_fut)
+}
+
+probe process.mark("future-destroy") {
+      destroyed_future = sprint($arg2)
+      if([destroyed_future] in future_list) {
+      	 stop_stopwatch(destroyed_future)
+      }
+}
+
+probe end {
+      printf("\n")
+      message_num = @count(actor_msg_send)
+      future_num = @count(future_created)
+      total_blocks = @count(blocks)
+      printf("Amount of messages:\t \t %d\n", message_num)
+      printf("Amount of futures created:\t %d\n", future_num)
+      printf("Amount of blocks in total: \t %d \n", total_blocks)
+      printf("Ratio future:message \t \t %d:%d \n", 1, message_num/future_num)
+
+      printf("\nfuture ID: \t lifetime (us): \t blocked num: \t time blocked (us): \n")
+      foreach(fut in future_list) {
+      	time = read_stopwatch_us(sprint(fut))
+      	blocked_num = future_block_list[sprint(fut)]
+	time_waiting = read_stopwatch_us(sprint("block", fut))
+     	printf("%s \t %d \t \t %d \t \t %d \n", fut, time, blocked_num, time_waiting)
+      }
+      
+
+}
