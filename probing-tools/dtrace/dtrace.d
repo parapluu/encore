@@ -1,11 +1,25 @@
 #pragma D option quiet
 
+struct actor_info {
+	uint64_t cpu;
+  uint32_t steals;
+  uint32_t jumps;
+};
+
+struct diagnostics {
+  uint32_t successful_steals;
+  uint32_t failed_steals;
+  uint32_t steal_attempts;
+  uint32_t cpu_jumps;
+  uint32_t schedulings;
+};
+
+struct diagnostics diagnostics;
+struct actor_info cpus[int64_t];	/* declare cpus as an associative array */
+
 BEGIN
 {
-	total_steals = 0;
-	total_failed_steals = 0;
-	total_steal_attempts = 0;
-	total_schedulings = 0;
+
 }
 
 pony$target:::actor-alloc { }
@@ -16,6 +30,9 @@ pony$target:::actor-msg-run { }
 // arg[0] is scheduler, arg[1] is actor
 pony$target:::actor-scheduled
 {
+
+  cpus[arg1].cpu = cpu; // current CPU of the actor
+  diagnostics.schedulings++;
 	total_schedulings++;
 	@schedulers_for_actor[args[0], args[1]] = count();
 }
@@ -34,6 +51,8 @@ pony$target:::rt-init {}
 pony$target:::rt-start {}
 pony$target:::rt-end {}
 
+
+pony$target:::core-jump { }
 	/**
    * Fired when a scheduler succesfully steals a job
    * @param scheduler is the scheduler that stole the job
@@ -42,11 +61,13 @@ pony$target:::rt-end {}
    */
 pony$target:::work-steal-successful
 {
-	total_steals++;
-	total_steal_attempts++;
-  @steal_success_count[args[0]] = count();
-	@successful_steal_from_scheduler[args[0], args[1]] = count();
-	@stolen_actor[args[2]] = count();
+  diagnostics.cpu_jumps = cpus[arg0].cpu != cpus[arg2].cpu ? diagnostics.cpu_jumps+1 : diagnostics.cpu_jumps;
+  diagnostics.successful_steals++;
+  diagnostics.steal_attempts++;
+
+  @steal_success_count[arg0] = count();
+	@successful_steal_from_scheduler[arg0, arg1] = count();
+	@stolen_actor[arg2] = count();
 }
 
 /**
@@ -56,10 +77,10 @@ pony$target:::work-steal-successful
  */
 pony$target:::work-steal-failure
 {
-	total_failed_steals++;
-	total_steal_attempts++;
-  @steal_fail_count[args[0]] = count();
-	@failed_steal_from_scheduler[args[0], args[1]] = count();
+  diagnostics.failed_steals++;
+  diagnostics.steal_attempts++;
+  @steal_fail_count[arg0] = count();
+	@failed_steal_from_scheduler[arg0, arg1] = count();
 }
 
 encore$target:::closure-create {}
@@ -88,20 +109,21 @@ END {
 	printf("==========================================\n\t\tSTEALS\n==========================================\n");
 	printf("\nTOTAL\n");
 	printf("Attempted\tSuccessful\tFailed\n");
-	printf("%d\t\t%d\t\t%d\n", total_steal_attempts, total_steals, total_failed_steals);
+	printf("%d\t\t%d\t\t%d\n",
+									diagnostics.steal_attempts,
+									diagnostics.successful_steals,
+									diagnostics.failed_steals);
 
-	printf("\n");
-	printf("SUCCESSIVE STEALS\n");
+	printf("\nSUCCESSIVE STEALS\n");
 	printf("Scheduler ID\tCount\n");
 	printa("%d%@8u\n", @steal_success_count);
 
-	printf("\n");
-	printf("FAILED STEALS\n");
+	printf("\nFAILED STEALS\n");
 	printf("Scheduler ID\tCount\n");
 	printa("%d%@8u\n", @steal_fail_count);
 
 	printf("\nSTEALS BETWEEN SCHEDULERS\n");
-		printf("Stolen by\tStolen from\tCount\n");
+	printf("Stolen by\tStolen from\tCount\n");
 	printa("%d\t%d%@8u\n", @successful_steal_from_scheduler);
 
 	printf("\nFAILS BETWEEN SCHEDULERS\n");
@@ -112,13 +134,12 @@ END {
 	printf("Actor ID\tTimes stolen\n");
 	printa("%d%@8u\n", @stolen_actor);
 
-	printf("\n==========================================\n\t\tSCHEDULING\n==========================================\n");
-	printf("\nTOTAL SCHEDULINGS: %d\n", total_schedulings);
+  printf("\nCORE SWITCHES: %d\n", diagnostics.cpu_jumps);
 
-	printf("\n");
-	printf("DISTRIBUTION\n");
+	printf("\n==========================================\n\t\tSCHEDULING\n==========================================\n");
+	printf("\nTOTAL SCHEDULINGS: %d\n", diagnostics.schedulings);
+
+	printf("\nDISTRIBUTION\n");
 	printf("Scheduler ID\tActor ID\tCount\n");
 	printa("%d\t%d%@8u\n", @schedulers_for_actor);
-
-
 }
