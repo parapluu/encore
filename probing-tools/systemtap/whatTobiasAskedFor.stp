@@ -3,7 +3,7 @@
 #Uses of the forward construct...? --Todo
 #Future fulfillment -- Working on it
 #Getting the results of a future
-#Chaining on a future
+#Chaining on a future --done
 #Lifetime of a future -- done
 #When a chaining funciton is run
 #who runs the chaining?
@@ -21,6 +21,9 @@ global blocks
 
 #list of ID:s
 global list_of_futures
+global actor_ctx_id_blocked
+global actor_being_blocked
+global future_fulfil_list
 
 #messages
 probe process.mark("actor-msg-send")
@@ -40,6 +43,8 @@ probe process.mark("future-block") {
       blocks <<< 1;
       blocked_future = sprint($arg2)
       start_stopwatch(sprint("block", $arg2))
+      actor_being_blocked[blocked_future] = $arg1 
+      actor_ctx_id_blocked[sprint($arg1)]++
 }
 
 probe process.mark("future-unblock") {
@@ -54,14 +59,24 @@ probe process.mark("future-destroy") {
       }
 }
 
+probe process.mark("method-entry") {
+      name = user_string($arg3)
+      if(name == "init") {
+         actor_ctx_id_blocked[sprint($arg1)] = 0
+      }
+}
+
+probe process.mark("future-fulfil-end"){
+      future_id = sprint($arg2)
+      future_fulfil_list[sprint(future_id)] = future_id
+}
+
 #chaining
 global chained_actor_list
 probe process.mark("future-chaining") {
       future_chained = $arg2
       chained_actor_list[sprint(future_chained)] = future_chained
 }
-
-
 
 probe end {
       printf("\n")
@@ -70,28 +85,37 @@ probe end {
       total_blocks = @count(blocks)
       printf("Amount of messages:\t \t %d\n", message_num)
       printf("Amount of futures created:\t %d\n", future_num)
-      printf("Amount of futures blocked in total: \t %d \n", total_blocks)
+      printf("Amount of blocked in total: \t %d \n", total_blocks)
       printf("Ratio future:message \t \t %d:%d \n", 1, message_num/future_num)
 
-      printf("\nfuture ID: \t lifetime (us): \t time blocked (us): \t chained: \n")
+      printf("\nfuture ID: \t lifetime (us): \t time blocked (us): \t chained: \t block act: \t fulfilled:\n")
       foreach(fut in list_of_futures) {
-      	fut_string = sprint(fut)
 
 	#stopwatches:
-        time = read_stopwatch_us(fut_string)
-	time_waiting = read_stopwatch_us(sprint("block", fut_string))
+        time = read_stopwatch_us(fut)
+	time_waiting = read_stopwatch_us(sprint("block", fut))
+
+	#ctx id of blocked id:
+	actor = actor_being_blocked[fut]
+
+	#Fulfilled
+	ful = "no"
+	if(fut in future_fulfil_list) {
+	  ful = "yes"
+	}
 
 	#chained:
-	if(fut_string in chained_actor_list) {
+	cha = "no"
+	if(fut in chained_actor_list) {
 	  cha = "yes"
 	}
-	else {
-	  cha = "no"
-	}
 	
+     	printf("%15d %13d %27d %15s %17d %15s \n", list_of_futures[fut], time, time_waiting, cha, actor, ful)
+      }
 
-	
-     	printf("%s \t %d \t \t \t %d \t \t %s \n", fut, time, time_waiting, cha)
+      printf("\nactor ID: \t tot blocked:\n")
+      foreach(act in actor_ctx_id_blocked) {
+        printf("%s \t %d\n", act, actor_ctx_id_blocked[act])
       }
       
 
