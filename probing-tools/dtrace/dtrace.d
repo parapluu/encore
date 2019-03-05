@@ -103,12 +103,12 @@ encore$target:::function-exit {}
 // encore$target:::closure-entry {}
 // encore$target:::closure-exit {}
 
-pid$target:Main::entry
+pid$target:$1::entry
 {
 	self->start[depth++] = vtimestamp;
 }
 
-pid$target:Main::return
+pid$target:$1::return
 {
 //	print(probemod);
 	@function_time[probefunc] = quantize(vtimestamp - self->start[depth-1]);
