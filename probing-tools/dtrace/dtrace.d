@@ -52,10 +52,6 @@ pony$target:::rt-start {}
 pony$target:::rt-end {}
 
 
-// pony$target:::core-jump
-// {
-//   printf("Jumped\n");
-// }
 	/**
    * Fired when a scheduler succesfully steals a job
    * @param scheduler is the scheduler that stole the job
