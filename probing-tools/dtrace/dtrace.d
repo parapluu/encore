@@ -1,7 +1,5 @@
 #pragma D option quiet
 
-#define TRACK_FUNCTION $2
-
 typedef struct pony_ctx_t
 {
   void* scheduler;
@@ -28,7 +26,6 @@ struct actor_info cpus[int64_t];	/* declare cpus as an associative array */
 int did_run_probe[string];
 
 BEGIN {
-	depth = 1;
 }
 
 pony$target::: /did_run_probe[probename] != 1/ {
@@ -73,7 +70,7 @@ encore$target:::closure-create {}
 encore$target:::future-create {
   @counter[probename] = count();
   // Used for lifetime of a future
-  future_create_starttime[arg1] = timestamp;
+  self->future_create_starttime[arg1] = vtimestamp;
 }
 
 encore$target:::future-block {
@@ -85,13 +82,13 @@ encore$target:::future-block {
   @actor_blocked[actorPointer] = count();
   @future_blocked_actor[arg1, actorPointer] = count();
   // Used for duration of a block
-  future_block_starttime[arg1] = timestamp;
+  self->future_block_starttime[arg1] = vtimestamp;
 }
 
 encore$target:::future-unblock {
   @counter[probename] = count();
-  @future_block_lifetime[arg1] = sum(timestamp - future_block_starttime[arg1]);
-  @future_blocked_actor_lifetime[arg1, actorPointer] = sum(timestamp - future_block_starttime[arg1]);
+  @future_block_lifetime[arg1] = sum(vtimestamp - self->future_block_starttime[arg1]);
+  @future_blocked_actor_lifetime[arg1, actorPointer] = sum(vtimestamp - self->future_block_starttime[arg1]);
 }
 
 encore$target:::future-chaining {
@@ -116,16 +113,16 @@ encore$target:::future-get {
 
 encore$target:::future-destroy {
   @counter[probename] = count();
-  @future_lifetime[arg1] = sum(timestamp - future_create_starttime[arg1]);
+  @future_lifetime[arg1] = sum(vtimestamp - self->future_create_starttime[arg1]);
 }
 
-pid$target:$1::entry /TRACK_FUNCTION == 1/ {
-	self->start[depth++] = vtimestamp;
+encore$target:::method-entry {
+  self->function_time[arg2] = vtimestamp;
 }
 
-pid$target:$1::return /TRACK_FUNCTION == 1/ {
-	@function_time[probefunc] = quantize(vtimestamp - self->start[depth-1]);
-  self->depth[depth--] = 0;
+encore$target:::method-exit {
+  name = copyinstr(arg2);
+  @function_time[arg1, name] = sum(vtimestamp - self->function_time[arg2]);
 }
 
 END {
@@ -207,10 +204,13 @@ END {
 
 	  printf("\nCORE SWITCHES: %d\n", diagnostics.cpu_jumps);
 	}
-	if (did_run_probe["entry"]) {
-		printf("\n==========================================\n\t\FUNCTIONS\n==========================================\n");
+	if (did_run_probe["method-entry"]) {
+    printf("==========================================\n");
+		printf("\t\tMETHODS\n");
+		printf("==========================================\n");
 
-		printf("\nTIME SPENT IN FUNCTIONS (Nanoseconds)\n");
-		printa("Function: %s\%@7u\n", @function_time);
+		printf("\nTIME SPENT IN METHODS (Nanoseconds)\n");
+    printf("Actor addr\t\tMethod name\t\tDuration\n");
+		printa("%d\t\t%s\t\t\t%@u\n", @function_time);
 	}
 }
