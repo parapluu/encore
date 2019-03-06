@@ -2,6 +2,12 @@
 
 #define TRACK_FUNCTION $2
 
+typedef struct pony_ctx_t
+{
+  void* scheduler;
+  void* current;
+};
+
 struct actor_info {
 	uint64_t cpu;
   uint32_t steals;
@@ -70,12 +76,14 @@ encore$target:::future-create {
   future_create_starttime[arg1] = timestamp;
 }
 
-
 encore$target:::future-block {
-  @counter[probename]   = count();
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+
+  @counter[probename] = count();
   @future_block[arg1] = count();
-  @actor_blocked[arg0]  = count();
-  @future_blocked_actor[arg1, arg0] = count();
+  @actor_blocked[actorPointer] = count();
+  @future_blocked_actor[arg1, actorPointer] = count();
   // Used for duration of a block
   future_block_starttime[arg1] = timestamp;
 }
@@ -83,6 +91,7 @@ encore$target:::future-block {
 encore$target:::future-unblock {
   @counter[probename] = count();
   @future_block_lifetime[arg1] = sum(timestamp - future_block_starttime[arg1]);
+  @future_blocked_actor_lifetime[arg1, actorPointer] = sum(timestamp - future_block_starttime[arg1]);
 }
 
 encore$target:::future-chaining {
@@ -99,6 +108,9 @@ encore$target:::future-fulfil-end {
 }
 
 encore$target:::future-get {
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+  @future_get[actorPointer] = count();
   @counter[probename] = count();
 }
 
@@ -133,8 +145,12 @@ END {
 	  printf("Future Addr\t\tLifetime (nanoseconds)\n");
 	  printa("%d\t\t%@1u\n", @future_block_lifetime);
 
+    printf("\n=== FUTURE_BLOCKED_ACTOR_LIFETIME ===\n");
+	  printf("Future Addr\t\tActor addr\t\tLifetime (nanoseconds)\n");
+	  printa("%d\t\t%d\t\t%@1u\n", @future_blocked_actor_lifetime);
+
   	printf("\n=== FUTURE_BLOCKED_ACTOR ===\n");
-  	printf("Future Addr\t\tActor addr\t\tLifetime (nanoseconds)\n");
+  	printf("Future Addr\t\tActor addr\t\tCount\n");
   	printa("%d\t\t%d\t\t%@2u\n", @future_blocked_actor);
 
 	  printf("\n=== NUMBER OF TIMES AN ACTOR IS BLOCKED ===\n");
@@ -145,6 +161,12 @@ END {
 	  printf("Future Addr\t\tCount\n");
 	  printa("%d\t\t%@2u\n", @future_block);
 	}
+
+  if (did_run_probe["future-get"]) {
+    printf("\n=== NUMBER OF TIMES AN ACTOR DOES GET ===\n");
+	  printf("Actor Addr\t\tCount\n");
+	  printa("%d\t\t%@2u\n", @future_get);
+  }
 
 	if (did_run_probe["future-chaining"]) {
 	  printf("\n=== NUMBER OF TIMES A FUTURE IS CHAINED ===\n");
