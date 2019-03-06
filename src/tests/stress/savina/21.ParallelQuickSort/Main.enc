@@ -1,19 +1,30 @@
 import Random
 import ArrayList
+
 typedef Position = int
+
 fun left() : Position
   -(1)
 end
+
 fun right() : Position
   1
 end
+
 fun initial() : Position
   0
 end
+
+-- Params:  borrowed: pivot:
+-- Pre:
+-- Post:  ArrayList containing all elements of 'borrowed' less than 'pivot'
+-- Side effects:
 fun filterLessThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
-  var result = new ArrayList[int](data.size())
+  var n = data.size() -- Keep this out of the loop stop condition to avoid one method call for each list item
+  var result = new ArrayList[int](n)
   var i = 0
-  while i < data.size() do
+
+  while i < n do
     let
       d = data.at(i)
     in
@@ -25,10 +36,16 @@ fun filterLessThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
   end
   consume result
 end
+
+-- Params:  borrowed: pivot:
+-- Pre:
+-- Post:  ArrayList containing all elements of 'borrowed' equal to 'pivot'
+-- Side effects:
 fun filterEqualsTo(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
-  var result = new ArrayList[int](data.size())
+  var n = data.size() -- Keep this out of the loop stop condition to avoid one method call for each list item
+  var result = new ArrayList[int](n)
   var i = 0
-  while i < data.size() do
+  while i < n do
     let
       d = data.at(i)
     in
@@ -40,10 +57,16 @@ fun filterEqualsTo(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
   end
   consume result
 end
+
+-- Params:  borrowed: pivot:
+-- Pre:
+-- Post:  ArrayList containing all elements of 'borrowed' greater than 'pivot'
+-- Side effects:
 fun filterGreaterThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
-  var result = new ArrayList[int](data.size())
+  var n = data.size()
+  var result = new ArrayList[int](n)
   var i = 0
-  while i < data.size() do
+  while i < n do
     let
       d = data.at(i)
     in
@@ -61,41 +84,47 @@ fun quicksortSeq(data : borrowed ArrayList[int]) : ArrayList[int]
     dataLength = data.size()
   in
     var result = new ArrayList[int](dataLength)
+    -- Lists with less than two elements are by default sorted
     if dataLength < 2 then
       result.addAll(data)
       consume result
     else
-      val pivot = data.at(data.size() / 2)
+      val pivot = data.at(dataLength / 2)
       var leftUnsorted = filterLessThan(data, pivot)
-      var leftSorted = quicksortSeq(leftUnsorted)
+
+      var leftSorted    = quicksortSeq(leftUnsorted)
       var equalElements = filterEqualsTo(data, pivot)
-      var rightSorted = quicksortSeq(filterGreaterThan(data, pivot))
+      var rightSorted   = quicksortSeq(filterGreaterThan(data, pivot))
+
       result.addAll(leftSorted)
       result.addAll(equalElements)
       result.addAll(rightSorted)
+
       assertTrue(result.size() == data.size(), "the size of the resulting array is different from the size of the input")
       consume result
     end
   end
 end
-fun checkSorted(data : ArrayList[int]) : bool
-  true
-end
-fun randomInitialArray(n : int, s : int, m : int) : ArrayList[int]
-  var result = new ArrayList[int](n)
+
+
+fun randomInitialArray(size : int, s : int, maxVal : int) : ArrayList[int]
+  var result = new ArrayList[int](size)
   val r = new Random(s)
-  for i <- [0..n - 1] do
-    result.add(r.random(m))
+  for i <- [0..size - 1] do
+    result.add(r.random(maxVal))
   end
   consume result
 end
-fun printArray(s : String, a : borrowed ArrayList[int]) : unit
-  if a.size() > 0 then
-    var result = string_from_int(a.at(0))
+
+fun printArray(s : String, list : borrowed ArrayList[int]) : unit
+  var n = list.size()
+
+  if n > 0 then
+    var result = string_from_int(list.at(0))
     var i = 1
-    while i < a.size() do
+    while i < n do
       result = result.concatenate(", ")
-      result = result.concatenate(string_from_int(a.at(i)))
+      result = result.concatenate(string_from_int(list.at(i)))
       i = i + 1
     end
     print("{}: {} \n", s, result)
@@ -103,18 +132,20 @@ fun printArray(s : String, a : borrowed ArrayList[int]) : unit
 end
 
 active class QuickSortActor : Id
-  var t : int
+  var seqThreshold : int
   var parent : QuickSortActor
   var result : ArrayList[int]
   var numFragments : int
-  var myPosition : Position
-  def init(parent : QuickSortActor, pos : Position, t : int, n : int) : unit
-    this.t = t
+  var myPosition : Position -- The position from the perspective of the parent, left or right part of original list
+
+  def init(parent : QuickSortActor, pos : Position, seqThreshold : int, n : int) : unit
+    this.seqThreshold = seqThreshold
     this.parent = parent
     this.result = new ArrayList[int](n)
-    this.numFragments = 0
+    this.numFragments = 0 -- Number of completed fragments, done when 3
     this.myPosition = pos
   end
+
   def done(var data : ArrayList[int], position : Position) : unit
     if data != null then
       if position == left() then
@@ -131,6 +162,7 @@ active class QuickSortActor : Id
       end
     end
   end
+
   def notify() : unit
     if this.parent != null then
       this.parent!done(consume this.result, this.myPosition)
@@ -140,19 +172,20 @@ active class QuickSortActor : Id
       this.result = consume res
     end
   end
+
   def sort(data : ArrayList[int]) : unit
     let
       dataLength = data.size()
     in
-      if dataLength < this.t then
+      if dataLength < this.seqThreshold then
         this.result = quicksortSeq(data)
         this.notify()
       else
         let
           pivot = data.at(dataLength / 2)
         in
-          (new QuickSortActor(this, left(), this.t, data.size()))!sort(filterLessThan(data, pivot))
-          (new QuickSortActor(this, right(), this.t, data.size()))!sort(filterGreaterThan(data, pivot))
+          (new QuickSortActor(this, left(), this.seqThreshold, dataLength))!sort(filterLessThan(data, pivot))
+          (new QuickSortActor(this, right(), this.seqThreshold, dataLength))!sort(filterGreaterThan(data, pivot))
           this.result = filterEqualsTo(data, pivot)
           this.numFragments = this.numFragments + 1
         end
@@ -160,6 +193,7 @@ active class QuickSortActor : Id
     end
   end
 end
+
 active class Main
   def argToInt(str : String) : int
     match str.to_int() with
@@ -172,14 +206,15 @@ active class Main
 
     end
   end
+
   def main(args : [String]) : unit
     let
-      n = 100 --1000000
-      m = 1152921504606846976 -- 2^60
-      t = 2048
-      s = 1024
+      numberOfElements  = 1000000
+      maxValue          = 1152921504606846976 -- 2^60
+      seqThreshold      = 2048
+      randomSeed        = 1024
     in
-      (new QuickSortActor(null, initial(), t, n))!sort(randomInitialArray(n, s, m))
+      (new QuickSortActor(null, initial(), seqThreshold, numberOfElements))!sort(randomInitialArray(numberOfElements, randomSeed, maxValue))
       println("Done!")
     end
   end

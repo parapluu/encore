@@ -369,7 +369,7 @@ void future_register_callback(pony_ctx_t **ctx,
                               future_t *fut,
                               closure_t *c)
 {
-  ENC_DTRACE2(FUTURE_REGISTER_CALLBACK, (uintptr_t) *ctx, (uintptr_t) fut);
+//  ENC_DTRACE2(FUTURE_REGISTER_CALLBACK, (uintptr_t) *ctx, (uintptr_t) fut);
   perr("future_chain_actor");
   BLOCK;
 
