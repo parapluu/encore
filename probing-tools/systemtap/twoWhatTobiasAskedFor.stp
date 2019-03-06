@@ -15,40 +15,74 @@
 
 #____________________________Begin____________________________________________________________
 
-global actor_number
-
 global successful_steals
 global failed_steals
-global attempted_steals
+global total_steals
 
 global successful_steals_id
 global failed_steals_id
+global actor_stolen_id
 
 global scheduler_from_scheduler
-global sheduler_from_sheduler_count
+global scheduler_from_scheduler_fail
 
-probe process.mark("actor-alloc"){
-      actor_number << 1
-}
+#global core_switch
+
 
 probe process.mark("work-steal-successful") {
-      successful_steals << 1;
-      total_steals << 1;
+      successful_steals <<< 1;
+      total_steals <<< 1;
       successful_steals_id[sprint($arg1)] += 1
+      actor_stolen_id[sprint($arg3)] += 1
 
-      if (sprint($arg1) in scheduler_from_scheduler) {
-      	 conc_id = sprintf("%d%d")
-      	 sheduler_from_sheduler_count
+      #Formatting for printing data later
+      if ($arg1 != 0 && $arg2 != 0) {
+      stealing_id = sprintf("%d\t\t%d", $arg1, $arg2)
       }
-      
+
+      else if ($arg1 == 0 && $arg2 != 0) {
+      stealing_id = sprintf("%d\t\t\t%d", $arg1, $arg2)
+      }
+
+      else if ($arg1 != 0 && $arg2 == 0) {
+      stealing_id = sprintf("%d\t\t%d\t", $arg1, $arg2)
+      }
+
+      #Adding data to correct list
+      if (stealing_id in scheduler_from_scheduler) {
+      	 scheduler_from_scheduler[stealing_id] += 1
+      }
+      else {
+      	 scheduler_from_scheduler[stealing_id] = 1
+      }
             					  
 }
 
 probe process.mark("work-steal-failure") {
-      failed_steals << 1;
-      total_steals << 1;
-
+      failed_steals <<< 1;
+      total_steals <<< 1;
       failed_steals_id[sprint($arg1)] += 1
+
+      #formatiing for orinting data later
+      if ($arg1 != 0 && $arg2 != 0) {
+      stealing_id = sprintf("%d\t\t%d", $arg1, $arg2)
+      }
+      else if ($arg1 == 0 && $arg2 != 0) {
+      stealing_id = sprintf("%d\t\t\t%d", $arg1, $arg2)
+      }
+
+      else if ($arg1 != 0 && $arg2 == 0) {
+      stealing_id = sprintf("%d\t\t%d\t", $arg1, $arg2)
+      }
+
+      #Adding data to list
+      if (stealing_id in scheduler_from_scheduler_fail) {
+      	 scheduler_from_scheduler_fail[stealing_id] += 1
+	 print("exists, not zero!\n")
+	 }
+      else {
+      	 scheduler_from_scheduler_fail[stealing_id] = 1
+      }
             					  
 }
 
@@ -66,8 +100,8 @@ probe end {
 	print("Attempted\tSuccessful\tFailed\n")
       	ss =  @count(successful_steals)
       	fs =  @count(failed_steals)
-      	as =  @count(attempted_steals)
-      	printf("%d\t\t%d\t\t%d", ss, fs, as)
+      	ts =  @count(total_steals)
+      	printf("%d\t\t%d\t\t%d",ts,  ss, fs)
       print("\n\n")
 
       print("SUCCESSFUL STEALS\n")
@@ -84,4 +118,27 @@ probe end {
 
 
       print("STEALS BETWEEN SCHEDULERS\n")
+      print("Stolen by\t\tStolen from\t\tCount\n")
+      foreach(steal in scheduler_from_scheduler) {
+      	printf("%s\t\t%d\n", steal, scheduler_from_scheduler[steal])
+      }
+
+      print("\n")
+
+
+      print("FAILS BETWEEN SCHEDULERS\n")
+      print("Attempted by\t\tTarget\t\t\tCount\n")
+      foreach(steal in scheduler_from_scheduler_fail) {
+      	printf("%s\t\t%d\n", steal, scheduler_from_scheduler_fail[steal])
+      }
+
+      print("\n")
+
+      print("STOLEN ACTORS\n")
+      print("Actor ID\t\tTimes Stolen\n")
+      foreach(actor in actor_stolen_id) {
+         printf("%s\t\t%d\n", actor,  actor_stolen_id[actor])
+      }
+
+      #printf("CORE SWITCHES: \t &d \n", @count(core_switch))
 }     
