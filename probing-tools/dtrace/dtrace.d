@@ -117,12 +117,22 @@ encore$target:::future-destroy {
 }
 
 encore$target:::method-entry {
-  self->function_time[arg2] = vtimestamp;
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+  // target pointer == the ctx current actor?
+  if (arg1 == actorPointer) {
+    self->function_time[arg1, arg2] = vtimestamp;
+  }
 }
 
 encore$target:::method-exit {
-  name = copyinstr(arg2);
-  @function_time[arg1, name] = sum(vtimestamp - self->function_time[arg2]);
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+  // target pointer == the ctx current actor?
+  if (arg1 == actorPointer) {
+    name = copyinstr(arg2);
+    @function_time[arg1, name] = sum(vtimestamp - self->function_time[arg1, arg2]);
+  }
 }
 
 END {
