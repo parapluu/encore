@@ -8,16 +8,12 @@ typedef struct pony_ctx_t
 
 struct actor_info {
 	uint64_t cpu;
-  uint32_t steals;
   uint32_t jumps;
 };
 
 struct diagnostics {
-  uint32_t successful_steals;
-  uint32_t failed_steals;
   uint32_t steal_attempts;
   uint32_t cpu_jumps;
-  uint32_t schedulings;
 };
 
 struct diagnostics diagnostics;
@@ -37,30 +33,26 @@ encore$target::: /did_run_probe[probename] != 1/ {
 }
 
 pony$target:::actor-msg-send {
-	@counter[probename] = count();
+	@count_future[probename] = count();
 }
 
 // arg[0] is scheduler, arg[1] is actor
 pony$target:::actor-scheduled {
   cpus[arg1].cpu = cpu; // current CPU of the actor
-  diagnostics.schedulings++;
-	total_schedulings++;
-	//@schedulers_for_actor[args[0], args[1]] = count();
 }
 
 pony$target:::work-steal-successful {
-  diagnostics.cpu_jumps = (cpus[arg0].cpu != cpus[arg2].cpu) ? diagnostics.cpu_jumps+1 : diagnostics.cpu_jumps;
-  diagnostics.successful_steals++;
+  diagnostics.cpu_jumps = (cpu != cpus[arg2].cpu) ? diagnostics.cpu_jumps+1 : diagnostics.cpu_jumps;
   diagnostics.steal_attempts++;
-
+  @count_steals[probename] = count();
   @steal_success_count[arg0] = count();
 	@successful_steal_from_scheduler[arg0, arg1] = count();
 	@stolen_actor[arg2] = count();
 }
 
 pony$target:::work-steal-failure {
-  diagnostics.failed_steals++;
   diagnostics.steal_attempts++;
+  @count_steals[probename] = count();
   @steal_fail_count[arg0] = count();
 	@failed_steal_from_scheduler[arg0, arg1] = count();
 }
@@ -68,7 +60,7 @@ pony$target:::work-steal-failure {
 encore$target:::closure-create {}
 
 encore$target:::future-create {
-  @counter[probename] = count();
+  @count_future[probename] = count();
   // Used for lifetime of a future
   self->future_create_starttime[arg1] = vtimestamp;
 }
@@ -76,7 +68,7 @@ encore$target:::future-create {
 encore$target:::future-block {
   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
   actorPointer = (uintptr_t)ctx->current;
-  @counter[probename] = count();
+  @count_future[probename] = count();
   @future_block[arg1] = count();
   @actor_blocked[actorPointer] = count();
   @future_blocked_actor[arg1, actorPointer] = count();
@@ -87,32 +79,32 @@ encore$target:::future-block {
 encore$target:::future-unblock {
   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
   actorPointer = (uintptr_t)ctx->current;
-  @counter[probename] = count();
+  @count_future[probename] = count();
   @future_block_lifetime[arg1, actorPointer] = sum(vtimestamp - self->future_block_starttime[arg1, arg0]);
 }
 
 encore$target:::future-chaining {
-  @counter[probename] = count();
+  @count_future[probename] = count();
   @future_chaining[arg1] = count();
 }
 
 encore$target:::future-fulfil-start {
-  @counter[probename] = count();
+  @count_future[probename] = count();
 }
 
 encore$target:::future-fulfil-end {
-  @counter[probename] = count();
+  @count_future[probename] = count();
 }
 
 encore$target:::future-get {
   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
   actorPointer = (uintptr_t)ctx->current;
   @future_get[actorPointer, arg1] = count();
-  @counter[probename] = count();
+  @count_future[probename] = count();
 }
 
 encore$target:::future-destroy {
-  @counter[probename] = count();
+  @count_future[probename] = count();
   @future_lifetime[arg1] = sum(vtimestamp - self->future_create_starttime[arg1]);
 }
 
@@ -136,87 +128,77 @@ encore$target:::method-exit {
 }
 
 END {
-	printf("==========================================\n");
-	printf("\t\tFUTURES\n");
-	printf("==========================================\n");
-  printf("=== COUNTS ===\n");
-  printa("%s\t%@1u\n", @counter);
+	printf("//---------- FUTURES ------------//\n");
+  printf("--- COUNTS ---\n");
+  printa("%s\t%@1u\n", @count_future);
 
 	if (did_run_probe["future-create"]) {
-	  printf("\n=== FUTURE_LIFETIME ===\n");
+	  printf("\n--- Duration a future is alive ---\n");
 	  printf("Future id\t\tLifetime (nanoseconds)\n");
 	  printa("%d\t\t%@1u\n", @future_lifetime);
 	}
 	if (did_run_probe["future-block"]) {
-    printf("\n=== FUTURE_BLOCKED_ACTOR_LIFETIME ===\n");
+    printf("\n--- Duration a future blocks an actor ---\n");
 	  printf("Future id\t\tActor id\t\tLifetime (nanoseconds)\n");
 	  printa("%d\t\t%d\t\t%@1u\n", @future_block_lifetime);
 
-  	printf("\n=== FUTURE_BLOCKED_ACTOR ===\n");
+  	printf("\n--- Number of times an actor is blocked by a future ---\n");
   	printf("Future id\t\tActor id\t\tCount\n");
   	printa("%d\t\t%d\t\t%@2u\n", @future_blocked_actor);
 
-	  printf("\n=== NUMBER OF TIMES AN ACTOR IS BLOCKED ===\n");
+	  printf("\n--- Total number of times an actor is blocked ---\n");
 	  printf("Actor id\t\tCount\n");
 	  printa("%d\t\t%@2u\n", @actor_blocked);
 
-		printf("\n=== NUMBER OF TIMES A FUTURE BLOCKS ===\n");
+		printf("\n--- Total number of times a future blocks ---\n");
 	  printf("Future id\t\tCount\n");
 	  printa("%d\t\t%@2u\n", @future_block);
 	}
 
   if (did_run_probe["future-get"]) {
-    printf("\n=== NUMBER OF TIMES AN ACTOR DOES GET ===\n");
+    printf("\n--- Number of times an actor calls get ---\n");
 	  printf("Actor id\t\tFuture id\t\tCount\n");
 	  printa("%d\t\t%d\t\t%@2u\n", @future_get);
   }
 
 	if (did_run_probe["future-chaining"]) {
-	  printf("\n=== NUMBER OF TIMES A FUTURE IS CHAINED ===\n");
+	  printf("\n--- Number of times a future is chained ---\n");
 	  printf("Future id\t\tCount\n");
 	  printa("%d\t\t%@2u\n", @future_chaining);
 	}
 
 	if (did_run_probe["work-steal-successful"] || did_run_probe["work-steal-failure"]) {
-		printf("==========================================\n");
-		printf("\t\tSTEALS\n");
-		printf("==========================================\n");
-		printf("\nTOTAL\n");
-		printf("Attempted\tSuccessful\tFailed\n");
-		printf("%d\t\t%d\t\t%d\n",
-										diagnostics.steal_attempts,
-										diagnostics.successful_steals,
-										diagnostics.failed_steals);
+    printf("\n//---------- STEALS ------------//\n");
+		printf("\n--- COUNTS ---\n");
+    printf("Attempted\t%d\n", diagnostics.steal_attempts);
+    printf("Core switches:\t%d\n", diagnostics.cpu_jumps);
+    printa("%s\t%@2u\n", @count_steals);
 
-		printf("\nSUCCESSIVE STEALS\n");
-		printf("Scheduler ID\tCount\n");
-		printa("%d%@7u\n", @steal_success_count);
+		printf("\n--- Number of times a scheduler successfully steals ---\n");
+		printf("Scheduler id\t\tCount\n");
+		printa("%d\t\t%@2u\n", @steal_success_count);
 
-		printf("\nFAILED STEALS\n");
-		printf("Scheduler ID\tCount\n");
-		printa("%d%@7u\n", @steal_fail_count);
+		printf("\n--- Number of times a scheduler fails to steal ---\n");
+		printf("Scheduler id\t\tCount\n");
+		printa("%d\t\t%@2u\n", @steal_fail_count);
 
-		printf("\nSTEALS BETWEEN SCHEDULERS\n");
-		printf("Stolen by\tStolen from\tCount\n");
-		printa("%d\t%d%@7u\n", @successful_steal_from_scheduler);
+		printf("\n--- Number of times a scheduler steals from another ---\n");
+		printf("Stolen by\t\tStolen from\t\tCount\n");
+		printa("%d\t\t%d\t\t%@2u\n", @successful_steal_from_scheduler);
 
-		printf("\nFAILS BETWEEN SCHEDULERS\n");
-		printf("Attempted by\tTarget\t\tCount\n");
-		printa("%d\t%d%@7u\n", @failed_steal_from_scheduler);
+		printf("\n--- Number of times a scheduelr fails to steal from another ---\n");
+		printf("Attempted by\t\tTarget\t\tCount\n");
+		printa("%d\t\t%d\t\t%@2u\n", @failed_steal_from_scheduler);
 
-		printf("\nSTOLEN ACTORS\n");
-		printf("Actor ID\tTimes stolen\n");
-		printa("%d%@7u\n", @stolen_actor);
-
-	  printf("\nCORE SWITCHES: %d\n", diagnostics.cpu_jumps);
+		printf("\n--- Number of times an actor is stolen ---\n");
+		printf("Actor id\t\tTimes stolen\n");
+		printa("%d\t\t%@2u\n", @stolen_actor);
 	}
 	if (did_run_probe["method-entry"]) {
-    printf("==========================================\n");
-		printf("\t\tMETHODS\n");
-		printf("==========================================\n");
+    printf("\n//---------- METHODS ------------//\n");
 
-		printf("\nTIME SPENT IN METHODS (Nanoseconds)\n");
-    printf("Actor id\t\tMethod name\t\tDuration\n");
+		printf("\n--- Time spent in methods\n");
+    printf("Actor id\t\tMethod name\t\tDuration (Nanoseconds)\n");
 		printa("%d\t\t%s\t\t\t%@u\n", @function_time);
 	}
 }
