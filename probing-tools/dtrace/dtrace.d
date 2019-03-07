@@ -1,5 +1,11 @@
 #pragma D option quiet
 
+typedef struct pony_ctx_t
+{
+  void* scheduler;
+  void* current;
+};
+
 struct actor_info {
 	uint64_t cpu;
   uint32_t steals;
@@ -17,50 +23,33 @@ struct diagnostics {
 struct diagnostics diagnostics;
 struct actor_info cpus[int64_t];	/* declare cpus as an associative array */
 
-BEGIN
-{
-	depth = 1;
+int did_run_probe[string];
+
+BEGIN {
 }
 
-pony$target:::actor-alloc { }
-pony$target:::actor-msg-send { }
-pony$target:::actor-msg-run { }
+pony$target::: /did_run_probe[probename] != 1/ {
+  did_run_probe[probename] = 1;
+}
 
+encore$target::: /did_run_probe[probename] != 1/ {
+  did_run_probe[probename] = 1;
+}
+
+pony$target:::actor-msg-send {
+	@counter[probename] = count();
+}
 
 // arg[0] is scheduler, arg[1] is actor
-pony$target:::actor-scheduled
-{
-
+pony$target:::actor-scheduled {
   cpus[arg1].cpu = cpu; // current CPU of the actor
   diagnostics.schedulings++;
 	total_schedulings++;
 	//@schedulers_for_actor[args[0], args[1]] = count();
 }
 
-pony$target:::actor-descheduled { }
-pony$target:::cpu-nanosleep { }
-pony$target:::gc-end {}
-pony$target:::gc-send-end {}
-pony$target:::gc-send-start {}
-pony$target:::gc-recv-end {}
-pony$target:::gc-recv-start {}
-pony$target:::gc-start {}
-pony$target:::gc-threshold {}
-pony$target:::heap-alloc {}
-pony$target:::rt-init {}
-pony$target:::rt-start {}
-pony$target:::rt-end {}
-
-
-	/**
-   * Fired when a scheduler succesfully steals a job
-   * @param scheduler is the scheduler that stole the job
-   * @param victim is the victim that the scheduler stole from
-   * @param actor is actor that was stolen from the victim
-   */
-pony$target:::work-steal-successful
-{
-  diagnostics.cpu_jumps = cpus[arg0].cpu != cpus[arg2].cpu ? diagnostics.cpu_jumps+1 : diagnostics.cpu_jumps;
+pony$target:::work-steal-successful {
+  diagnostics.cpu_jumps = (cpus[arg0].cpu != cpus[arg2].cpu) ? diagnostics.cpu_jumps+1 : diagnostics.cpu_jumps;
   diagnostics.successful_steals++;
   diagnostics.steal_attempts++;
 
@@ -69,13 +58,7 @@ pony$target:::work-steal-successful
 	@stolen_actor[arg2] = count();
 }
 
-/**
- * Fired when a scheduler fails to steal a job
- * @param scheduler is the scheduler that attempted theft
- * @param victim is the victim that the scheduler attempted to steal from
- */
-pony$target:::work-steal-failure
-{
+pony$target:::work-steal-failure {
   diagnostics.failed_steals++;
   diagnostics.steal_attempts++;
   @steal_fail_count[arg0] = count();
@@ -83,72 +66,157 @@ pony$target:::work-steal-failure
 }
 
 encore$target:::closure-create {}
-encore$target:::future-block {}
-encore$target:::future-chaining {}
-encore$target:::future-create {}
-encore$target:::future-destroy {}
-encore$target:::future-fulfil-start {}
-encore$target:::future-fulfil-end {}
-encore$target:::future-get {}
-encore$target:::future-unblock {}
-encore$target:::field-access {}
-encore$target:::field-write {}
-// encore$target:::method-call {}
-encore$target:::method-entry {}
-encore$target:::method-exit {}
-encore$target:::function-call {}
-encore$target:::function-entry {}
-encore$target:::function-exit {}
-// encore$target:::closure-call {}
-// encore$target:::closure-entry {}
-// encore$target:::closure-exit {}
 
-pid$target:$1::entry
-{
-	self->start[depth++] = vtimestamp;
+encore$target:::future-create {
+  @counter[probename] = count();
+  // Used for lifetime of a future
+  self->future_create_starttime[arg1] = vtimestamp;
 }
 
-pid$target:$1::return
-{
-//	print(probemod);
-	@function_time[probefunc] = quantize(vtimestamp - self->start[depth-1]);
-  self->depth[depth--] = 0;
+encore$target:::future-block {
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+  @counter[probename] = count();
+  @future_block[arg1] = count();
+  @actor_blocked[actorPointer] = count();
+  @future_blocked_actor[arg1, actorPointer] = count();
+  // Used for duration of a block
+  self->future_block_starttime[arg1, arg0] = vtimestamp;
 }
 
+encore$target:::future-unblock {
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+  @counter[probename] = count();
+  @future_block_lifetime[arg1, actorPointer] = sum(vtimestamp - self->future_block_starttime[arg1, arg0]);
+}
+
+encore$target:::future-chaining {
+  @counter[probename] = count();
+  @future_chaining[arg1] = count();
+}
+
+encore$target:::future-fulfil-start {
+  @counter[probename] = count();
+}
+
+encore$target:::future-fulfil-end {
+  @counter[probename] = count();
+}
+
+encore$target:::future-get {
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+  @future_get[actorPointer, arg1] = count();
+  @counter[probename] = count();
+}
+
+encore$target:::future-destroy {
+  @counter[probename] = count();
+  @future_lifetime[arg1] = sum(vtimestamp - self->future_create_starttime[arg1]);
+}
+
+encore$target:::method-entry {
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+  // target pointer == the ctx current actor?
+  if (arg1 == actorPointer) {
+    self->function_time[arg1, arg2] = vtimestamp;
+  }
+}
+
+encore$target:::method-exit {
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
+  // target pointer == the ctx current actor?
+  if (arg1 == actorPointer) {
+    name = copyinstr(arg2);
+    @function_time[arg1, name] = sum(vtimestamp - self->function_time[arg1, arg2]);
+  }
+}
 
 END {
-	printf("==========================================\n\t\tSTEALS\n==========================================\n");
-	printf("\nTOTAL\n");
-	printf("Attempted\tSuccessful\tFailed\n");
-	printf("%d\t\t%d\t\t%d\n",
-									diagnostics.steal_attempts,
-									diagnostics.successful_steals,
-									diagnostics.failed_steals);
+	printf("==========================================\n");
+	printf("\t\tFUTURES\n");
+	printf("==========================================\n");
+  printf("=== COUNTS ===\n");
+  printa("%s\t%@1u\n", @counter);
 
-	printf("\nSUCCESSIVE STEALS\n");
-	printf("Scheduler ID\tCount\n");
-	printa("%d%@7u\n", @steal_success_count);
+	if (did_run_probe["future-create"]) {
+	  printf("\n=== FUTURE_LIFETIME ===\n");
+	  printf("Future id\t\tLifetime (nanoseconds)\n");
+	  printa("%d\t\t%@1u\n", @future_lifetime);
+	}
+	if (did_run_probe["future-block"]) {
+    printf("\n=== FUTURE_BLOCKED_ACTOR_LIFETIME ===\n");
+	  printf("Future id\t\tActor id\t\tLifetime (nanoseconds)\n");
+	  printa("%d\t\t%d\t\t%@1u\n", @future_block_lifetime);
 
-	printf("\nFAILED STEALS\n");
-	printf("Scheduler ID\tCount\n");
-	printa("%d%@7u\n", @steal_fail_count);
+  	printf("\n=== FUTURE_BLOCKED_ACTOR ===\n");
+  	printf("Future id\t\tActor id\t\tCount\n");
+  	printa("%d\t\t%d\t\t%@2u\n", @future_blocked_actor);
 
-	printf("\nSTEALS BETWEEN SCHEDULERS\n");
-	printf("Stolen by\tStolen from\tCount\n");
-	printa("%d\t%d%@7u\n", @successful_steal_from_scheduler);
+	  printf("\n=== NUMBER OF TIMES AN ACTOR IS BLOCKED ===\n");
+	  printf("Actor id\t\tCount\n");
+	  printa("%d\t\t%@2u\n", @actor_blocked);
 
-	printf("\nFAILS BETWEEN SCHEDULERS\n");
-	printf("Attempted by\tTarget\t\tCount\n");
-	printa("%d\t%d%@7u\n", @failed_steal_from_scheduler);
+		printf("\n=== NUMBER OF TIMES A FUTURE BLOCKS ===\n");
+	  printf("Future id\t\tCount\n");
+	  printa("%d\t\t%@2u\n", @future_block);
+	}
 
-	printf("\nSTOLEN ACTORS\n");
-	printf("Actor ID\tTimes stolen\n");
-	printa("%d%@7u\n", @stolen_actor);
+  if (did_run_probe["future-get"]) {
+    printf("\n=== NUMBER OF TIMES AN ACTOR DOES GET ===\n");
+	  printf("Actor id\t\tFuture id\t\tCount\n");
+	  printa("%d\t\t%d\t\t%@2u\n", @future_get);
+  }
 
-  printf("\nCORE SWITCHES: %d\n", diagnostics.cpu_jumps);
+	if (did_run_probe["future-chaining"]) {
+	  printf("\n=== NUMBER OF TIMES A FUTURE IS CHAINED ===\n");
+	  printf("Future id\t\tCount\n");
+	  printa("%d\t\t%@2u\n", @future_chaining);
+	}
 
-	printf("\n==========================================\n\t\FUNCTIONS\n==========================================\n");
+	if (did_run_probe["work-steal-successful"] || did_run_probe["work-steal-failure"]) {
+		printf("==========================================\n");
+		printf("\t\tSTEALS\n");
+		printf("==========================================\n");
+		printf("\nTOTAL\n");
+		printf("Attempted\tSuccessful\tFailed\n");
+		printf("%d\t\t%d\t\t%d\n",
+										diagnostics.steal_attempts,
+										diagnostics.successful_steals,
+										diagnostics.failed_steals);
 
-	printf("\nTIME SPENT IN FUNCTIONS (Nanoseconds)\n");
-	printa("Function: %s\%@7u\n", @function_time);
+		printf("\nSUCCESSIVE STEALS\n");
+		printf("Scheduler ID\tCount\n");
+		printa("%d%@7u\n", @steal_success_count);
+
+		printf("\nFAILED STEALS\n");
+		printf("Scheduler ID\tCount\n");
+		printa("%d%@7u\n", @steal_fail_count);
+
+		printf("\nSTEALS BETWEEN SCHEDULERS\n");
+		printf("Stolen by\tStolen from\tCount\n");
+		printa("%d\t%d%@7u\n", @successful_steal_from_scheduler);
+
+		printf("\nFAILS BETWEEN SCHEDULERS\n");
+		printf("Attempted by\tTarget\t\tCount\n");
+		printa("%d\t%d%@7u\n", @failed_steal_from_scheduler);
+
+		printf("\nSTOLEN ACTORS\n");
+		printf("Actor ID\tTimes stolen\n");
+		printa("%d%@7u\n", @stolen_actor);
+
+	  printf("\nCORE SWITCHES: %d\n", diagnostics.cpu_jumps);
+	}
+	if (did_run_probe["method-entry"]) {
+    printf("==========================================\n");
+		printf("\t\tMETHODS\n");
+		printf("==========================================\n");
+
+		printf("\nTIME SPENT IN METHODS (Nanoseconds)\n");
+    printf("Actor id\t\tMethod name\t\tDuration\n");
+		printa("%d\t\t%s\t\t\t%@u\n", @function_time);
+	}
 }
