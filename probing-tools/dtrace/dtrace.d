@@ -76,19 +76,19 @@ encore$target:::future-create {
 encore$target:::future-block {
   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
   actorPointer = (uintptr_t)ctx->current;
-
   @counter[probename] = count();
   @future_block[arg1] = count();
   @actor_blocked[actorPointer] = count();
   @future_blocked_actor[arg1, actorPointer] = count();
   // Used for duration of a block
-  self->future_block_starttime[arg1] = vtimestamp;
+  self->future_block_starttime[arg1, arg0] = vtimestamp;
 }
 
 encore$target:::future-unblock {
+  ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
+  actorPointer = (uintptr_t)ctx->current;
   @counter[probename] = count();
-  @future_block_lifetime[arg1] = sum(vtimestamp - self->future_block_starttime[arg1]);
-  @future_blocked_actor_lifetime[arg1, actorPointer] = sum(vtimestamp - self->future_block_starttime[arg1]);
+  @future_block_lifetime[arg1, actorPointer] = sum(vtimestamp - self->future_block_starttime[arg1, arg0]);
 }
 
 encore$target:::future-chaining {
@@ -107,7 +107,7 @@ encore$target:::future-fulfil-end {
 encore$target:::future-get {
   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
   actorPointer = (uintptr_t)ctx->current;
-  @future_get[actorPointer] = count();
+  @future_get[actorPointer, arg1] = count();
   @counter[probename] = count();
 }
 
@@ -144,40 +144,36 @@ END {
 
 	if (did_run_probe["future-create"]) {
 	  printf("\n=== FUTURE_LIFETIME ===\n");
-	  printf("Future Addr\t\tLifetime (nanoseconds)\n");
+	  printf("Future id\t\tLifetime (nanoseconds)\n");
 	  printa("%d\t\t%@1u\n", @future_lifetime);
 	}
 	if (did_run_probe["future-block"]) {
-	  printf("\n=== FUTURE_BLOCKED_LIFETIME ===\n");
-	  printf("Future Addr\t\tLifetime (nanoseconds)\n");
-	  printa("%d\t\t%@1u\n", @future_block_lifetime);
-
     printf("\n=== FUTURE_BLOCKED_ACTOR_LIFETIME ===\n");
-	  printf("Future Addr\t\tActor addr\t\tLifetime (nanoseconds)\n");
-	  printa("%d\t\t%d\t\t%@1u\n", @future_blocked_actor_lifetime);
+	  printf("Future id\t\tActor id\t\tLifetime (nanoseconds)\n");
+	  printa("%d\t\t%d\t\t%@1u\n", @future_block_lifetime);
 
   	printf("\n=== FUTURE_BLOCKED_ACTOR ===\n");
-  	printf("Future Addr\t\tActor addr\t\tCount\n");
+  	printf("Future id\t\tActor id\t\tCount\n");
   	printa("%d\t\t%d\t\t%@2u\n", @future_blocked_actor);
 
 	  printf("\n=== NUMBER OF TIMES AN ACTOR IS BLOCKED ===\n");
-	  printf("Actor Addr\t\tCount\n");
+	  printf("Actor id\t\tCount\n");
 	  printa("%d\t\t%@2u\n", @actor_blocked);
 
 		printf("\n=== NUMBER OF TIMES A FUTURE BLOCKS ===\n");
-	  printf("Future Addr\t\tCount\n");
+	  printf("Future id\t\tCount\n");
 	  printa("%d\t\t%@2u\n", @future_block);
 	}
 
   if (did_run_probe["future-get"]) {
     printf("\n=== NUMBER OF TIMES AN ACTOR DOES GET ===\n");
-	  printf("Actor Addr\t\tCount\n");
-	  printa("%d\t\t%@2u\n", @future_get);
+	  printf("Actor id\t\tFuture id\t\tCount\n");
+	  printa("%d\t\t%d\t\t%@2u\n", @future_get);
   }
 
 	if (did_run_probe["future-chaining"]) {
 	  printf("\n=== NUMBER OF TIMES A FUTURE IS CHAINED ===\n");
-	  printf("Future Addr\t\tCount\n");
+	  printf("Future id\t\tCount\n");
 	  printa("%d\t\t%@2u\n", @future_chaining);
 	}
 
@@ -220,7 +216,7 @@ END {
 		printf("==========================================\n");
 
 		printf("\nTIME SPENT IN METHODS (Nanoseconds)\n");
-    printf("Actor addr\t\tMethod name\t\tDuration\n");
+    printf("Actor id\t\tMethod name\t\tDuration\n");
 		printa("%d\t\t%s\t\t\t%@u\n", @function_time);
 	}
 }
