@@ -153,7 +153,7 @@ END {
 
   if (did_run_probe["future-get"]) {
     printf("<future-gets>\n");
-    printa("\t<future-get>\n\t\t<actor>%d</actor>\n\t\t<future>%d</future>\n\t\t<count>%@u</count>\n\t</future-get>\n", @future_get);
+    printa("\t<future-get>\n\t\t<actor>\n\t\t\t<id>%d</id>\n\t\t</actor>\n\t\t<future>\n\t\t\t<id>%d</id>\n\t\t</future>\n\t\t<count>%@u</count>\n\t</future-get>\n", @future_get);
     printf("</future-gets>\n");
   }
 
