@@ -1,6 +1,7 @@
 'use strict';
 
 const Actor = require('./Classes/Actor.js');
+const Method = require('./Classes/Method.js');
 const Future = require('./Classes/Future.js');
 const FutureGet = require('./Classes/FutureGet.js');
 const FutureBlock = require('./Classes/FutureBlock.js');
@@ -49,8 +50,11 @@ class Parser {
 					case "actor-stolen":
 						this.parseActorStolen(elements);
 						break;
+					case "methods":
+						this.parseMethods(elements);
+						break;
 					default:
-						console.log(parent);
+						console.log("Error: Unknown tag: " + parent);
 						break;
 				}
 			}
@@ -280,6 +284,21 @@ class Parser {
 			}
 
 			this.actors[id].numberOfTimesStolen = parseInt(count);
+		}
+	}
+
+	parseMethods(rootNode) {
+		const methods = rootNode[0]["method"];
+		for (const key in methods) {
+			const id       = methods[key]["actor"][0]["id"][0];
+			const name     = methods[key]["name"][0];
+			const duration = methods[key]["duration"][0];
+
+			if (!(id in this.actors)) {
+				this.actors[id] = new Actor(id);
+			}
+
+			this.actors[id].methods[name] = new Method(name, parseInt(duration));
 		}
 	}
 
