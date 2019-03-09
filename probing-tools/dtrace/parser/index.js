@@ -32,6 +32,15 @@ fs.readFile(process.cwd() + "/" + argv[0], (err, data) => {
 		const workStealSuccess = parser.workStealSuccess;
 		const workStealFailure = parser.workStealFailure;
 
+		let methods = [];
+
+		for (const key in actors) {
+			for (const method in actors[key].methods) {
+				methods.push(actors[key].methods[method]);
+			}
+
+		}
+
 		console.table(counts);
 		console.log("--------------------------- FUTURES ---------------------------");
 		console.table(futures, ["id", "duration", "numberOfBlocks"]);
@@ -47,6 +56,8 @@ fs.readFile(process.cwd() + "/" + argv[0], (err, data) => {
 		console.table(workStealSuccess);
 		console.log("--------------------------- Work steal failure ---------------------------");
 		console.table(workStealFailure);
+		console.log("--------------------------- Methods ---------------------------");
+		console.table(methods);
 
 	});
 
