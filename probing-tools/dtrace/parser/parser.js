@@ -39,19 +39,25 @@ class Parser {
 			}
 		}
 
-		for (const id in this.futures) {
-			console.log("Future " + this.futures[id].id);
-			console.log(`\tDuration: ${this.futures[id].duration} nanoseconds`);
-
-			const blocks = this.futures[id].blocks;
-
-			for (const key in blocks) {
-				// A future blocking
-			}
-
-			console.log(this.futures[id]);
-
-		}
+		// for (const id in this.futures) {
+		// 	console.log("Future " + this.futures[id].id);
+		// 	console.log(`\tDuration: ${this.futures[id].duration} nanoseconds`);
+		// 	console.log(`\tNumber of gets: ${this.futures[id].numberOfGets}`);
+		// 	console.log(`\tNumber of blocks: ${this.futures[id].numberOfBlocks}`);
+		//
+		// 	const blocks = this.futures[id].blocks;
+		// 	for (const key in blocks) {
+		// 		// A future blocking
+		// 	}
+		//
+		// 	const actorsBlocked = this.futures[id].actorsBlocked;
+		// 	for (const key in actorsBlocked) {
+		// 		// actorsBlocked[key] == number of times the future blocks the actor key
+		// 	}
+		//
+		// 	console.log(this.futures[id]);
+		//
+		// }
 	}
 
 	parseCounts(rootNode) {
@@ -102,7 +108,7 @@ class Parser {
 		for (let key in elements) {
 			const element  = elements[key]["future"][0];
 			const id       = element['id'][0];
-			const actorID  = element['actor'][0];
+			const actorID  = element['actor'][0]["id"][0];
 			const duration = element['duration'][0];
 			let actor      = this.actors[actorID];
 
@@ -128,7 +134,7 @@ class Parser {
 			const id      = element['id'][0];
 
 			if (id in this.futures) {
-				const actor = element['actor'][0];
+				const actor = element['actor'][0]["id"][0];
 				const count = element['count'][0];
 				let future  = this.futures[id];
 				future.actorsBlocked[actor] = parseInt(count);
@@ -166,12 +172,12 @@ class Parser {
 	parseFutureGets(rootNode) {
 		// As there is only one node for future-gets
 		// we can just get the first element in the list
-		const elements = rootNode[0]["future-get"];
+		const futures = rootNode[0]["future-get"];
 
-		for (const key in elements) {
-			const actorID  = elements[key]["actor"][0]["id"];
-			const futureID = elements[key]["future"][0]["id"];
-			const count    = elements[key]["count"][0];
+		for (const key in futures) {
+			const actorID  = futures[key]["actor"][0]["id"][0];
+			const futureID = futures[key]["future"][0]["id"][0];
+			const count    = futures[key]["count"][0];
 
 			if (!(actorID in this.actors)) {
 				this.actors[actorID] = new Actor(actorID);
