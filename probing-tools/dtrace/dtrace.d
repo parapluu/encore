@@ -168,9 +168,9 @@ END {
     printa("\t\t<scheduler>\n\t\t\t<id>%d</id>\n\t\t\t<count>%@u</count>\n\t\t</scheduler>\n", @steal_success_count);
     printf("\t</schedulers>\n</work-steal-success>\n");
 
-    printf("<work-steal-success-count>\n\t<schedulers>\n");
+    printf("<work-steal-success-from>\n\t<schedulers>\n");
     printa("\t\t<scheduler>\n\t\t\t<id>%d</id>\n\t\t\t<from>%d</from>\n\t\t\t<count>%@u</count>\n\t\t</scheduler>\n", @successful_steal_from_scheduler);
-    printf("\t</schedulers>\n</work-steal-success-count>\n");
+    printf("\t</schedulers>\n</work-steal-success-from>\n");
   }
 
   if (did_run_probe["work-steal-failure"]) {
@@ -178,9 +178,9 @@ END {
     printa("\t\t<scheduler>\n\t\t\t<id>%d</id>\n\t\t\t<count>%@u</count>\n\t\t</scheduler>\n", @steal_fail_count);
     printf("\t</schedulers>\n</work-steal-failure>\n");
 
-    printf("<work-steal-failure-count>\n\t<schedulers>\n");
+    printf("<work-steal-failure-from>\n\t<schedulers>\n");
     printa("\t\t<scheduler>\n\t\t\t<id>%d</id>\n\t\t\t<from>%d</from>\n\t\t\t<count>%@u</count>\n\t\t</scheduler>\n", @failed_steal_from_scheduler);
-    printf("\t</schedulers>\n</work-steal-failure-count>\n");
+    printf("\t</schedulers>\n</work-steal-failure-from>\n");
   }
 
   if (did_run_probe["work-steal-success"] || did_run_probe["work-steal-failure"]) {
