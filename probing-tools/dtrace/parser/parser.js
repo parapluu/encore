@@ -59,26 +59,6 @@ class Parser {
 				}
 			}
 		}
-
-		// for (const id in this.futures) {
-		// 	console.log("Future " + this.futures[id].id);
-		// 	console.log(`\tDuration: ${this.futures[id].duration} nanoseconds`);
-		// 	console.log(`\tNumber of gets: ${this.futures[id].numberOfGets}`);
-		// 	console.log(`\tNumber of blocks: ${this.futures[id].numberOfBlocks}`);
-		//
-		// 	const blocks = this.futures[id].blocks;
-		// 	for (const key in blocks) {
-		// 		// A future blocking
-		// 	}
-		//
-		// 	const actorsBlocked = this.futures[id].actorsBlocked;
-		// 	for (const key in actorsBlocked) {
-		// 		// actorsBlocked[key] == number of times the future blocks the actor key
-		// 	}
-		//
-		// 	console.log(this.futures[id]);
-		//
-		// }
 	}
 
 	parseCounts(rootNode) {
