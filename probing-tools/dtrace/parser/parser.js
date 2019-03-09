@@ -64,7 +64,10 @@ class Parser {
 			}
 		}
 	}
-
+	/**
+	 * Parses the <counts> element.
+	 * @param  Object   rootNode  The <counts> root node.
+	 */
 	parseCounts(rootNode) {
 		const elements = rootNode[0];
 		for (const key in elements) {
@@ -72,7 +75,10 @@ class Parser {
 			this.counts[key] = parseInt(count);
 		}
 	}
-
+	/**
+	 * Parses the <futures> element.
+	 * @param  Object   rootNode  The <counts> root node.
+	 */
 	parseFutures(rootNode) {
 		// As there is only one root node for futures
 		// we can just get the first element in the list
@@ -85,7 +91,10 @@ class Parser {
 			this.futures[id] = future;
 		}
 	}
-
+	/**
+	 * Parses the <future-blocks> element.
+	 * @param  Object   rootNode  The <counts> root node.
+	 */
 	parseFutureBlocks(rootNode) {
 		const elements = rootNode[0];
 
@@ -109,7 +118,10 @@ class Parser {
 			}
 		}
 	}
-
+	/**
+	 * Parses the <future-block-lifetime> element.
+	 * @param  Object   elements  The root node.
+	 */
 	parseFutureBlockLifetime(elements) {
 		for (let key in elements) {
 			const element  = elements[key]["future"][0];
@@ -133,7 +145,10 @@ class Parser {
 			}
 		}
 	}
-
+	/**
+	 * Parses the <future-block-actor-count> elements.
+	 * @param  Object   elements  The root node.
+	 */
 	parseFutureBlockActorCount(elements) {
 		for (let key in elements) {
 			const element = elements[key]["future"][0];
@@ -147,7 +162,10 @@ class Parser {
 			}
 		}
 	}
-
+	/**
+	 * Parses the <future-block-count> elements.
+	 * @param  Object   elements  The root node.
+	 */
 	parseFutureBlockCount(elements) {
 		for (let key in elements) {
 			const element = elements[key]["future"][0];
@@ -160,7 +178,10 @@ class Parser {
 			}
 		}
 	}
-
+	/**
+	 * Parses the <actor-block-count> elements.
+	 * @param  Object   elements  The root node.
+	 */
 	parseActorBlockCount(elements) {
 		for (let key in elements) {
 			const element = elements[key]['actor'][0];
@@ -174,7 +195,10 @@ class Parser {
 			this.actors[id].numberOfTimesBlocked = parseInt(count);
 		}
 	}
-
+	/**
+	 * Parses the <future-get> elements.
+	 * @param  Object   rootNode  The root node.
+	 */
 	parseFutureGets(rootNode) {
 		// As there is only one node for future-gets
 		// we can just get the first element in the list
@@ -199,7 +223,10 @@ class Parser {
 			this.futureGets.push(futureGet);
 		}
 	}
-
+	/**
+	 * Parses the <work-steal-success> element.
+	 * @param  Object   rootNode  The root node.
+	 */
 	parseWorkStealSuccess(rootNode) {
 		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
 		for (const key in schedulers) {
@@ -213,7 +240,10 @@ class Parser {
 			}
 		}
 	}
-
+	/**
+	 * Parses the <work-steal-success-from> element.
+	 * @param  Object   rootNode  The root node.
+	 */
 	parseWorkStealSuccessFrom(rootNode) {
 		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
 		for (const key in schedulers) {
@@ -229,7 +259,10 @@ class Parser {
 			this.schedulers[byId].stolenFrom[fromId] = parseInt(count);
 		}
 	}
-
+	/**
+	 * Parses the <work-steal-failure> element.
+	 * @param  Object   rootNode  The root node.
+	 */
 	parseWorkStealFailure(rootNode) {
 		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
 		for (const key in schedulers) {
@@ -243,7 +276,10 @@ class Parser {
 			}
 		}
 	}
-
+	/**
+	 * Parses the <work-steal-failure-from> element.
+	 * @param  Object   rootNode  The root node.
+	 */
 	parseWorkStealFailureFrom(rootNode) {
 		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
 		for (const key in schedulers) {
@@ -259,7 +295,10 @@ class Parser {
 			this.schedulers[byId].failedToStealFrom[fromId] = parseInt(count);
 		}
 	}
-
+	/**
+	 * Parses the <actor-stolen> elements.
+	 * @param  Object   rootNode  The root node.
+	 */
 	parseActorStolen(rootNode) {
 		const actors = rootNode[0]["actor"];
 		for (const key in actors) {
@@ -273,7 +312,10 @@ class Parser {
 			this.actors[id].numberOfTimesStolen = parseInt(count);
 		}
 	}
-
+	/**
+	 * Parses the <methods> element.
+	 * @param  Object   rootNode  The root node.
+	 */
 	parseMethods(rootNode) {
 		const methods = rootNode[0]["method"];
 		for (const key in methods) {
