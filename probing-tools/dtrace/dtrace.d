@@ -133,7 +133,7 @@ encore$target:::method-exit {
 END {
   printf("<root>\n");
   printf("<counts>\n");
-  printa("\t<count type=\"%s\">%@u</count>\n", @counts);
+  printa("\t<%s count=\"%@u\">\n", @counts);
   printf("</counts>\n");
 
   if (did_run_probe["future-create"]) {
