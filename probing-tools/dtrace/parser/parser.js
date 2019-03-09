@@ -11,6 +11,7 @@ class Parser {
 
 	constructor(nodes) {
 		this.nodes = nodes;
+		this.counts = {};
 		this.blocks = {};
 		this.futures = {};
 		this.actors = {};
@@ -64,7 +65,8 @@ class Parser {
 	parseCounts(rootNode) {
 		const elements = rootNode[0];
 		for (const key in elements) {
-			// TODO: Add counts to some data structure
+			const count = elements[key][0]["$"]["count"];
+			this.counts[key] = parseInt(count);
 		}
 	}
 
