@@ -40,6 +40,12 @@ class Parser {
 					case "work-steal-success-from":
 						this.parseWorkStealSuccessFrom(elements);
 						break;
+					case "work-steal-failure":
+						this.parseWorkStealFailure(elements);
+						break;
+					case "work-steal-failure-from":
+						this.parseWorkStealFailureFrom(elements);
+						break;
 					default:
 						console.log(parent);
 						break;
@@ -203,10 +209,10 @@ class Parser {
 	}
 
 	parseWorkStealSuccess(rootNode) {
-		const schedulers = rootNode[0]["schedulers"];
+		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
 		for (const key in schedulers) {
-			const id    = schedulers[key]["scheduler"][0]["id"][0];
-			const count = schedulers[key]["scheduler"][0]["count"][0];
+			const id    = schedulers[key]["id"][0];
+			const count = schedulers[key]["count"][0];
 
 			if (!(id in this.schedulers)) {
 				this.schedulers[id] = new Scheduler(id, count, 0);
@@ -217,17 +223,46 @@ class Parser {
 	}
 
 	parseWorkStealSuccessFrom(rootNode) {
-		const schedulers = rootNode[0]["schedulers"];
+		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
 		for (const key in schedulers) {
-			const byId   = schedulers[key]["scheduler"][0]["id"][0];
-			const fromId = schedulers[key]["scheduler"][0]["from"][0];
-			const count  = schedulers[key]["scheduler"][0]["count"][0];
+			const byId   = schedulers[key]["id"][0];
+			const fromId = schedulers[key]["from"][0];
+			const count  = schedulers[key]["count"][0];
 
 			if (!(byId in this.schedulers)) {
 				this.schedulers[byId] = new Scheduler(byId, count, 0);
 			}
 
 			this.schedulers[byId].stolenFrom[fromId] = count;
+		}
+	}
+
+	parseWorkStealFailure(rootNode) {
+		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
+		for (const key in schedulers) {
+			const id    = schedulers[key]["id"][0];
+			const count = schedulers[key]["count"][0];
+
+			if (!(id in this.schedulers)) {
+				this.schedulers[id] = new Scheduler(id, 0, count);
+			} else {
+				this.schedulers[id].failedSteals = count;
+			}
+		}
+	}
+
+	parseWorkStealFailureFrom(rootNode) {
+		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
+		for (const key in schedulers) {
+			const byId   = schedulers[key]["id"][0];
+			const fromId = schedulers[key]["from"][0];
+			const count  = schedulers[key]["count"][0];
+
+			if (!(byId in this.schedulers)) {
+				this.schedulers[byId] = new Scheduler(byId, 0, count);
+			}
+
+			this.schedulers[byId].failedToStealFrom[fromId] = count;
 		}
 	}
 

@@ -7,6 +7,7 @@ class Scheduler {
 		this.successfulSteals = successfulSteals;
 		this.failedSteals = failedSteals;
 		this.stolenFrom = [];
+		this.failedToStealFrom = [];
 	}
 
 }
