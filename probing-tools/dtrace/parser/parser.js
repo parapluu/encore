@@ -219,7 +219,7 @@ class Parser {
 			this.actors[actorID].numberOfGets += 1;
 			this.futures[futureID].numberOfGets += 1;
 
-			const futureGet = new FutureGet(this.actors[actorID], this.futures[futureID]);
+			const futureGet = new FutureGet(actorID, futureID, parseInt(count));
 			this.futureGets.push(futureGet);
 		}
 	}
