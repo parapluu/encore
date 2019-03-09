@@ -4,6 +4,7 @@ const Actor = require('./Classes/Actor.js');
 const Future = require('./Classes/Future.js');
 const FutureGet = require('./Classes/FutureGet.js');
 const FutureBlock = require('./Classes/FutureBlock.js');
+const Scheduler = require('./Classes/Scheduler.js');
 
 class Parser {
 
@@ -13,6 +14,7 @@ class Parser {
 		this.futures = {};
 		this.actors = {};
 		this.futureGets = [];
+		this.schedulers = {};
 	}
 
 	start() {
@@ -32,8 +34,14 @@ class Parser {
 					case "future-gets":
 						this.parseFutureGets(elements);
 						break;
+					case "work-steal-success":
+						this.parseWorkStealSuccess(elements);
+						break;
+					case "work-steal-success-from":
+						this.parseWorkStealSuccessFrom(elements);
+						break;
 					default:
-						// console.log(parent);
+						console.log(parent);
 						break;
 				}
 			}
@@ -194,6 +202,34 @@ class Parser {
 		}
 	}
 
+	parseWorkStealSuccess(rootNode) {
+		const schedulers = rootNode[0]["schedulers"];
+		for (const key in schedulers) {
+			const id    = schedulers[key]["scheduler"][0]["id"][0];
+			const count = schedulers[key]["scheduler"][0]["count"][0];
+
+			if (!(id in this.schedulers)) {
+				this.schedulers[id] = new Scheduler(id, count, 0);
+			} else {
+				this.schedulers[id].successfulSteals = count;
+			}
+		}
+	}
+
+	parseWorkStealSuccessFrom(rootNode) {
+		const schedulers = rootNode[0]["schedulers"];
+		for (const key in schedulers) {
+			const byId   = schedulers[key]["scheduler"][0]["id"][0];
+			const fromId = schedulers[key]["scheduler"][0]["from"][0];
+			const count  = schedulers[key]["scheduler"][0]["count"][0];
+
+			if (!(byId in this.schedulers)) {
+				this.schedulers[byId] = new Scheduler(byId, count, 0);
+			}
+
+			this.schedulers[byId].stolenFrom[fromId] = count;
+		}
+	}
 
 }
 
