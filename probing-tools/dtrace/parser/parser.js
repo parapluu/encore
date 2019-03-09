@@ -6,6 +6,7 @@ const Future = require('./Classes/Future.js');
 const FutureGet = require('./Classes/FutureGet.js');
 const FutureBlock = require('./Classes/FutureBlock.js');
 const Scheduler = require('./Classes/Scheduler.js');
+const WorkSteal = require('./Classes/WorkSteal.js');
 
 class Parser {
 
@@ -17,6 +18,8 @@ class Parser {
 		this.actors = {};
 		this.futureGets = [];
 		this.schedulers = {};
+		this.workStealSuccess = [];
+		this.workStealFailure = [];
 	}
 
 	start() {
@@ -222,6 +225,7 @@ class Parser {
 				this.schedulers[byId] = new Scheduler(byId, parseInt(count), 0);
 			}
 
+			this.workStealSuccess.push(new WorkSteal(byId, fromId, parseInt(count)));
 			this.schedulers[byId].stolenFrom[fromId] = parseInt(count);
 		}
 	}
@@ -251,6 +255,7 @@ class Parser {
 				this.schedulers[byId] = new Scheduler(byId, 0, parseInt(count));
 			}
 
+			this.workStealFailure.push(new WorkSteal(byId, fromId, parseInt(count)));
 			this.schedulers[byId].failedToStealFrom[fromId] = parseInt(count);
 		}
 	}

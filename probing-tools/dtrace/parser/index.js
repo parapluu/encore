@@ -23,6 +23,31 @@ fs.readFile(process.cwd() + "/" + argv[0], (err, data) => {
 
 		const parser = new Parser(nodes);
 		parser.start();
+
+		const counts = parser.counts;
+		const futures = parser.futures;
+		const blocks = parser.blocks;
+		const actors = parser.actors;
+		const schedulers = parser.schedulers;
+		const workStealSuccess = parser.workStealSuccess;
+		const workStealFailure = parser.workStealFailure;
+
+		console.table(counts);
+		console.log("--------------------------- FUTURES ---------------------------");
+		console.table(futures, ["id", "duration", "numberOfBlocks"]);
+		console.log("--------------------------- BLOCKS ---------------------------");
+		for (const key in blocks) {
+			console.table(blocks[key], ["futureId", "actorId", "duration"]);
+		}
+		console.log("--------------------------- ACTORS ---------------------------");
+		console.table(actors, ["id", "numberOfGets", "numberOfTimesBlocked", "numberOfTimesStolen"]);
+		console.log("--------------------------- Schedulers ---------------------------");
+		console.table(schedulers, ["id", "successfulSteals", "failedSteals"]);
+		console.log("--------------------------- Work steal success ---------------------------");
+		console.table(workStealSuccess);
+		console.log("--------------------------- Work steal failure ---------------------------");
+		console.table(workStealFailure);
+
 	});
 
 });

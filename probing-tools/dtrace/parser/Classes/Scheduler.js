@@ -6,8 +6,8 @@ class Scheduler {
 		this.id = id;
 		this.successfulSteals = successfulSteals;
 		this.failedSteals = failedSteals;
-		this.stolenFrom = [];
-		this.failedToStealFrom = [];
+		this.stolenFrom = {};
+		this.failedToStealFrom = {};
 	}
 
 }

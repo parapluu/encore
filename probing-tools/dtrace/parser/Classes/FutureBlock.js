@@ -1,9 +1,10 @@
 class FutureBlock {
 
 	constructor(id, actor, duration) {
-		this.id = id;
+		this.futureId = id;
 		this.actor = actor;
-		this.duration = duration;
+		this.duration = duration / 1000000.0;
+		this.actorId = actor.id;
 	}
 
 }
