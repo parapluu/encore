@@ -2,7 +2,7 @@ class Future {
 
 	constructor(id, duration) {
 		this.id = id;
-		this.duration = parseInt(duration);
+		this.duration = duration;
 		this.blocks = [];
 		this.actorsBlocked = {};
 		this.numberOfGets = 0;

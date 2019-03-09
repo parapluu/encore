@@ -46,6 +46,9 @@ class Parser {
 					case "work-steal-failure-from":
 						this.parseWorkStealFailureFrom(elements);
 						break;
+					case "actor-stolen":
+						this.parseActorStolen(elements);
+						break;
 					default:
 						console.log(parent);
 						break;
@@ -89,7 +92,7 @@ class Parser {
 		for (const key in elements) {
 			const id = elements[key]['id'][0];
 			const duration = elements[key]['duration'][0];
-			const future = new Future(id, duration);
+			const future = new Future(id, parseInt(duration));
 			this.futures[id] = future;
 		}
 	}
@@ -133,7 +136,7 @@ class Parser {
 
 			if (!(id in this.blocks)) { this.blocks[id] = []; }
 
-			const block = new FutureBlock(id, actor, duration);
+			const block = new FutureBlock(id, actor, parseInt(duration));
 			this.blocks[id].push(block);
 
 			if (id in this.futures) {
@@ -215,9 +218,9 @@ class Parser {
 			const count = schedulers[key]["count"][0];
 
 			if (!(id in this.schedulers)) {
-				this.schedulers[id] = new Scheduler(id, count, 0);
+				this.schedulers[id] = new Scheduler(id, parseInt(count), 0);
 			} else {
-				this.schedulers[id].successfulSteals = count;
+				this.schedulers[id].successfulSteals = parseInt(count);
 			}
 		}
 	}
@@ -230,10 +233,10 @@ class Parser {
 			const count  = schedulers[key]["count"][0];
 
 			if (!(byId in this.schedulers)) {
-				this.schedulers[byId] = new Scheduler(byId, count, 0);
+				this.schedulers[byId] = new Scheduler(byId, parseInt(count), 0);
 			}
 
-			this.schedulers[byId].stolenFrom[fromId] = count;
+			this.schedulers[byId].stolenFrom[fromId] = parseInt(count);
 		}
 	}
 
@@ -244,9 +247,9 @@ class Parser {
 			const count = schedulers[key]["count"][0];
 
 			if (!(id in this.schedulers)) {
-				this.schedulers[id] = new Scheduler(id, 0, count);
+				this.schedulers[id] = new Scheduler(id, 0, parseInt(count));
 			} else {
-				this.schedulers[id].failedSteals = count;
+				this.schedulers[id].failedSteals = parseInt(count);
 			}
 		}
 	}
@@ -259,10 +262,24 @@ class Parser {
 			const count  = schedulers[key]["count"][0];
 
 			if (!(byId in this.schedulers)) {
-				this.schedulers[byId] = new Scheduler(byId, 0, count);
+				this.schedulers[byId] = new Scheduler(byId, 0, parseInt(count));
 			}
 
-			this.schedulers[byId].failedToStealFrom[fromId] = count;
+			this.schedulers[byId].failedToStealFrom[fromId] = parseInt(count);
+		}
+	}
+
+	parseActorStolen(rootNode) {
+		const actors = rootNode[0]["actor"];
+		for (const key in actors) {
+			const id    = actors[key]["id"][0];
+			const count = actors[key]["count"][0];
+
+			if (!(id in this.actors)) {
+				this.actors[id] = new Actor(id);
+			}
+
+			this.actors[id].numberOfTimesStolen = parseInt(count);
 		}
 	}
 
