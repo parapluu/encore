@@ -2,7 +2,8 @@
 
 class Method {
 
-	constructor(name, duration) {
+	constructor(actorId, name, duration) {
+		this.actorId = actorId;
 		this.name = name;
 		this.duration = duration / 1000000.0;
 	}

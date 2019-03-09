@@ -327,7 +327,7 @@ class Parser {
 				this.actors[id] = new Actor(id);
 			}
 
-			this.actors[id].methods[name] = new Method(name, parseInt(duration));
+			this.actors[id].methods[name] = new Method(id, name, parseInt(duration));
 		}
 	}
 
