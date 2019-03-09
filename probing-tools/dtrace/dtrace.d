@@ -144,8 +144,8 @@ END {
 
   if (did_run_probe["future-block"]) {
     printf("<future-blocks>\n");
-    printa("\t<future-block-lifetime>\n\t\t<future>\n\t\t<id>%d</id>\n\t\t<actor>%d</actor>\n\t\t<duration>%@u</duration>\n\t\t</future>\n\t</future-block-lifetime>\n", @future_block_lifetime);
-    printa("\t<future-block-actor-count>\n\t\t<future>\n\t\t\t<id>%d</id>\n\t\t\t<actor>%d</actor>\n\t\t\t<count>%@u</count>\n\t\t</future>\n\t</future-block-actor-count>\n", @future_blocked_actor);
+    printa("\t<future-block-lifetime>\n\t\t<future>\n\t\t<id>%d</id>\n\t\t<actor><id>%d</id></actor>\n\t\t<duration>%@u</duration>\n\t\t</future>\n\t</future-block-lifetime>\n", @future_block_lifetime);
+    printa("\t<future-block-actor-count>\n\t\t<future>\n\t\t\t<id>%d</id>\n\t\t\t<actor><id>%d</id></actor>\n\t\t\t<count>%@u</count>\n\t\t</future>\n\t</future-block-actor-count>\n", @future_blocked_actor);
     printa("\t<future-block-count>\n\t\t<future>\n\t\t\t<id>%d</id>\n\t\t\t<count>%@u</count>\n\t\t</future>\n\t</future-block-count>\n", @future_block);
     printa("\t<actor-block-count>\n\t\t<actor>\n\t\t\t<id>%d</id>\n\t\t\t<count>%@u</count>\n\t\t</actor>\n\t</actor-block-count>\n", @actor_blocked);
     printf("</future-blocks>\n");
