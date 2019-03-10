@@ -1,3 +1,4 @@
+'use strict'
 const fs = require('fs');
 const xml2js = new require('xml2js').Parser();
 const Parser = require('./parser');
@@ -27,7 +28,7 @@ fs.readFile(process.cwd() + "/" + argv[0], (err, data) => {
 		const counts = parser.counts;
 		const futures = parser.futures;
 		const futureGets = parser.futureGets;
-		const blocks = parser.blocks;
+		const futureBlocks = parser.blocks;
 		const actors = parser.actors;
 		const schedulers = parser.schedulers;
 		const workStealSuccess = parser.workStealSuccess;
@@ -39,7 +40,14 @@ fs.readFile(process.cwd() + "/" + argv[0], (err, data) => {
 			for (const method in actors[key].methods) {
 				methods.push(actors[key].methods[method]);
 			}
+		}
 
+		let blocks = [];
+
+		for (const key in futureBlocks) {
+			for (const block in futureBlocks[key]) {
+				blocks.push(futureBlocks[key][block]);
+			}
 		}
 
 		console.table(counts);
@@ -48,9 +56,7 @@ fs.readFile(process.cwd() + "/" + argv[0], (err, data) => {
 		console.log("--------------------------- FUTURES ---------------------------");
 		console.table(futures, ["id", "duration", "numberOfBlocks"]);
 		console.log("--------------------------- BLOCKS ---------------------------");
-		for (const key in blocks) {
-			console.table(blocks[key], ["futureId", "actorId", "duration"]);
-		}
+		console.table(blocks, ["futureId", "actorId", "duration"]);
 		console.log("--------------------------- FUTURE GETS ---------------------------");
 		console.table(futureGets);
 		console.log("--------------------------- Schedulers ---------------------------");
