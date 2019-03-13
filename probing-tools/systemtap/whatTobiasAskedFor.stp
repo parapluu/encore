@@ -16,14 +16,79 @@
 
 # counters
 global actor_msg_send
-global future_created
-global blocks
+global future_create
+global future_block
+global future_destroy
+global future_fulfil_start
+global future_fulfil_end
+global future_get
+global future_unblock
 
 #list of ID:s
 global list_of_futures
 global actor_ctx_id_blocked
-global actor_being_blocked
-global future_fulfil_list
+global future_actor_block
+global future_id_blocking
+global chained_actor_future_list
+
+#######################
+
+global successful_steals
+global failed_steals
+global total_steals
+
+global successful_steals_id
+global failed_steals_id
+global actor_stolen_id
+
+global scheduler_from_scheduler
+global scheduler_from_scheduler_fail
+
+global core_switch
+global current_sched_core
+
+global message_scheduler
+global message_between_different_schedulers
+global message_between_same_schedulers
+
+probe process.mark("actor-msg-send") {
+      message_scheduler[sprint($arg2)] = $arg1
+}
+
+probe process.mark("actor-msg-run") {
+      if (message_scheduler[sprint($arg3)] != $arg1) {
+      	 message_between_different_schedulers[message_scheduler[sprint($arg3)], $arg1, $arg3] <<< 1;
+      }
+      else if (message_scheduler[sprint($arg3)] == $arg1) {
+      	 message_between_same_schedulers[$arg1, $arg3] <<< 1;
+      }
+}
+
+probe process.mark("work-steal-successful") {
+      successful_steals <<< 1;
+      total_steals <<< 1;
+      successful_steals_id[sprint($arg1)] += 1
+      actor_stolen_id[sprint($arg3)] += 1
+
+      #Adding data to correct list
+      scheduler_from_scheduler[sprint($arg1), sprint($arg2)] <<< 1; 
+
+      if (cpu() != current_sched_core[sprint($arg1)]) {
+      	 	core_switch <<< 1;
+		current_sched_core[sprint($arg1)] = cpu()
+      }
+            					  
+}
+
+probe process.mark("work-steal-failure") {
+      failed_steals <<< 1;
+      total_steals <<< 1;
+      failed_steals_id[sprint($arg1)] += 1
+      scheduler_from_scheduler_fail[sprint($arg1), sprint($arg2)] <<< 1
+            					  
+}
+
+#######################
 
 #messages
 probe process.mark("actor-msg-send")
@@ -33,18 +98,22 @@ probe process.mark("actor-msg-send")
 
 #futures
 probe process.mark("future-create") {
-      future_created <<< 1;
+      future_create <<< 1;
       created_future = sprint($arg2)
       list_of_futures[created_future] = $arg2
       start_stopwatch(created_future)
 }
 
 probe process.mark("future-block") {
-      blocks <<< 1;
-      blocked_future = sprint($arg2)
+      future_block <<< 1;
       start_stopwatch(sprint("block", $arg2))
-      actor_being_blocked[blocked_future] = $arg1 
       actor_ctx_id_blocked[sprint($arg1)]++
+
+      actor_id = sprint($arg1)
+      future_id = sprint($arg2)
+      future_actor_block[future_id, actor_id] <<< 1
+
+      future_id_blocking[future_id] <<< 1;
 }
 
 probe process.mark("future-unblock") {
@@ -52,7 +121,12 @@ probe process.mark("future-unblock") {
       stop_stopwatch(fulfilled_fut)
 }
 
+probe process.mark("future-unblock") {
+     future_unblock <<< 1; 
+}
+
 probe process.mark("future-destroy") {
+      future_destroy <<< 1;
       destroyed_future = sprint($arg2)
       if([destroyed_future] in list_of_futures) {
       	 stop_stopwatch(destroyed_future)
@@ -66,57 +140,181 @@ probe process.mark("method-entry") {
       }
 }
 
+probe process.mark("future-get") {
+     future_get <<< 1; 
+}
+
 probe process.mark("future-fulfil-end"){
-      future_id = sprint($arg2)
-      future_fulfil_list[sprint(future_id)] = future_id
+      future_fulfil_end <<< 1;
+}
+
+probe process.mark("future-fulfil-start"){
+      future_fulfil_start <<< 1;
 }
 
 #chaining
-global chained_actor_list
 probe process.mark("future-chaining") {
-      future_chained = $arg2
-      chained_actor_list[sprint(future_chained)] = future_chained
+      future_chained = sprint($arg2)
+      actor_chained = sprint($arg1)
+      chained_actor_future_list[actor_chained, future_chained] <<< 1
 }
 
 probe end {
-      printf("\n")
-      message_num = @count(actor_msg_send)
-      future_num = @count(future_created)
-      total_blocks = @count(blocks)
-      printf("Amount of messages:\t \t %d\n", message_num)
-      printf("Amount of futures created:\t %d\n", future_num)
-      printf("Amount of blocked in total: \t %d \n", total_blocks)
-      printf("Ratio future:message \t \t %d:%d \n", 1, message_num/future_num)
-
-      printf("\nfuture ID: \t lifetime (us): \t time blocked (us): \t chained: \t block act: \t fulfilled:\n")
-      foreach(fut in list_of_futures) {
-
-	#stopwatches:
-        time = read_stopwatch_us(fut)
-	time_waiting = read_stopwatch_us(sprint("block", fut))
-
-	#ctx id of blocked id:
-	actor = actor_being_blocked[fut]
-
-	#Fulfilled
-	ful = "no"
-	if(fut in future_fulfil_list) {
-	  ful = "yes"
-	}
-
-	#chained:
-	cha = "no"
-	if(fut in chained_actor_list) {
-	  cha = "yes"
-	}
-	
-     	printf("%15d %13d %27d %15s %17d %15s \n", list_of_futures[fut], time, time_waiting, cha, actor, ful)
-      }
-
-      printf("\nactor ID: \t tot blocked:\n")
-      foreach(act in actor_ctx_id_blocked) {
-        printf("%s \t %d\n", act, actor_ctx_id_blocked[act])
-      }
       
+      print("=== FUTURE INFORMATION ===\n")
+      print("=== COUNTS ===\n")
+      ams = @count(actor_msg_send)
+      fc = @count(future_create)
+      fb = @count(future_block)
+      ffs = @count(future_fulfil_start)
+      ffe = @count(future_fulfil_end)
+      fd = @count(future_destroy)
+      fg = @count(future_get)
+      fu = @count(future_unblock)
+      
+      printf("future-block\t\t%d\n", fb)
+      printf("future-create\t\t%d\n", fc)
+      printf("future-destroy\t\t%d\n", fd)
+      printf("future-fulfil-start\t%d\n", ffs)
+      printf("(future-fulfil-end\t%d\n", ffe)
+      printf("future-get\t\t%d\n", fg)
+      printf("future-unblock\t\t%d\n", fu) 
+      printf("actor-msg-send\t\t%d\n", ams)
+
+      if (fc != 0) {
+      	 printf("Ratio future:message\t%d:%d \n", 1, ams/fc)
+      }
+      else {
+      	   printf("Ratio future:message\t%d:%d \n", 0, ams)
+      }
+
+      print("\n")
+
+      print("=== FUTURE_LIFETIME ===\n")
+      print("Future Addr\t\tLifetime (nanoseconds)\n")
+
+      foreach(fut in list_of_futures) {
+         printf("%s\t\t%d\n", fut, read_stopwatch_ns(fut))
+
+      }
+
+      print("\n")
+
+      print("=== FUTURE_BLOCKED_LIFETIME ===\n")
+      print("Future Addr\t\tLifetime (nanoseconds)\n")
+
+      foreach(fut in list_of_futures) {
+         watch_name_blocked = sprint("block", fut)
+         printf("%s\t\t%d\n", fut, read_stopwatch_ns(watch_name_blocked))
+
+      }
+
+      print("\n")
+
+      print("=== FUTURE_BLOCKED_ACTOR ===\n")
+      print("Future Addr\t\tActr Addr\t\tLifetime (nanoseconds)\n")
+
+      foreach([fut, actor] in future_actor_block) {	
+      	printf("%s\t\t%s\t\t%d\n", fut, actor, @count(future_actor_block[fut, actor]))	  
+      }
+
+      print("\n")
+
+      print("=== NUMBER OF TIMES AN ACTOR IS BLOCKED ===\n")
+      print("Actr Addr\t\tCount\n")
+
+      foreach(act in actor_ctx_id_blocked) {
+        printf("%s\t\t%d\n", act, actor_ctx_id_blocked[act])
+      }
+
+      print("\n")
+
+      print("=== NUMBER OF TIMES A FUTURE BLOCKS ===\n")
+      print("Future Addr\t\tCount\n")
+
+      foreach(fut in future_id_blocking) {
+        printf("%s\t\t%d\n", fut, @count(future_id_blocking[fut]))
+      }
+
+      print("\n")
+
+      print("=== FUTURES CHAINED ===\n")
+      print("Actor Addr\t\tFuture Addr\t\tCount\n")
+
+      foreach([act, fut] in chained_actor_future_list) {
+        printf("%s\t\t%s\t\t%d\n",act, fut, @count(chained_actor_future_list[act, fut]))
+      }
+
+
+###############
+      print("\n\n")
+      print("==================================================== \n")
+      print("\t\t STEALS\n")
+      print("==================================================== \n\n")
+
+      print("TOTAL\n")
+	print("Attempted\tSuccessful\tFailed\n")
+      	ss =  @count(successful_steals)
+      	fs =  @count(failed_steals)
+      	ts =  @count(total_steals)
+      	printf("%d\t\t%d\t\t%d",ts,  ss, fs)
+      print("\n\n")
+
+      print("SUCCESSFUL STEALS\n")
+      print("Scheduler ID\t\tCount\n")
+      foreach(ssid in successful_steals_id)
+       	 printf("%s\t\t%d\n", ssid, successful_steals_id[ssid])
+      print("\n")
+
+      print("FAILED STEALS\n")
+      print("Scheduler ID\t\tCount\n")
+      foreach(fsid in failed_steals_id)
+        printf("%s\t\t%d\n", fsid, failed_steals_id[fsid])
+      print("\n")
+
+
+      print("STEALS BETWEEN SCHEDULERS\n")
+      print("Stolen by\t\tStolen from\t\tCount\n")
+      foreach([steal, victim] in scheduler_from_scheduler) {
+      	printf("%s\t\t%s\t\t%d\n", steal, victim, @count(scheduler_from_scheduler[steal, victim]))
+      }
+
+      print("\n")
+
+
+      print("FAILS BETWEEN SCHEDULERS\n")
+      print("Attempted by\t\tTarget\t\t\tCount\n")
+      foreach([steal, victim] in scheduler_from_scheduler_fail) {
+      	printf("%s\t\t%s\t\t%d\n", steal, victim, @count(scheduler_from_scheduler_fail[steal, victim]))
+      }
+
+      print("\n")
+
+      print("STOLEN ACTORS\n")
+      print("Actor ID\t\tTimes Stolen\n")
+      foreach(actor in actor_stolen_id) {
+         printf("%s\t\t%d\n", actor,  actor_stolen_id[actor])
+      }
+
+      print("\n")
+      
+      printf("CORE SWITCHES:\t%d\n", @count(core_switch))
+
+      print("\n")
+
+      printf("MESSAGES BETWEEN SCHEDULERS\n")
+      printf("sending Sched\t\t recieving shed\t\tmessage id\t\tcount\n")
+      foreach ([s_shed, r_shed, mes_id] in message_between_different_schedulers) {
+      	      printf("%d\t\t%d\t\t%d\t\t%d\n", s_shed, r_shed, mes_id, @count(message_between_different_schedulers[s_shed, r_shed, mes_id]))
+      }
+
+      print("\n")
+
+      printf("MESSAGES WITHIN SCHEDULER\n")
+      printf("Sched\t\t message id\t\tcount\n")
+      foreach ([shed, mes_id] in message_between_same_schedulers) {
+      	      printf("%d\t\t%d\t\t%d\n", s_shed, mes_id, @count(message_between_same_schedulers[shed, mes_id]))
+      }
+###############
 
 }
