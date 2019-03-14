@@ -154,7 +154,7 @@ END {
 
     if (did_run_probe["future-get"]) {
       printf("<future-gets>\n");
-      printa("\t<future-get>\n\t\t<actor>\n\t\t\t<id>%d</id>\n\t\t</actor>\n\t\t<future>\n\t\t\t<id>%d</id>\n\t\t</future>\n\t</future-get>\n", @future_get);
+      printa("\t<future-get>\n\t\t<actor>\n\t\t\t<id>%d</id>\n\t\t</actor>\n\t\t<future>\n\t\t\t<id>%d</id>\n\t\t</future>\n\t\t<count>%@u</count>\n\t</future-get>\n", @future_get);
       printf("</future-gets>\n");
     }
 
@@ -226,9 +226,9 @@ END {
   	}
 
     if (did_run_probe["future-get"]) {
-      printf("\n--- What actor calls get on what future ---\n");
-  	  printf("Actor id\t\tFuture id\n");
-  	  printa("%d\t\t%d\n", @future_get);
+      printf("\n--- Total number of times an actor calls get on a future ---\n");
+  	  printf("Actor id\t\tFuture id\t\tCount\n");
+  	  printa("%d\t\t%d\t\t%@u\n", @future_get);
     }
 
   	if (did_run_probe["future-chaining"]) {
