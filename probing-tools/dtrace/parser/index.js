@@ -54,7 +54,7 @@ fs.readFile(process.cwd() + "/" + argv[0], (err, data) => {
 		console.log("--------------------------- ACTORS ---------------------------");
 		console.table(actors, ["id", "numberOfGets", "numberOfTimesBlocked", "numberOfTimesStolen"]);
 		console.log("--------------------------- FUTURES ---------------------------");
-		console.table(futures, ["id", "duration", "numberOfBlocks"]);
+		console.table(futures, ["id", "duration", "numberOfGets", "numberOfBlocks", "numberOfFutureChainings"]);
 		console.log("--------------------------- BLOCKS ---------------------------");
 		console.table(blocks, ["futureId", "actorId", "duration"]);
 		console.log("--------------------------- FUTURE GETS ---------------------------");
