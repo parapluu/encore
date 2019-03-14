@@ -226,7 +226,10 @@ class Parser {
 			this.futureGets.push(futureGet);
 		}
 	}
-
+	/**
+	 * Parses the <future-chainings> element.
+	 * @param  Object   rootNode  The root node.
+	 */
 	parseFutureChaining(rootNode) {
 		const chains = rootNode[0]["future-chaining"];
 
@@ -242,7 +245,7 @@ class Parser {
 		}
 	}
 	/**
-	 * Parses the <work-steal-success> element.
+	 * Parses the <work-steal-successes> element.
 	 * @param  Object   rootNode  The root node.
 	 */
 	parseWorkStealSuccess(rootNode) {
@@ -279,7 +282,7 @@ class Parser {
 		}
 	}
 	/**
-	 * Parses the <work-steal-failure> element.
+	 * Parses the <work-steal-failures> element.
 	 * @param  Object   rootNode  The root node.
 	 */
 	parseWorkStealFailure(rootNode) {
