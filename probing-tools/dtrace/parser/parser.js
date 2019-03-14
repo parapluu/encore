@@ -39,13 +39,13 @@ class Parser {
 					case "future-gets":
 						this.parseFutureGets(elements);
 						break;
-					case "work-steal-success":
+					case "work-steal-successes":
 						this.parseWorkStealSuccess(elements);
 						break;
 					case "work-steal-success-from":
 						this.parseWorkStealSuccessFrom(elements);
 						break;
-					case "work-steal-failure":
+					case "work-steal-failures":
 						this.parseWorkStealFailure(elements);
 						break;
 					case "work-steal-failure-from":
@@ -124,24 +124,25 @@ class Parser {
 	 */
 	parseFutureBlockLifetime(elements) {
 		for (let key in elements) {
-			const element  = elements[key]["future"][0];
-			const id       = element['id'][0];
-			const actorID  = element['actor'][0]["id"][0];
-			const duration = element['duration'][0];
-			let actor      = this.actors[actorID];
+			const future   = elements[key]["future"][0];
+			const actorElm = elements[key]["actor"][0];
+			const duration = elements[key]["duration"][0];
+			const futureId = future["id"][0];
+			const actorId  = actorElm["id"][0];
+			let actor      = this.actors[actorId];
 
 			if (actor == null) {
-				actor = new Actor(actorID);
-				this.actors[actorID] = actor;
+				actor = new Actor(actorId);
+				this.actors[actorId] = actor;
 			}
 
-			if (!(id in this.blocks)) { this.blocks[id] = []; }
+			if (!(futureId in this.blocks)) { this.blocks[futureId] = []; }
 
-			const block = new FutureBlock(id, actor, parseInt(duration));
-			this.blocks[id].push(block);
+			const block = new FutureBlock(futureId, actor, parseInt(duration));
+			this.blocks[futureId].push(block);
 
-			if (id in this.futures) {
-				this.futures[id].blocks.push(block);
+			if (futureId in this.futures) {
+				this.futures[futureId].blocks.push(block);
 			}
 		}
 	}
@@ -151,14 +152,14 @@ class Parser {
 	 */
 	parseFutureBlockActorCount(elements) {
 		for (let key in elements) {
-			const element = elements[key]["future"][0];
-			const id      = element['id'][0];
-
-			if (id in this.futures) {
-				const actor = element['actor'][0]["id"][0];
-				const count = element['count'][0];
-				let future  = this.futures[id];
-				future.actorsBlocked[actor] = parseInt(count);
+			const futureId = elements[key]["future"][0]['id'][0];
+			const actorId  = elements[key]["actor"][0]["id"][0];
+			const count    = elements[key]["count"][0];
+			// TODO: If Future has no lifetime, it will not exist here.
+			//       Perhaps create the Future object then??
+			if (futureId in this.futures) {
+				let future  = this.futures[futureId];
+				future.actorsBlocked[actorId] = parseInt(count);
 			}
 		}
 	}
@@ -168,11 +169,10 @@ class Parser {
 	 */
 	parseFutureBlockCount(elements) {
 		for (let key in elements) {
-			const element = elements[key]["future"][0];
-			const id      = element['id'][0];
+			const id    = elements[key]["future"][0]["id"][0];
+			const count = elements[key]['count'][0];
 
 			if (id in this.futures) {
-				const count = element['count'][0];
 				let future  = this.futures[id];
 				future.numberOfBlocks = parseInt(count);
 			}
@@ -186,7 +186,7 @@ class Parser {
 		for (let key in elements) {
 			const element = elements[key]['actor'][0];
 			const id      = element['id'][0];
-			const count   = element['count'][0];
+			const count   = elements[key]['count'][0];
 
 			if (!(id in this.actors)) {
 				this.actors[id] = new Actor(id);
@@ -207,7 +207,6 @@ class Parser {
 		for (const key in futures) {
 			const actorID  = futures[key]["actor"][0]["id"][0];
 			const futureID = futures[key]["future"][0]["id"][0];
-			const count    = futures[key]["count"][0];
 
 			if (!(actorID in this.actors)) {
 				this.actors[actorID] = new Actor(actorID);
@@ -219,7 +218,7 @@ class Parser {
 			this.actors[actorID].numberOfGets += 1;
 			this.futures[futureID].numberOfGets += 1;
 
-			const futureGet = new FutureGet(actorID, futureID, parseInt(count));
+			const futureGet = new FutureGet(actorID, futureID);
 			this.futureGets.push(futureGet);
 		}
 	}
@@ -228,9 +227,9 @@ class Parser {
 	 * @param  Object   rootNode  The root node.
 	 */
 	parseWorkStealSuccess(rootNode) {
-		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
+		const schedulers = rootNode[0]["work-steal-success"];
 		for (const key in schedulers) {
-			const id    = schedulers[key]["id"][0];
+			const id    = schedulers[key]["scheduler"][0]["id"][0];
 			const count = schedulers[key]["count"][0];
 
 			if (!(id in this.schedulers)) {
@@ -245,10 +244,11 @@ class Parser {
 	 * @param  Object   rootNode  The root node.
 	 */
 	parseWorkStealSuccessFrom(rootNode) {
-		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
+		const schedulers = rootNode[0]["work-steal-success"];
+		console.log(schedulers);
 		for (const key in schedulers) {
-			const byId   = schedulers[key]["id"][0];
-			const fromId = schedulers[key]["from"][0];
+			const byId   = schedulers[key]["scheduler"][0]["id"][0];
+			const fromId = schedulers[key]["victim"][0];
 			const count  = schedulers[key]["count"][0];
 
 			if (!(byId in this.schedulers)) {
@@ -264,9 +264,9 @@ class Parser {
 	 * @param  Object   rootNode  The root node.
 	 */
 	parseWorkStealFailure(rootNode) {
-		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
+		const schedulers = rootNode[0]["work-steal-failure"];
 		for (const key in schedulers) {
-			const id    = schedulers[key]["id"][0];
+			const id    = schedulers[key]["scheduler"][0]["id"][0];
 			const count = schedulers[key]["count"][0];
 
 			if (!(id in this.schedulers)) {
@@ -281,10 +281,10 @@ class Parser {
 	 * @param  Object   rootNode  The root node.
 	 */
 	parseWorkStealFailureFrom(rootNode) {
-		const schedulers = rootNode[0]["schedulers"][0]["scheduler"];
+		const schedulers = rootNode[0]["work-steal-failure"];
 		for (const key in schedulers) {
-			const byId   = schedulers[key]["id"][0];
-			const fromId = schedulers[key]["from"][0];
+			const byId   = schedulers[key]["scheduler"][0]["id"][0];
+			const fromId = schedulers[key]["victim"][0];
 			const count  = schedulers[key]["count"][0];
 
 			if (!(byId in this.schedulers)) {

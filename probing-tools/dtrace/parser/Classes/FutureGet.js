@@ -9,10 +9,9 @@
  */
 class FutureGet {
 
-	constructor(actor, future, count) {
+	constructor(actor, future) {
 		this.actor = actor;
 		this.future = future;
-		this.count = count;
 	}
 
 }
