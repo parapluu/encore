@@ -471,11 +471,9 @@ instance Show Error where
     show (UnaryOperandMismatchError op ty) =
         printf "Operator '%s' is not defined for values of type '%s'"
                (show op) (show ty)
-    show (BinaryOperandMismatchError op kind lType rType) =
-        printf ("Operator '%s' is only defined for %s types\n" ++
-                "   Left type: %s\n" ++
-                "   Right type: %s")
-               (show op) kind (show lType) (show rType)
+    show (BinaryOperandMismatchError op kind _ _) =
+        printf ("Operator '%s' is only defined for %s types")
+               (show op) kind
     show (UndefinedBinaryOperatorError op) =
         printf "Undefined binary operator '%s'" (show op)
     show NullTypeInferenceError =

@@ -64,6 +64,13 @@ instance Suggestable TCError where
         in
             makeNotation <+> hang ("Method" <+> quotes (text $ show name) <+> "is declared:") 0
                 (styleDesc (ppFunctionHeader header))
+
+    longSuggest (TCError (BinaryOperandMismatchError _ _ lType rType) _) =
+        let
+            left  = text " Left type: " <+> styleDesc (text $ show lType)
+            right = text "Right type: " <+> styleDesc (text $ show rType)
+        in
+            makeNotation <+> vcat [left, right]
     
     longSuggest _ = empty
 
