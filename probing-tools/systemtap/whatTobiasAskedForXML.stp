@@ -2,6 +2,8 @@
 ## Written by Joy van den EIjkhof, Ardalan Samimi, Ulf Sigvardsson
 ## March 2019
 
+## Note that some actors are identified by their ctx pointers.
+
 ## Counters
 ## Contains how many times each probe has been called
 ## Uses aggregation
@@ -39,13 +41,13 @@ global future_block_count
 #How many times is a Future chained at what Actor
 global chained_actor_future_list
 
-#How many time a Scheduler successfully steals work any other Scheduler 
+#How many time a Scheduler successfully steals work any other Scheduler
 global successful_steals_count
 
 #How many times an Actor is stolen from any Scheduler
 global actor_stolen
 
-#How many time a Scheduler fails to steals work any other Scheduler 
+#How many time a Scheduler fails to steals work any other Scheduler
 global failed_steals_count
 
 #What Future blocks what Future
@@ -84,16 +86,16 @@ probe process.mark("work-steal-successful") {
       victim = sprint($arg2)
       actor = sprint($arg3)
 
-  
+
       successful_steals_count[scheduler] <<< 1
       actor_stolen[actor] <<< 1
-      scheduler_from_scheduler[scheduler, victim] <<< 1; 
+      scheduler_from_scheduler[scheduler, victim] <<< 1;
 
       if (cpu() != current_sched_core[scheduler]) {
       	 	core_switch <<< 1;
 		current_sched_core[scheduler] = cpu()
       }
-            					  
+
 }
 
 probe process.mark("work-steal-failure") {
@@ -103,11 +105,11 @@ probe process.mark("work-steal-failure") {
 
       #Arguments from probe
       scheduler = sprint($arg1)
-      victim = sprint($arg2) 
+      victim = sprint($arg2)
 
       failed_steals_count[scheduler] <<< 1
       scheduler_from_scheduler_fail[scheduler, victim] <<< 1
-            					  
+
 }
 
 
@@ -117,7 +119,7 @@ probe process.mark("future-create") {
 
       #Arguments from probe
       future = sprint($arg2)
-      
+
       list_future_lifetime[future] = gettimeofday_ns()
 }
 
@@ -128,7 +130,7 @@ probe process.mark("future-destroy") {
 
       #Arguments
       future = sprint($arg2)
-      
+
       list_future_lifetime[future] = gettimeofday_ns()-list_future_lifetime[future]
 }
 
@@ -139,9 +141,9 @@ probe process.mark("future-block") {
       #Arguments from probe
       actor = sprint($arg1)
       future = sprint($arg2)
-      
+
       list_future_block_lifetime[future, actor] = gettimeofday_ns()
-      actor_block_count[actor] <<< 1      
+      actor_block_count[actor] <<< 1
       future_block_actor[future, actor] <<< 1
       future_block_count[future] <<< 1
 }
@@ -153,7 +155,7 @@ probe process.mark("future-unblock") {
       #Arguments from probe
       actor = sprint($arg1)
       future = sprint($arg2)
-      
+
       list_future_block_lifetime[future, actor] = gettimeofday_ns()-list_future_block_lifetime[future, actor]
 }
 
@@ -166,7 +168,7 @@ probe process.mark("future-get") {
      future = sprint($arg2)
 
      actor_get_future[actor, future] <<< 1;
-     
+
 }
 
 probe process.mark("future-fulfil-end"){
@@ -186,7 +188,7 @@ probe process.mark("future-chaining") {
       #Arguments from probe
       future_chained = sprint($arg2)
       actor_chained = sprint($arg1)
-      
+
       chained_actor_future_list[actor_chained, future_chained] <<< 1;
 }
 
@@ -215,107 +217,206 @@ probe end {
       printf("\t<future-fulfil-star count=\"%d\"/>\n", ffs)
       printf("\t<future-fulfil-end count= \"%d\"/>\n", ffe)
       printf("\t<future-get count=\"%d\"/>\n", fg)
-      printf("\t<future-unblock count=\"%d\"/>\n", fu) 
+      printf("\t<future-unblock count=\"%d\"/>\n", fu)
       printf("\t<actor-msg-send count=\"%d\"/>\n", ams)
       printf("\t<work-steal-failure count=\"%d\"/>\n", fs)
       printf("\t<actor-msg-run count=\"%d\"/>\n", amr)
       printf("\t<work-steal-successful count=\"%d\"/>\n", ss)
       printf("\t<work-steal-attempt count=\"%d\"/>\n", ts)
       printf("\t<core-switches count\"%d\"/>\n", @count(core_switch))
-    
+
       print("</counts>\n")
 
       #--- LIFETIME OF FUTURE ---
       print("<futures>\n")
       foreach(fut in list_future_lifetime) {
          print("\t<future>\n")
-    	 printf("\t\t<id>%s</id>\n", fut)
-    	 printf("\t\t<duration>%d</duration>\n", list_future_lifetime[fut])
-    	 print("\t</future>\n")
+    	   printf("\t\t<id>%s</id>\n", fut)
+    	   printf("\t\t<duration>%d</duration>\n", list_future_lifetime[fut])
+    	   print("\t</future>\n")
       }
       print("</futures>\n")
 
       #Future blocking:
-      print("<future-blocks>\n")
-      
+      print("<future-blocks>\n") #This has a closure further down
+
       #--- LIFETIME OF A FUTURE BLOCK ---
       foreach([fut, act] in list_future_block_lifetime) {
-	 print("\t<future-block-lifetime>\n")
+	     print("\t<future-block-lifetime>\n")
 
-   	 print("\t\t<future>\n")
-    	 printf("\t\t<id>%s</id>\n", fut)	 
+   	   print("\t\t<future>\n")
+    	 printf("\t\t\t<id>%s</id>\n", fut)
     	 print("\t\t</future>\n")
 
     	 print("\t\t<actor>\n")
     	 printf("\t\t\t<id>%s</id>\n", act)
     	 print("\t\t</actor>\n")
-	 
-    	 printf("\t\t<duration>%d</duration>\n", list_future_block_lifetime[act, fut])	 
+
+    	 printf("\t\t<duration>%d</duration>\n", list_future_block_lifetime[act, fut])
     	 print("\t</future-block-lifetime>\n")
 
       }
 
-      #---NUMBER OF TIMES ACTOR CALLS GET ON FUTURE--- ##THISIS whre you stopp
-      print("Actor addr\t\tFuture Addr\t\tCount\n")
-      foreach ([act, fut] in actor_get_future) {
-      	      printf("%s\t\t%s\t\t%d\n", act, fut, @count(actor_get_future[act, fut]))
+      #--- WHAT FUTURE BLOCKED WHAT ACTOR ---
+      foreach([fut, act] in future_block_actor) {
+        print("\t<future-block-actor-count>\n")
+
+        print("\t\t<future>\n")
+        printf("\t\t\t<id>%s</id>\n", fut)
+        print("\t\t</future>\n")
+
+        print("\t\t<actor>\n")
+        printf("\t\t\t<id>%s</id>\n", act)
+        print("\t\t</actor>\n")
+
+        printf("\t\t<count>%d</count>\n", @count(future_block_actor[fut, act]))
+        print("\t</future-block-actor-count>\n")
+
+
       }
 
-
-      print("\n--- WHAT FUTURE BLOCKED WHAT ACTOR ---\n")
-      print("Future Addr\t\tActorr Addr\t\tCount\n")
-      foreach([fut, actor] in future_block_actor) {	
-      	printf("%s\t\t%s\t\t%d\n", fut, actor, @count(future_block_actor[fut, actor]))	  
-      }
-
-      
-      print("\n--- NUMBER OF TIMES AN ACTOR IS BLOCKED ---\n")
-      print("Actor Addr\t\tCount\n")
-      foreach(act in actor_block_count) {
-        printf("%s\t\t%d\n", act, @count(actor_block_count[act]))
-      }
-
-  
-      print("\n--- NUMBER OF TIMES A FUTURE BLOCKS ---\n")
-      print("Future Addr\t\tCount\n")
+      #--- NUMBER OF TIMES A FUTURE BLOCKS ---
       foreach(fut in future_block_count) {
-        printf("%s\t\t%d\n", fut, @count(future_block_count[fut]))
+
+        print("\t<future-block-count>\n")
+        print("\t\t<future>\n")
+        printf("\t\t\t<id>%s</id>\n", fut)
+        print("\t\t</future>\n")
+
+        printf("\t\t<count>%d</count>\n", @count(future_block_count[fut]))
+        print("\t</future-block-count>\n")
       }
 
-      print("\n--- WHAT FUTURES CHAINES AT WHAT ACTOR ---\n")
-      print("Actor Addr\t\tFuture Addr\t\tCount\n")
+      #--- NUMBER OF TIMES AN ACTOR IS BLOCKED ---
+      foreach(act in actor_block_count) {
+        print("\t<actor-block-count>\n")
+
+        print("\t\t<actor>\n")
+        printf("\t\t\t<id>%s</id>\n", act)
+        print("\t\t</actor>\n")
+
+        printf("\t\t<count>%d</count>\n", @count(actor_block_count[act]))
+        print("\t</actor-block-count>\n")
+      }
+      print("</future-blocks>\n") #Here is its closure
+
+      #---NUMBER OF TIMES ACTOR CALLS GET ON FUTURE---
+      print("<future-gets>\n")
+      foreach ([act, fut] in actor_get_future) {
+      print("\t<future-get>\n")
+
+      print("\t\t<actor>\n")
+      printf("\t\t\t<id>%s</id>\n", act)
+      print("\t\t</actor>\n")
+
+      print("\t\t<future>\n")
+      printf("\t\t\t<id>%s</id>\n", fut)
+      print("\t\t</future>\n")
+
+      printf("\t\t<count>%d</count>\n", @count(actor_get_future[act, fut]))
+
+      print("\t</future-get>\n")
+
+      }
+      print("<future-gets>\n")
+
+      #--- WHAT FUTURES CHAINES AT WHAT ACTOR ---
+      print("<future-chainings>\n")
       foreach([act, fut] in chained_actor_future_list) {
-        printf("%s\t\t%s\t\t%d\n",act, fut, @count(chained_actor_future_list[act, fut]))
-      }
 
-      print("\n---SUCCESSFUL STEALS---\n")
-      print("Scheduler\t\tCount\n")
+        print("\t<future-chaining>\n")
+
+        print("\t\t<future>\n")
+        printf("\t\t\t<id>%s</id>\n", fut)
+        print("\t\t</future>\n")
+
+        print("\t\t<actor>\n")
+        printf("\t\t\t<id>%s</id>\n", act)
+        print("\t\t</actor>\n")
+
+        printf("\t\t<count>%d</count>\n", @count(chained_actor_future_list[act, fut]))
+
+        print("\t</future-chaining>\n")
+
+      }
+      print("/future-chainings>\n")
+
+
+
+      #---SUCCESSFUL STEALS---
+      print("<work-steal-successes>\n")
       foreach(ssid in successful_steals_count) {
-       	 printf("%s\t\t%d\n", ssid, @count(successful_steals_count[ssid]))
-      }
+         print("\t<work-steal-success>\n")
 
-      print("\n---FAILED STEALS---\n")
-      print("Scheduler\t\tCount\n")
-      foreach(fsid in failed_steals_count) {
-        printf("%s\t\t%d\n", fsid, @count(failed_steals_count[fsid]))
-      }
+         print("\t\t<scheduler>\n")
+         printf("\t\t\t<id>%s</id>\n", ssid)
+         print("\t\t</scheduler>\n")
 
-      print("\n---STEALS BETWEEN SCHEDULERS---\n")
-      print("Stolen by\t\tStolen from\t\tCount\n")
+         printf("\t\t<count>%d</count>\n", @count(successful_steals_count[ssid]))
+
+         print("\t</work-steal-success>\n")
+      }
+      print("</work-steal-successes>\n")
+
+      #---STEALS BETWEEN SCHEDULERS---
       foreach([steal, victim] in scheduler_from_scheduler) {
-      	printf("%s\t\t%s\t\t%d\n", steal, victim, @count(scheduler_from_scheduler[steal, victim]))
+        print("\t<work-steal-success>\n")
+
+        print("\t\t<scheduler>\n")
+        printf("\t\t\t<id>%s</id>\n", steal)
+        print("\t\t</scheduler>\n")
+
+        printf("\t\t<victim>%s</victim>\n", victim)
+
+        printf("\t\t<count>%d</count>\n", @count(scheduler_from_scheduler[steal, victim]))
+
+        print("\t</work-steal-success>\n")
+
       }
 
-      print("\n---FAILS BETWEEN SCHEDULERS---\n")
-      print("Attempted by\t\tTarget\t\t\tCount\n")
+      #---FAILED STEALS---
+      print("<work-steal-failures>\n")
+      foreach(fsid in failed_steals_count) {
+        print("\t<work-steal-failure>\n")
+
+        print("\t\t<scheduler>\n")
+        printf("\t\t\t<id>%s</id>\n", fsid)
+        print("\t\t</scheduler>\n")
+
+        printf("\t\t<count>%d</count>\n", @count(failed_steals_count[fsid]))
+
+        print("\t</work-steal-failure>\n")
+      }
+      print("</work-steal-failures>\n")
+
+
+
+      #---FAILS BETWEEN SCHEDULERS---
+      print("<work-steal-failure-from>\n")
       foreach([steal, victim] in scheduler_from_scheduler_fail) {
-      	printf("%s\t\t%s\t\t%d\n", steal, victim, @count(scheduler_from_scheduler_fail[steal, victim]))
-      }
+        print("\t<work-steal-failure>\n")
 
-      print("\n---STOLEN ACTORS---\n")
-      print("Actor ID\t\tTimes Stolen\n")
-      foreach(actor in actor_stolen) {
-         printf("%s\t\t%d\n", actor,  @count(actor_stolen[actor]))
+        print("\t\t<scheduler>\n")
+        printf("\t\t\t<id>%s</id>\n", steal)
+        print("\t\t</scheduler>\n")
+
+        printf("\t\t<victim>%s</victim>\n", victim)
+
+        printf("\t\t<count>%d</count>\n", @count(scheduler_from_scheduler_fail[steal, victim]))
+
+        print("\t</work-steal-failure>\n")
       }
-      
+      print("</work-steal-failure-from>\n")
+
+      #---STOLEN ACTORS---
+      print("<actor-stolen>\n")
+      foreach(act in actor_stolen) {
+	       print("\t<actor>\n")
+		     printf("\t\t<id>%s</id>\n", act)
+		     printf("\t\t<count>%d</count>\n", @count(actor_stolen[act]))
+	       print("\t</actor>\n")
+      }
+      print("</actor-stolen>\n")
+
+      print("</root>\n")
 }
