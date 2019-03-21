@@ -1,4 +1,4 @@
-## A systemTap probing tool for Encore that prints human readable data
+## A systemTap probing tool for Encore that produces data in XML-format
 ## Written by Joy van den EIjkhof, Ardalan Samimi, Ulf Sigvardsson
 ## March 2019
 
@@ -140,7 +140,7 @@ probe process.mark("future-block") {
       actor = sprint($arg1)
       future = sprint($arg2)
       
-      list_future_block_lifetime[future] = gettimeofday_ns()
+      list_future_block_lifetime[future, actor] = gettimeofday_ns()
       actor_block_count[actor] <<< 1      
       future_block_actor[future, actor] <<< 1
       future_block_count[future] <<< 1
@@ -151,9 +151,10 @@ probe process.mark("future-unblock") {
       future_unblock <<< 1;
 
       #Arguments from probe
+      actor = sprint($arg1)
       future = sprint($arg2)
       
-      list_future_block_lifetime[future] = gettimeofday_ns()-list_future_block_lifetime[future]
+      list_future_block_lifetime[future, actor] = gettimeofday_ns()-list_future_block_lifetime[future, actor]
 }
 
 probe process.mark("future-get") {
@@ -190,8 +191,6 @@ probe process.mark("future-chaining") {
 }
 
 probe end {
-      print("--- DATA FROM PROBING ---")
-      print("\n--- COUNTS ---\n")
       ams = @count(actor_msg_send)
       fc = @count(future_create)
       fb = @count(future_block)
@@ -205,39 +204,58 @@ probe end {
       ss =  @count(successful_steals)
       fs =  @count(failed_steals)
       ts =  @count(total_steals)
-      
-      printf("future-chaining\t\t%d\n", fch)
-      printf("future-block\t\t%d\n", fb)
-      printf("future-create\t\t%d\n", fc)
-      printf("future-destroy\t\t%d\n", fd)
-      printf("future-fulfil-start\t%d\n", ffs)
-      printf("(future-fulfil-end\t%d\n", ffe)
-      printf("future-get\t\t%d\n", fg)
-      printf("future-unblock\t\t%d\n", fu) 
-      printf("actor-msg-send\t\t%d\n", ams)
-      printf("actor-msg-run\t\t%d\n", amr)
-      printf("work-steal-failure\t\t%d\n", fs)
-      printf("work-steal-successful\t\t%d\n", ss)
-      printf("work-steal-attempt\t\t%d\n", ts)
-      printf("core-switches:\t%d\n", @count(core_switch))
 
+      print("<root>\n")
+      print("<counts>\n")
 
-      print("\n--- LIFETIME OF FUTURE ---\n")
-      print("Future Addr\t\tLifetime (nanoseconds)\n")
+      printf("\t<future-chaining count=\"%d\"/>\"\n", fch)
+      printf("\t<future-block count=\"%d\"\"/>\n", fb)
+      printf("\t<future-create count=\"%d\"/>\n", fc)
+      printf("\t<future-destroy count=\"%d\"/>\n", fd)
+      printf("\t<future-fulfil-star count=\"%d\"/>\n", ffs)
+      printf("\t<future-fulfil-end count= \"%d\"/>\n", ffe)
+      printf("\t<future-get count=\"%d\"/>\n", fg)
+      printf("\t<future-unblock count=\"%d\"/>\n", fu) 
+      printf("\t<actor-msg-send count=\"%d\"/>\n", ams)
+      printf("\t<work-steal-failure count=\"%d\"/>\n", fs)
+      printf("\t<actor-msg-run count=\"%d\"/>\n", amr)
+      printf("\t<work-steal-successful count=\"%d\"/>\n", ss)
+      printf("\t<work-steal-attempt count=\"%d\"/>\n", ts)
+      printf("\t<core-switches count\"%d\"/>\n", @count(core_switch))
+    
+      print("</counts>\n")
+
+      #--- LIFETIME OF FUTURE ---
+      print("<futures>\n")
       foreach(fut in list_future_lifetime) {
-         printf("%s\t\t%d\n", fut, list_future_lifetime[fut])
+         print("\t<future>\n")
+    	 printf("\t\t<id>%s</id>\n", fut)
+    	 printf("\t\t<duration>%d</duration>\n", list_future_lifetime[fut])
+    	 print("\t</future>\n")
+      }
+      print("</futures>\n")
+
+      #Future blocking:
+      print("<future-blocks>\n")
+      
+      #--- LIFETIME OF A FUTURE BLOCK ---
+      foreach([fut, act] in list_future_block_lifetime) {
+	 print("\t<future-block-lifetime>\n")
+
+   	 print("\t\t<future>\n")
+    	 printf("\t\t<id>%s</id>\n", fut)	 
+    	 print("\t\t</future>\n")
+
+    	 print("\t\t<actor>\n")
+    	 printf("\t\t\t<id>%s</id>\n", act)
+    	 print("\t\t</actor>\n")
+	 
+    	 printf("\t\t<duration>%d</duration>\n", list_future_block_lifetime[act, fut])	 
+    	 print("\t</future-block-lifetime>\n")
 
       }
 
-
-      print("\n--- LIFETIME OF A FUTURE BLOCK ---\n")
-      print("Future Addr\t\tLifetime (nanoseconds)\n")
-      foreach(fut in list_future_block_lifetime) {
-         printf("%s\t\t%d\n", fut, list_future_block_lifetime[fut])
-
-      }
-
-      print("\n---NUMBER OF TIMES ACTOR CALLS GET ON FUTURE---\n")
+      #---NUMBER OF TIMES ACTOR CALLS GET ON FUTURE--- ##THISIS whre you stopp
       print("Actor addr\t\tFuture Addr\t\tCount\n")
       foreach ([act, fut] in actor_get_future) {
       	      printf("%s\t\t%s\t\t%d\n", act, fut, @count(actor_get_future[act, fut]))
