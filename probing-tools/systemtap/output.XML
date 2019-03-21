@@ -1,0 +1,183 @@
+<root>
+<counts>
+	<future-chaining count="1"/>"
+	<future-block count="3""/>
+	<future-create count="4"/>
+	<future-destroy count="4"/>
+	<future-fulfil-star count="4"/>
+	<future-fulfil-end count= "4"/>
+	<future-get count="3"/>
+	<future-unblock count="3"/>
+	<actor-msg-send count="9"/>
+	<work-steal-failure count="2"/>
+	<actor-msg-run count="9"/>
+	<work-steal-successful count="1"/>
+	<work-steal-attempt count="3"/>
+	<core-switches count"1"/>
+</counts>
+<futures>
+	<future>
+		<id>140135135311872</id>
+		<duration>1760372460</duration>
+	</future>
+	<future>
+		<id>140135135309824</id>
+		<duration>1760361654</duration>
+	</future>
+	<future>
+		<id>140135135306752</id>
+		<duration>1760353271</duration>
+	</future>
+	<future>
+		<id>140135135304704</id>
+		<duration>1760015346</duration>
+	</future>
+</futures>
+<future-blocks>
+	<future-block-lifetime>
+		<future>
+			<id>140135135306752</id>
+		</future>
+		<actor>
+			<id>140135429085256</id>
+		</actor>
+		<duration>0</duration>
+	</future-block-lifetime>
+	<future-block-lifetime>
+		<future>
+			<id>140135135311872</id>
+		</future>
+		<actor>
+			<id>140135429085256</id>
+		</actor>
+		<duration>0</duration>
+	</future-block-lifetime>
+	<future-block-lifetime>
+		<future>
+			<id>140135135311872</id>
+		</future>
+		<actor>
+			<id>140135429085640</id>
+		</actor>
+		<duration>0</duration>
+	</future-block-lifetime>
+	<future-block-actor-count>
+		<future>
+			<id>140135135311872</id>
+		</future>
+		<actor>
+			<id>140135429085256</id>
+		</actor>
+		<count>2</count>
+	</future-block-actor-count>
+	<future-block-actor-count>
+		<future>
+			<id>140135135306752</id>
+		</future>
+		<actor>
+			<id>140135429085256</id>
+		</actor>
+		<count>1</count>
+	</future-block-actor-count>
+	<future-block-count>
+		<future>
+			<id>140135135311872</id>
+		</future>
+		<count>2</count>
+	</future-block-count>
+	<future-block-count>
+		<future>
+			<id>140135135306752</id>
+		</future>
+		<count>1</count>
+	</future-block-count>
+	<actor-block-count>
+		<actor>
+			<id>140135429085256</id>
+		</actor>
+		<count>3</count>
+	</actor-block-count>
+</future-blocks>
+<future-gets>
+	<future-get>
+		<actor>
+			<id>140135429085256</id>
+		</actor>
+		<future>
+			<id>140135135306752</id>
+		</future>
+		<count>1</count>
+	</future-get>
+	<future-get>
+		<actor>
+			<id>140135429085640</id>
+		</actor>
+		<future>
+			<id>140135135311872</id>
+		</future>
+		<count>2</count>
+	</future-get>
+<future-gets>
+<future-chainings>
+	<future-chaining>
+		<future>
+			<id>140135135311872</id>
+		</future>
+		<actor>
+			<id>140135429085256</id>
+		</actor>
+		<count>1</count>
+	</future-chaining>
+/future-chainings>
+<work-steal-successes>
+	<work-steal-success>
+		<scheduler>
+			<id>140135429085568</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-success>
+</work-steal-successes>
+	<work-steal-success>
+		<scheduler>
+			<id>140135429085568</id>
+		</scheduler>
+		<victim>140135429085184</victim>
+		<count>1</count>
+	</work-steal-success>
+<work-steal-failures>
+	<work-steal-failure>
+		<scheduler>
+			<id>140135429085184</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>140135429085568</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failures>
+<work-steal-failure-from>
+	<work-steal-failure>
+		<scheduler>
+			<id>140135429085184</id>
+		</scheduler>
+		<victim>0</victim>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>140135429085568</id>
+		</scheduler>
+		<victim>140135429085184</victim>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failure-from>
+<actor-stolen>
+	<actor>
+		<id>140135135314944</id>
+		<count>1</count>
+	</actor>
+</actor-stolen>
+</root>
