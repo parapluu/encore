@@ -1,0 +1,211 @@
+<root>
+<counts>
+	<future-chaining count="0"/>
+	<future-block count="0"/>
+	<future-create count="0"/>
+	<future-destroy count="0"/>
+	<future-fulfil-star count="0"/>
+	<future-fulfil-end count= "0"/>
+	<future-get count="0"/>
+	<future-unblock count="0"/>
+	<actor-msg-send count="320240"/>
+	<work-steal-failure count="2"/>
+	<work-steal-successful count="35"/>
+	<work-steal-attempt count="37"/>
+	<core-switches count="35"/>
+</counts>
+<futures>
+</futures>
+<future-blocks>
+</future-blocks>
+<future-gets>
+</future-gets>
+<future-chainings>
+</future-chainings>
+<work-steal-successes>
+	<work-steal-success>
+		<scheduler>
+			<id>140153975052288</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-success>
+	<work-steal-success>
+		<scheduler>
+			<id>140153975052672</id>
+		</scheduler>
+		<count>34</count>
+	</work-steal-success>
+</work-steal-successes>
+<work-steal-success-from>
+	<work-steal-success>
+		<scheduler>
+			<id>140153975052288</id>
+		</scheduler>
+		<victim>140153975052672</victim>
+		<count>1</count>
+	</work-steal-success>
+	<work-steal-success>
+		<scheduler>
+			<id>140153975052672</id>
+		</scheduler>
+		<victim>140153975052288</victim>
+		<count>34</count>
+	</work-steal-success>
+</work-steal-success-from>
+<work-steal-failures>
+	<work-steal-failure>
+		<scheduler>
+			<id>140153975052288</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>140153975052672</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failures>
+<work-steal-failure-from>
+	<work-steal-failure>
+		<scheduler>
+			<id>140153975052288</id>
+		</scheduler>
+		<victim>0</victim>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>140153975052672</id>
+		</scheduler>
+		<victim>0</victim>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failure-from>
+<actor-stolen>
+	<actor>
+		<id>140153681259520</id>
+		<count>2</count>
+	</actor>
+	<actor>
+		<id>140153681282048</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681250816</id>
+		<count>2</count>
+	</actor>
+	<actor>
+		<id>140153681270784</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681269760</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681267200</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681246208</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681264128</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681265152</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681272832</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681264640</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681250304</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681267712</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681271296</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681233408</id>
+		<count>2</count>
+	</actor>
+	<actor>
+		<id>140153681263616</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681266688</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681278464</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681241088</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681270272</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681229312</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681279488</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681278976</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681268224</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681273344</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681241600</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681282560</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681277952</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681237504</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681223680</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140153681446912</id>
+		<count>2</count>
+	</actor>
+</actor-stolen>
+</root>

@@ -1,0 +1,82 @@
+<root>
+<counts>
+	<future-chaining count="0"/>
+	<future-block count="0"/>
+	<future-create count="0"/>
+	<future-destroy count="0"/>
+	<future-fulfil-star count="0"/>
+	<future-fulfil-end count= "0"/>
+	<future-get count="0"/>
+	<future-unblock count="0"/>
+	<actor-msg-send count="18"/>
+	<work-steal-failure count="2"/>
+	<work-steal-successful count="3"/>
+	<work-steal-attempt count="5"/>
+	<core-switches count="3"/>
+</counts>
+<futures>
+</futures>
+<future-blocks>
+</future-blocks>
+<future-gets>
+</future-gets>
+<future-chainings>
+</future-chainings>
+<work-steal-successes>
+	<work-steal-success>
+		<scheduler>
+			<id>140008028088704</id>
+		</scheduler>
+		<count>3</count>
+	</work-steal-success>
+</work-steal-successes>
+<work-steal-success-from>
+	<work-steal-success>
+		<scheduler>
+			<id>140008028088704</id>
+		</scheduler>
+		<victim>140008028088320</victim>
+		<count>3</count>
+	</work-steal-success>
+</work-steal-success-from>
+<work-steal-failures>
+	<work-steal-failure>
+		<scheduler>
+			<id>140008028088320</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>140008028088704</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failures>
+<work-steal-failure-from>
+	<work-steal-failure>
+		<scheduler>
+			<id>140008028088320</id>
+		</scheduler>
+		<victim>140008028088704</victim>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>140008028088704</id>
+		</scheduler>
+		<victim>0</victim>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failure-from>
+<actor-stolen>
+	<actor>
+		<id>140007734318080</id>
+		<count>2</count>
+	</actor>
+	<actor>
+		<id>140008028084224</id>
+		<count>1</count>
+	</actor>
+</actor-stolen>
+</root>

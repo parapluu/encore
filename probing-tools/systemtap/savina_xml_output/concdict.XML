@@ -1,0 +1,99 @@
+<root>
+<counts>
+	<future-chaining count="0"/>
+	<future-block count="0"/>
+	<future-create count="0"/>
+	<future-destroy count="0"/>
+	<future-fulfil-star count="0"/>
+	<future-fulfil-end count= "0"/>
+	<future-get count="0"/>
+	<future-unblock count="0"/>
+	<actor-msg-send count="23"/>
+	<work-steal-failure count="2"/>
+	<work-steal-successful count="4"/>
+	<work-steal-attempt count="6"/>
+	<core-switches count="3"/>
+</counts>
+<futures>
+</futures>
+<future-blocks>
+</future-blocks>
+<future-gets>
+</future-gets>
+<future-chainings>
+</future-chainings>
+<work-steal-successes>
+	<work-steal-success>
+		<scheduler>
+			<id>139648585160704</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-success>
+	<work-steal-success>
+		<scheduler>
+			<id>139648585161088</id>
+		</scheduler>
+		<count>3</count>
+	</work-steal-success>
+</work-steal-successes>
+<work-steal-success-from>
+	<work-steal-success>
+		<scheduler>
+			<id>139648585160704</id>
+		</scheduler>
+		<victim>139648585161088</victim>
+		<count>1</count>
+	</work-steal-success>
+	<work-steal-success>
+		<scheduler>
+			<id>139648585161088</id>
+		</scheduler>
+		<victim>139648585160704</victim>
+		<count>3</count>
+	</work-steal-success>
+</work-steal-success-from>
+<work-steal-failures>
+	<work-steal-failure>
+		<scheduler>
+			<id>139648585160704</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>139648585161088</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failures>
+<work-steal-failure-from>
+	<work-steal-failure>
+		<scheduler>
+			<id>139648585160704</id>
+		</scheduler>
+		<victim>139648585161088</victim>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>139648585161088</id>
+		</scheduler>
+		<victim>139648585160704</victim>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failure-from>
+<actor-stolen>
+	<actor>
+		<id>139648157335552</id>
+		<count>2</count>
+	</actor>
+	<actor>
+		<id>139648585162240</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>139648291390464</id>
+		<count>1</count>
+	</actor>
+</actor-stolen>
+</root>
