@@ -2,6 +2,12 @@
 ## Written by Joy van den EIjkhof, Ardalan Samimi, Ulf Sigvardsson
 ## March 2019
 
+#core_switches > core_switches -DONE
+#steal_success_count > steal_success_count -DONE
+#actor_stolen > stolen_actor -DONE
+#scheduler_from_scheduler > successful_steal_from_scheduler -DONE
+#current_sched_core > cpus -DOne
+
 ## Counters
 ## Contains how many times each probe has been called
 ## Uses aggregation
@@ -14,7 +20,6 @@ global future_fulfil_end
 global future_get
 global future_unblock
 global future_chaining
-global actor_msg_run
 global successful_steals
 global failed_steals
 global total_steals
@@ -40,10 +45,10 @@ global future_block_count
 global chained_actor_future_list
 
 #How many time a Scheduler successfully steals work any other Scheduler 
-global successful_steals_count
+global steal_success_count
 
 #How many times an Actor is stolen from any Scheduler
-global actor_stolen
+global stolen_actor
 
 #How many time a Scheduler fails to steals work any other Scheduler 
 global failed_steals_count
@@ -52,14 +57,14 @@ global failed_steals_count
 global future_block_actor
 
 #What Scheduler steals from what Scheduler sucess/fail
-global scheduler_from_scheduler
+global successful_steal_from_scheduler
 global scheduler_from_scheduler_fail
 
 #Counts how many core-swites have been made
-global core_switch
+global core_switches
 
 #Keeps track of what scheduler is used by what core.
-global current_sched_core
+global cpus
 
 
 
@@ -69,9 +74,9 @@ probe process.mark("actor-msg-send") {
       actor_msg_send <<< 1;
 }
 
-probe process.mark("actor-msg-run") {
-      #Count
-      actor_msg_run <<< 1;
+probe process.mark("actor-scheduled") {
+      actor = sprint($arg2)
+      cpus[actor] = cpu()
 }
 
 probe process.mark("work-steal-successful") {
@@ -85,13 +90,13 @@ probe process.mark("work-steal-successful") {
       actor = sprint($arg3)
 
   
-      successful_steals_count[scheduler] <<< 1
-      actor_stolen[actor] <<< 1
-      scheduler_from_scheduler[scheduler, victim] <<< 1; 
+      steal_success_count[scheduler] <<< 1
+      stolen_actor[actor] <<< 1
+      successful_steal_from_scheduler[scheduler, victim] <<< 1; 
 
-      if (cpu() != current_sched_core[scheduler]) {
-      	 	core_switch <<< 1;
-		current_sched_core[scheduler] = cpu()
+      if (cpu() != cpus[actor]) {
+      	 	core_switches <<< 1;
+		cpus[actor] = cpu()
       }
             					  
 }
@@ -186,10 +191,9 @@ probe process.mark("future-chaining") {
       future_chaining <<< 1;
 
       #Arguments from probe
-      future_chained = sprint($arg2)
-      actor_chained = sprint($arg1)
+      future = sprint($arg2)
       
-      chained_actor_future_list[actor_chained, future_chained] <<< 1;
+      chained_actor_future_list[future] <<< 1;
 }
 
 probe end {
@@ -204,7 +208,6 @@ probe end {
       fg = @count(future_get)
       fu = @count(future_unblock)
       fch = @count(future_chaining)
-      amr = @count(actor_msg_run)
       ss =  @count(successful_steals)
       fs =  @count(failed_steals)
       ts =  @count(total_steals)
@@ -218,11 +221,10 @@ probe end {
       printf("future-get\t\t%d\n", fg)
       printf("future-unblock\t\t%d\n", fu) 
       printf("actor-msg-send\t\t%d\n", ams)
-      printf("actor-msg-run\t\t%d\n", amr)
       printf("work-steal-failure\t\t%d\n", fs)
       printf("work-steal-successful\t\t%d\n", ss)
       printf("work-steal-attempt\t\t%d\n", ts)
-      printf("core-switches:\t%d\n", @count(core_switch))
+      printf("core-switches:\t%d\n", @count(core_switches))
 
 
       print("\n--- LIFETIME OF FUTURE ---\n")
@@ -269,14 +271,14 @@ probe end {
 
       print("\n--- WHAT FUTURES CHAINES AT WHAT ACTOR ---\n")
       print("Actor Addr\t\tFuture Addr\t\tCount\n")
-      foreach([act, fut] in chained_actor_future_list) {
-        printf("%s\t\t%s\t\t%d\n",act, fut, @count(chained_actor_future_list[act, fut]))
+      foreach([fut] in chained_actor_future_list) {
+        printf("%s\t\t%s\t\t%d\n",act, fut, @count(chained_actor_future_list[fut]))
       }
 
       print("\n---SUCCESSFUL STEALS---\n")
       print("Scheduler\t\tCount\n")
-      foreach(ssid in successful_steals_count) {
-       	 printf("%s\t\t%d\n", ssid, @count(successful_steals_count[ssid]))
+      foreach(ssid in steal_success_count) {
+       	 printf("%s\t\t%d\n", ssid, @count(steal_success_count[ssid]))
       }
 
       print("\n---FAILED STEALS---\n")
@@ -287,8 +289,8 @@ probe end {
 
       print("\n---STEALS BETWEEN SCHEDULERS---\n")
       print("Stolen by\t\tStolen from\t\tCount\n")
-      foreach([steal, victim] in scheduler_from_scheduler) {
-      	printf("%s\t\t%s\t\t%d\n", steal, victim, @count(scheduler_from_scheduler[steal, victim]))
+      foreach([steal, victim] in successful_steal_from_scheduler) {
+      	printf("%s\t\t%s\t\t%d\n", steal, victim, @count(successful_steal_from_scheduler[steal, victim]))
       }
 
       print("\n---FAILS BETWEEN SCHEDULERS---\n")
@@ -299,8 +301,8 @@ probe end {
 
       print("\n---STOLEN ACTORS---\n")
       print("Actor ID\t\tTimes Stolen\n")
-      foreach(actor in actor_stolen) {
-         printf("%s\t\t%d\n", actor,  @count(actor_stolen[actor]))
+      foreach(actor in stolen_actor) {
+         printf("%s\t\t%d\n", actor,  @count(stolen_actor[actor]))
       }
       
 }
