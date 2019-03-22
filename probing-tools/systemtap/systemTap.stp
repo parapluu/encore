@@ -27,9 +27,6 @@ global total_steals
 global list_future_lifetime
 global list_future_block_lifetime
 
-# This is a helper list for list_future_block_lifetime
-global future_unblock_count
-
 #How many times does an Actor get blocked by any Future
 global actor_block_count
 
@@ -140,14 +137,14 @@ probe process.mark("future-block") {
       future_block <<< 1;
 
       #Arguments from probe
-      actor = sprint($arg1)
+      actor = sprint(@cast($arg1, "pony_ctx_t")->current)
       future = sprint($arg2)
 
       actor_block_count[actor] <<< 1      
       future_block_actor[future, actor] <<< 1
       future_block_count[future] <<< 1
 
-      list_future_block_lifetime[future, @count(future_block_count[future])] = gettimeofday_ns()
+      list_future_block_lifetime[future, actor] = gettimeofday_ns()
       
 }
 
@@ -156,10 +153,10 @@ probe process.mark("future-unblock") {
       future_unblock <<< 1;
 
       #Arguments from probe
+      actor = sprint(@cast($arg1, "pony_ctx_t")->current)
       future = sprint($arg2)
-
-      future_unblock_count[future] <<< 1
-      list_future_block_lifetime[future, @count(future_unblock_count[future])] = gettimeofday_ns()-list_future_block_lifetime[future, @count(future_unblock_count[future])]
+      
+      list_future_block_lifetime[future, actor] = gettimeofday_ns()-list_future_block_lifetime[future, actor]
 }
 
 probe process.mark("future-get") {
@@ -167,7 +164,7 @@ probe process.mark("future-get") {
      future_get <<< 1;
 
      #Arguments from probe
-     actor = sprint($arg1)
+     actor = sprint(@cast($arg1, "pony_ctx_t")->current)
      future = sprint($arg2)
 
      actor_get_future[actor, future] <<< 1;
@@ -237,9 +234,9 @@ probe end {
 
 
       print("\n--- LIFETIME OF A FUTURE BLOCK ---\n")
-      print("Future Addr\t\tLifetime (nanoseconds)\n")
-      foreach([fut, count] in list_future_block_lifetime) {
-         printf("%s\t\t%d\n", fut, list_future_block_lifetime[fut, count])
+      print("Future Addr\t\tActor Addr\t\tLifetime (nanoseconds)\n")
+      foreach([fut, act] in list_future_block_lifetime) {
+         printf("%s\t\t%s\t\t%d\n", fut, act, list_future_block_lifetime[fut, act])
 
       }
 

@@ -30,10 +30,6 @@ global total_steals
 global list_future_lifetime
 global list_future_block_lifetime
 
-# This is a helper list for list_future_block_lifetime
-#Helps distinguis between different but overlapping blocks
-global future_unblock_count
-
 #How many times does an Actor get blocked by any Future
 global actor_block_count
 
@@ -144,14 +140,14 @@ probe process.mark("future-block") {
       future_block <<< 1;
 
       #Arguments from probe
-      actor = sprint($arg1)
+      actor = sprint(@cast($arg1, "pony_ctx_t")->current)
       future = sprint($arg2)
 
       actor_block_count[actor] <<< 1      
       future_block_actor[future, actor] <<< 1
       future_block_count[future] <<< 1
 
-      list_future_block_lifetime[future, @count(future_block_count[future])] = gettimeofday_ns()
+      list_future_block_lifetime[future, actor] = gettimeofday_ns()
       
 }
 
@@ -160,10 +156,10 @@ probe process.mark("future-unblock") {
       future_unblock <<< 1;
 
       #Arguments from probe
+      actor = sprint(@cast($arg1, "pony_ctx_t")->current)
       future = sprint($arg2)
 
-      future_unblock_count[future] <<< 1
-      list_future_block_lifetime[future, @count(future_unblock_count[future])] = gettimeofday_ns()-list_future_block_lifetime[future, @count(future_unblock_count[future])]
+      list_future_block_lifetime[future, actor] = gettimeofday_ns()-list_future_block_lifetime[future, actor]
 }
 
 probe process.mark("future-get") {
@@ -171,7 +167,7 @@ probe process.mark("future-get") {
      future_get <<< 1;
 
      #Arguments from probe
-     actor = sprint($arg1)
+     actor = sprint(@cast($arg1, "pony_ctx_t")->current)
      future = sprint($arg2)
 
      actor_get_future[actor, future] <<< 1;
@@ -193,10 +189,10 @@ probe process.mark("future-chaining") {
       future_chaining <<< 1;
 
       #Arguments from probe
-      future_chained = sprint($arg2)
-      actor_chained = sprint($arg1)
+      future = sprint($arg2)
+      actor = sprint(@cast($arg1, "pony_ctx_t")->current)
 
-      chained_actor_future_list[actor_chained, future_chained] <<< 1;
+      chained_actor_future_list[actor, future] <<< 1;
 }
 
 #Handles all the data all previous probes have accumulated
@@ -241,9 +237,9 @@ probe end {
       print("<futures>\n")
       foreach(fut in list_future_lifetime) {
          print("\t<future>\n")
-    	   printf("\t\t<id>%s</id>\n", fut)
-    	   printf("\t\t<duration>%d</duration>\n", list_future_lifetime[fut])
-    	   print("\t</future>\n")
+    	 printf("\t\t<id>%s</id>\n", fut)
+    	 printf("\t\t<duration>%d</duration>\n", list_future_lifetime[fut])
+    	 print("\t</future>\n")
       }
       print("</futures>\n")
 
@@ -251,14 +247,18 @@ probe end {
       print("<future-blocks>\n") #This has a closure further down
 
       #--- LIFETIME OF A FUTURE BLOCK ---
-      foreach([fut, count] in list_future_block_lifetime) {
+      foreach([fut, act] in list_future_block_lifetime) {
 	 print("\t<future-block-lifetime>\n")
 
    	 print("\t\t<future>\n")
     	 printf("\t\t\t<id>%s</id>\n", fut)
     	 print("\t\t</future>\n")
 
-    	 printf("\t\t<duration>%d</duration>\n", list_future_block_lifetime[fut, count])
+	 print("\t\t<actor>\n")
+    	 printf("\t\t\t<id>%s</id>\n", act)
+    	 print("\t\t</actor>\n")
+
+    	 printf("\t\t<duration>%d</duration>\n", list_future_block_lifetime[fut, act])
     	 print("\t</future-block-lifetime>\n")
 
       }
