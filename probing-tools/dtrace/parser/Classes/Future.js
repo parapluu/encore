@@ -20,6 +20,7 @@ class Future {
 		this.actorsBlocked = {};
 		this.numberOfGets = 0;
 		this.numberOfBlocks = 0;
+		this.numberOfFutureChainings = 0;
 	}
 
 }

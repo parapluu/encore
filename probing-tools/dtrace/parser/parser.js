@@ -39,6 +39,9 @@ class Parser {
 					case "future-gets":
 						this.parseFutureGets(elements);
 						break;
+					case "future-chainings":
+						this.parseFutureChaining(elements);
+						break;
 					case "work-steal-successes":
 						this.parseWorkStealSuccess(elements);
 						break;
@@ -202,11 +205,12 @@ class Parser {
 	parseFutureGets(rootNode) {
 		// As there is only one node for future-gets
 		// we can just get the first element in the list
-		const futures = rootNode[0]["future-get"];
+		const futureGets = rootNode[0]["future-get"];
 
-		for (const key in futures) {
-			const actorID  = futures[key]["actor"][0]["id"][0];
-			const futureID = futures[key]["future"][0]["id"][0];
+		for (const key in futureGets) {
+			const actorID  = futureGets[key]["actor"][0]["id"][0];
+			const futureID = futureGets[key]["future"][0]["id"][0];
+			const count    = futureGets[key]["count"][0];
 
 			if (!(actorID in this.actors)) {
 				this.actors[actorID] = new Actor(actorID);
@@ -215,15 +219,33 @@ class Parser {
 				this.futures[futureID] = new Future(futureID, -1);
 			}
 
-			this.actors[actorID].numberOfGets += 1;
-			this.futures[futureID].numberOfGets += 1;
+			this.actors[actorID].numberOfGets += parseInt(count);
+			this.futures[futureID].numberOfGets += parseInt(count);
 
-			const futureGet = new FutureGet(actorID, futureID);
+			const futureGet = new FutureGet(actorID, futureID, parseInt(count));
 			this.futureGets.push(futureGet);
 		}
 	}
 	/**
-	 * Parses the <work-steal-success> element.
+	 * Parses the <future-chainings> element.
+	 * @param  Object   rootNode  The root node.
+	 */
+	parseFutureChaining(rootNode) {
+		const chains = rootNode[0]["future-chaining"];
+
+		for (const key in chains) {
+			const futureID = chains[key]["future"][0]["id"][0];
+			const count    = chains[key]["count"][0];
+
+			if (!(futureID in this.futures)) {
+				this.futures[futureID] = new Future(futureID, -1);
+			}
+
+			this.futures[futureID].numberOfFutureChainings += parseInt(count);
+		}
+	}
+	/**
+	 * Parses the <work-steal-successes> element.
 	 * @param  Object   rootNode  The root node.
 	 */
 	parseWorkStealSuccess(rootNode) {
@@ -245,7 +267,7 @@ class Parser {
 	 */
 	parseWorkStealSuccessFrom(rootNode) {
 		const schedulers = rootNode[0]["work-steal-success"];
-		console.log(schedulers);
+
 		for (const key in schedulers) {
 			const byId   = schedulers[key]["scheduler"][0]["id"][0];
 			const fromId = schedulers[key]["victim"][0];
@@ -260,7 +282,7 @@ class Parser {
 		}
 	}
 	/**
-	 * Parses the <work-steal-failure> element.
+	 * Parses the <work-steal-failures> element.
 	 * @param  Object   rootNode  The root node.
 	 */
 	parseWorkStealFailure(rootNode) {
