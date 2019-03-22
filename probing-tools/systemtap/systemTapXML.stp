@@ -196,9 +196,8 @@ probe process.mark("future-chaining") {
 
       #Arguments from probe
       future = sprint($arg2)
-      actor = sprint(@cast($arg1, "pony_ctx_t")->current)
 
-      chained_actor_future_list[actor, future] <<< 1;
+      chained_actor_future_list[future] <<< 1;
 }
 
 #Handles all the data all previous probes have accumulated
@@ -332,7 +331,7 @@ probe end {
 
       #--- WHAT FUTURES CHAINES AT WHAT ACTOR ---
       print("<future-chainings>\n")
-      foreach([act, fut] in chained_actor_future_list) {
+      foreach([fut] in chained_actor_future_list) {
 
         print("\t<future-chaining>\n")
 
@@ -340,11 +339,7 @@ probe end {
         printf("\t\t\t<id>%s</id>\n", fut)
         print("\t\t</future>\n")
 
-        print("\t\t<actor>\n")
-        printf("\t\t\t<id>%s</id>\n", act)
-        print("\t\t</actor>\n")
-
-        printf("\t\t<count>%d</count>\n", @count(chained_actor_future_list[act, fut]))
+        printf("\t\t<count>%d</count>\n", @count(chained_actor_future_list[fut]))
 
         print("\t</future-chaining>\n")
 
