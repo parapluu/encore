@@ -1,5 +1,5 @@
 ## A systemTap probing tool for Encore that produces data in XML-format
-## Written by Joy van den EIjkhof, Ardalan Samimi, Ulf Sigvardsson
+## Written by Joy van den Eijkhof in colaboration with Ardalan Samimi, Ulf Sigvardsson
 ## March 2019
 
 ## Note that some actors are identified by their ctx pointers.
@@ -7,6 +7,7 @@
 ## Counters
 ## Contains how many times each probe has been called
 ## Uses aggregation
+
 global actor_msg_send
 global future_create
 global future_block
@@ -29,6 +30,10 @@ global total_steals
 global list_future_lifetime
 global list_future_block_lifetime
 
+# This is a helper list for list_future_block_lifetime
+#Helps distinguis between different but overlapping blocks
+global future_unblock_count
+
 #How many times does an Actor get blocked by any Future
 global actor_block_count
 
@@ -41,7 +46,7 @@ global future_block_count
 #How many times is a Future chained at what Actor
 global chained_actor_future_list
 
-#How many time a Scheduler successfully steals work any other Scheduler
+#How many time a Scheduler successfully steals work from any other Scheduler
 global successful_steals_count
 
 #How many times an Actor is stolen from any Scheduler
@@ -142,10 +147,12 @@ probe process.mark("future-block") {
       actor = sprint($arg1)
       future = sprint($arg2)
 
-      list_future_block_lifetime[future, actor] = gettimeofday_ns()
-      actor_block_count[actor] <<< 1
+      actor_block_count[actor] <<< 1      
       future_block_actor[future, actor] <<< 1
       future_block_count[future] <<< 1
+
+      list_future_block_lifetime[future, @count(future_block_count[future])] = gettimeofday_ns()
+      
 }
 
 probe process.mark("future-unblock") {
@@ -153,10 +160,10 @@ probe process.mark("future-unblock") {
       future_unblock <<< 1;
 
       #Arguments from probe
-      actor = sprint($arg1)
       future = sprint($arg2)
 
-      list_future_block_lifetime[future, actor] = gettimeofday_ns()-list_future_block_lifetime[future, actor]
+      future_unblock_count[future] <<< 1
+      list_future_block_lifetime[future, @count(future_unblock_count[future])] = gettimeofday_ns()-list_future_block_lifetime[future, @count(future_unblock_count[future])]
 }
 
 probe process.mark("future-get") {
@@ -192,6 +199,9 @@ probe process.mark("future-chaining") {
       chained_actor_future_list[actor_chained, future_chained] <<< 1;
 }
 
+#Handles all the data all previous probes have accumulated
+#Prints all data in XML format
+
 probe end {
       ams = @count(actor_msg_send)
       fc = @count(future_create)
@@ -210,8 +220,8 @@ probe end {
       print("<root>\n")
       print("<counts>\n")
 
-      printf("\t<future-chaining count=\"%d\"/>\"\n", fch)
-      printf("\t<future-block count=\"%d\"\"/>\n", fb)
+      printf("\t<future-chaining count=\"%d\"/>\n", fch)
+      printf("\t<future-block count=\"%d\"/>\n", fb)
       printf("\t<future-create count=\"%d\"/>\n", fc)
       printf("\t<future-destroy count=\"%d\"/>\n", fd)
       printf("\t<future-fulfil-star count=\"%d\"/>\n", ffs)
@@ -223,7 +233,7 @@ probe end {
       printf("\t<actor-msg-run count=\"%d\"/>\n", amr)
       printf("\t<work-steal-successful count=\"%d\"/>\n", ss)
       printf("\t<work-steal-attempt count=\"%d\"/>\n", ts)
-      printf("\t<core-switches count\"%d\"/>\n", @count(core_switch))
+      printf("\t<core-switches count=\"%d\"/>\n", @count(core_switch))
 
       print("</counts>\n")
 
@@ -241,18 +251,14 @@ probe end {
       print("<future-blocks>\n") #This has a closure further down
 
       #--- LIFETIME OF A FUTURE BLOCK ---
-      foreach([fut, act] in list_future_block_lifetime) {
-	     print("\t<future-block-lifetime>\n")
+      foreach([fut, count] in list_future_block_lifetime) {
+	 print("\t<future-block-lifetime>\n")
 
-   	   print("\t\t<future>\n")
+   	 print("\t\t<future>\n")
     	 printf("\t\t\t<id>%s</id>\n", fut)
     	 print("\t\t</future>\n")
 
-    	 print("\t\t<actor>\n")
-    	 printf("\t\t\t<id>%s</id>\n", act)
-    	 print("\t\t</actor>\n")
-
-    	 printf("\t\t<duration>%d</duration>\n", list_future_block_lifetime[act, fut])
+    	 printf("\t\t<duration>%d</duration>\n", list_future_block_lifetime[fut, count])
     	 print("\t</future-block-lifetime>\n")
 
       }
@@ -318,7 +324,7 @@ probe end {
       print("\t</future-get>\n")
 
       }
-      print("<future-gets>\n")
+      print("</future-gets>\n")
 
       #--- WHAT FUTURES CHAINES AT WHAT ACTOR ---
       print("<future-chainings>\n")
@@ -339,7 +345,7 @@ probe end {
         print("\t</future-chaining>\n")
 
       }
-      print("/future-chainings>\n")
+      print("</future-chainings>\n")
 
 
 
@@ -359,6 +365,7 @@ probe end {
       print("</work-steal-successes>\n")
 
       #---STEALS BETWEEN SCHEDULERS---
+      print("<work-steal-success-from>\n")
       foreach([steal, victim] in scheduler_from_scheduler) {
         print("\t<work-steal-success>\n")
 
@@ -373,6 +380,7 @@ probe end {
         print("\t</work-steal-success>\n")
 
       }
+      print("</work-steal-success-from>\n")
 
       #---FAILED STEALS---
       print("<work-steal-failures>\n")
