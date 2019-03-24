@@ -1,0 +1,331 @@
+<root>
+<counts>
+	<future-chaining count="0"/>
+	<future-block count="0"/>
+	<future-create count="0"/>
+	<future-destroy count="0"/>
+	<future-fulfil-star count="0"/>
+	<future-fulfil-end count= "0"/>
+	<future-get count="0"/>
+	<future-unblock count="0"/>
+	<actor-msg-send count="690254"/>
+	<work-steal-failure count="2"/>
+	<work-steal-successful count="44126"/>
+	<work-steal-attempt count="44128"/>
+	<core-switches count="85"/>
+</counts>
+<futures>
+</futures>
+<future-blocks>
+</future-blocks>
+<future-gets>
+</future-gets>
+<future-chainings>
+</future-chainings>
+<work-steal-successes>
+	<work-steal-success>
+		<scheduler>
+			<id>139927817410560</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-success>
+	<work-steal-success>
+		<scheduler>
+			<id>139927817410944</id>
+		</scheduler>
+		<count>44125</count>
+	</work-steal-success>
+</work-steal-successes>
+<work-steal-success-from>
+	<work-steal-success>
+		<scheduler>
+			<id>139927817410560</id>
+		</scheduler>
+		<victim>139927817410944</victim>
+		<count>1</count>
+	</work-steal-success>
+	<work-steal-success>
+		<scheduler>
+			<id>139927817410944</id>
+		</scheduler>
+		<victim>139927817410560</victim>
+		<count>44125</count>
+	</work-steal-success>
+</work-steal-success-from>
+<work-steal-failures>
+	<work-steal-failure>
+		<scheduler>
+			<id>139927817410560</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>139927817410944</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failures>
+<work-steal-failure-from>
+	<work-steal-failure>
+		<scheduler>
+			<id>139927817410560</id>
+		</scheduler>
+		<victim>139927817410944</victim>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>139927817410944</id>
+		</scheduler>
+		<victim>0</victim>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failure-from>
+<actor-stolen>
+	<actor>
+		<id>139927817412096</id>
+		<count>2</count>
+	</actor>
+	<actor>
+		<id>139927523638784</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523570176</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523635712</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523616768</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523634688</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523628544</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523619840</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523575296</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523567616</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523563008</id>
+		<count>734</count>
+	</actor>
+	<actor>
+		<id>139927523629056</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523564032</id>
+		<count>734</count>
+	</actor>
+	<actor>
+		<id>139927523571200</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523559936</id>
+		<count>734</count>
+	</actor>
+	<actor>
+		<id>139927523614208</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523563520</id>
+		<count>734</count>
+	</actor>
+	<actor>
+		<id>139927523574272</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523610624</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523611648</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523635200</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523617280</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523625472</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523621888</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523564544</id>
+		<count>734</count>
+	</actor>
+	<actor>
+		<id>139927523569664</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523612160</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523625984</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523566592</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523614720</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523638272</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523568128</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523573760</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523576320</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523572736</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523622912</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523615232</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523618816</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523620352</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523574784</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523619328</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523618304</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523628032</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523629568</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523561984</id>
+		<count>734</count>
+	</actor>
+	<actor>
+		<id>139927523573248</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523623424</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523626496</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523611136</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523559424</id>
+		<count>734</count>
+	</actor>
+	<actor>
+		<id>139927523565056</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523570688</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523634176</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523562496</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523624960</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523617792</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523613696</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523561472</id>
+		<count>734</count>
+	</actor>
+	<actor>
+		<id>139927523622400</id>
+		<count>736</count>
+	</actor>
+	<actor>
+		<id>139927523567104</id>
+		<count>735</count>
+	</actor>
+	<actor>
+		<id>139927523575808</id>
+		<count>736</count>
+	</actor>
+</actor-stolen>
+</root>

@@ -1,0 +1,275 @@
+<root>
+<counts>
+	<future-chaining count="8"/>
+	<future-block count="0"/>
+	<future-create count="24"/>
+	<future-destroy count="24"/>
+	<future-fulfil-star count="24"/>
+	<future-fulfil-end count= "24"/>
+	<future-get count="0"/>
+	<future-unblock count="0"/>
+	<actor-msg-send count="95"/>
+	<work-steal-failure count="2"/>
+	<work-steal-successful count="16"/>
+	<work-steal-attempt count="18"/>
+	<core-switches count="6"/>
+</counts>
+<futures>
+	<future>
+		<id>140343382242304</id>
+		<duration>503048285</duration>
+	</future>
+	<future>
+		<id>140343382240256</id>
+		<duration>503046185</duration>
+	</future>
+	<future>
+		<id>140343382237184</id>
+		<duration>503043888</duration>
+	</future>
+	<future>
+		<id>140343382236160</id>
+		<duration>503051822</duration>
+	</future>
+	<future>
+		<id>140343382235136</id>
+		<duration>503050266</duration>
+	</future>
+	<future>
+		<id>140343382234112</id>
+		<duration>503048549</duration>
+	</future>
+	<future>
+		<id>140343382233088</id>
+		<duration>503047985</duration>
+	</future>
+	<future>
+		<id>140343382231040</id>
+		<duration>503044994</duration>
+	</future>
+	<future>
+		<id>140343382230016</id>
+		<duration>503044680</duration>
+	</future>
+	<future>
+		<id>140343382228992</id>
+		<duration>503042524</duration>
+	</future>
+	<future>
+		<id>140343382227968</id>
+		<duration>503041017</duration>
+	</future>
+	<future>
+		<id>140343382226944</id>
+		<duration>503039254</duration>
+	</future>
+	<future>
+		<id>140343382225920</id>
+		<duration>503038603</duration>
+	</future>
+	<future>
+		<id>140343382224896</id>
+		<duration>503036281</duration>
+	</future>
+	<future>
+		<id>140343382206464</id>
+		<duration>503028187</duration>
+	</future>
+	<future>
+		<id>140343382204416</id>
+		<duration>503026308</duration>
+	</future>
+	<future>
+		<id>140343541706752</id>
+		<duration>502916678</duration>
+	</future>
+	<future>
+		<id>140343541702656</id>
+		<duration>502903950</duration>
+	</future>
+	<future>
+		<id>140343541701632</id>
+		<duration>502892812</duration>
+	</future>
+	<future>
+		<id>140343541700608</id>
+		<duration>502883505</duration>
+	</future>
+	<future>
+		<id>140343541699584</id>
+		<duration>502874244</duration>
+	</future>
+	<future>
+		<id>140343541698560</id>
+		<duration>502864555</duration>
+	</future>
+	<future>
+		<id>140343541696512</id>
+		<duration>502852229</duration>
+	</future>
+	<future>
+		<id>140343541679104</id>
+		<duration>502840889</duration>
+	</future>
+</futures>
+<future-blocks>
+</future-blocks>
+<future-gets>
+</future-gets>
+<future-chainings>
+	<future-chaining>
+		<future>
+			<id>140343382206464</id>
+		</future>
+		<count>1</count>
+	</future-chaining>
+	<future-chaining>
+		<future>
+			<id>140343382230016</id>
+		</future>
+		<count>1</count>
+	</future-chaining>
+	<future-chaining>
+		<future>
+			<id>140343382242304</id>
+		</future>
+		<count>1</count>
+	</future-chaining>
+	<future-chaining>
+		<future>
+			<id>140343382237184</id>
+		</future>
+		<count>1</count>
+	</future-chaining>
+	<future-chaining>
+		<future>
+			<id>140343382233088</id>
+		</future>
+		<count>1</count>
+	</future-chaining>
+	<future-chaining>
+		<future>
+			<id>140343382225920</id>
+		</future>
+		<count>1</count>
+	</future-chaining>
+	<future-chaining>
+		<future>
+			<id>140343382235136</id>
+		</future>
+		<count>1</count>
+	</future-chaining>
+	<future-chaining>
+		<future>
+			<id>140343382227968</id>
+		</future>
+		<count>1</count>
+	</future-chaining>
+</future-chainings>
+<work-steal-successes>
+	<work-steal-success>
+		<scheduler>
+			<id>140343835494400</id>
+		</scheduler>
+		<count>11</count>
+	</work-steal-success>
+	<work-steal-success>
+		<scheduler>
+			<id>140343835494784</id>
+		</scheduler>
+		<count>5</count>
+	</work-steal-success>
+</work-steal-successes>
+<work-steal-success-from>
+	<work-steal-success>
+		<scheduler>
+			<id>140343835494400</id>
+		</scheduler>
+		<victim>140343835494784</victim>
+		<count>11</count>
+	</work-steal-success>
+	<work-steal-success>
+		<scheduler>
+			<id>140343835494784</id>
+		</scheduler>
+		<victim>140343835494400</victim>
+		<count>5</count>
+	</work-steal-success>
+</work-steal-success-from>
+<work-steal-failures>
+	<work-steal-failure>
+		<scheduler>
+			<id>140343835494400</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>140343835494784</id>
+		</scheduler>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failures>
+<work-steal-failure-from>
+	<work-steal-failure>
+		<scheduler>
+			<id>140343835494400</id>
+		</scheduler>
+		<victim>140343835494784</victim>
+		<count>1</count>
+	</work-steal-failure>
+	<work-steal-failure>
+		<scheduler>
+			<id>140343835494784</id>
+		</scheduler>
+		<victim>140343835494400</victim>
+		<count>1</count>
+	</work-steal-failure>
+</work-steal-failure-from>
+<actor-stolen>
+	<actor>
+		<id>140343382266880</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140343382261760</id>
+		<count>2</count>
+	</actor>
+	<actor>
+		<id>140343541723136</id>
+		<count>3</count>
+	</actor>
+	<actor>
+		<id>140343407669760</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140343382254080</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140343382253568</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140343382262272</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140343382253056</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140343382267392</id>
+		<count>1</count>
+	</actor>
+	<actor>
+		<id>140343835495936</id>
+		<count>3</count>
+	</actor>
+	<actor>
+		<id>140343407669248</id>
+		<count>1</count>
+	</actor>
+</actor-stolen>
+</root>
