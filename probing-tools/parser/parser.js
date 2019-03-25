@@ -115,6 +115,9 @@ class Parser {
 				case "actor-block-count":
 					this.parseActorBlockCount(elements[key]);
 					break;
+				case "0":
+					// Empty tag
+					break;
 				default:
 					console.log("Error: Unknown tag: " + key);
 					break;
