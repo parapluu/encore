@@ -11,24 +11,12 @@ struct actor_info {
   uint32_t jumps;
 };
 
-struct diagnostics {
-  uint32_t steal_attempts;
-  uint32_t cpu_jumps;
-};
-
-struct diagnostics diagnostics;
 struct actor_info cpus[int64_t];	/* declare cpus as an associative array */
-
-int did_run_probe[string];
-
-BEGIN {
-}
 
 pony$target:::actor-msg-send {
 	@counts[probename] = count();
 }
 
-// arg[0] is scheduler, arg[1] is actor
 pony$target:::actor-scheduled {
   cpus[arg1].cpu = cpu; // current CPU of the actor
 }
@@ -39,41 +27,44 @@ pony$target:::work-steal-successful {
   }
 
   @counts[probename] = count();
-  @counts["work-steal-attempt"] = count();
   @steal_success_count[arg0] = count();
 	@successful_steal_from_scheduler[arg0, arg1] = count();
 	@stolen_actor[arg2] = count();
+  @counts["work-steal-attempt"] = count();
 }
 
 pony$target:::work-steal-failure {
-  @counts["work-steal-attempt"] = count();
   @counts[probename] = count();
   @steal_fail_count[arg0] = count();
 	@failed_steal_from_scheduler[arg0, arg1] = count();
+  @counts["work-steal-attempt"] = count();
 }
-
-encore$target:::closure-create {}
 
 encore$target:::future-create {
   @counts[probename] = count();
-  // Used for lifetime of a future
+  // Used in future-destroy to determine lifetime of a future
   future_create_starttime[arg1] = timestamp;
 }
 
 encore$target:::future-block {
+  // The actor ID is in the context (arg0), so we need to
+  // get it by copying the pony_ctx_t struct into kernel space
   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
   actorPointer = (uintptr_t)ctx->current;
   @counts[probename] = count();
   @future_block[arg1] = count();
   @actor_blocked[actorPointer] = count();
   @future_blocked_actor[arg1, actorPointer] = count();
-  // Used for duration of a block
+  // Used in future-unblock to determine duration of a block
   future_block_starttime[arg1, actorPointer] = timestamp;
 }
 
 encore$target:::future-unblock {
+  // The actor ID is in the context (arg0), so we need to
+  // get it by copying the pony_ctx_t struct into kernel space
   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
   actorPointer = (uintptr_t)ctx->current;
+
   @counts[probename] = count();
   @future_block_lifetime[arg1, actorPointer] = sum(timestamp - future_block_starttime[arg1, actorPointer]);
 }
@@ -92,8 +83,11 @@ encore$target:::future-fulfil-end {
 }
 
 encore$target:::future-get {
+  // The actor ID is in the context (arg0), so we need to
+  // get it by copying the pony_ctx_t struct into kernel space
   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
   actorPointer = (uintptr_t)ctx->current;
+
   @future_get[actorPointer, arg1] = count();
   @counts[probename] = count();
 }
@@ -102,6 +96,15 @@ encore$target:::future-destroy {
   @counts[probename] = count();
   @future_lifetime[arg1] = sum(timestamp - future_create_starttime[arg1]);
 }
+
+// These probes are disabled for now. If a program uses future chaining,
+// we cannot determine the name of a method in the probe method-exit.
+// The instruction copyinstr (which copies a string from user space) gets
+// an error, for some unknown reason. Though, it works if the program does
+// not chain futures!
+
+// NOTE: When enabling these probes, you need to uncomment their outputs
+// as well below.
 
 // encore$target:::method-entry {
 //   ctx = (struct pony_ctx_t*)copyin(arg0, sizeof(struct pony_ctx_t));
@@ -168,6 +171,7 @@ END {
     printa("\t<actor>\n\t\t<id>%d</id>\n\t\t<count>%@u</count>\n\t</actor>\n", @stolen_actor);
     printf("</actor-stolen>\n");
 
+    // Uncomment these lines when using the method-entry/exit probes
   //   printf("<methods>\n");
   //   printa("\t<method>\n\t\t<actor>\n\t\t\t<id>%d</id>\n\t\t</actor>\n\t\t<name>%s</name>\n\t\t<duration>%@u</duration>\n\t</method>\n", @function_time);
   //   printf("</methods>");
@@ -227,6 +231,7 @@ END {
 		printf("Actor id\t\tTimes stolen\n");
 		printa("%d\t\t%@2u\n", @stolen_actor);
 
+    // Uncomment these lines when using the method-entry/exit probes
   //   printf("\n//---------- METHODS ------------//\n");
   //
 	// 	printf("\n--- Time spent in methods\n");
