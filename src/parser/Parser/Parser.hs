@@ -196,6 +196,7 @@ reservedNames =
     ,"class"
     ,"consume"
     ,"continue"
+    ,"data"
     ,"def"
     ,"do"
     ,"else"
@@ -425,9 +426,9 @@ typeVariable = do
   <?> "lower case type variable"
 
 data ADecl = CDecl{cdecl :: ClassDecl} | TDecl{tdecl :: TraitDecl} | TDef{tdef :: Typedef} | FDecl{fdecl :: Function} | ADecl{adecl :: AdtDecl}
-           | ACDecl{acdecl :: AdtConstructor}
+           | ACDecl{acdecl :: AdtCase}
 
-partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function], [AdtDecl], [AdtConstructor])
+partitionDecls :: [ADecl] -> ([ClassDecl], [TraitDecl], [Typedef], [Function], [AdtDecl], [AdtCase])
 partitionDecls = partitionDecls' [] [] [] [] [] []
   where
     partitionDecls' cs ts tds fds adts acons [] = (cs, ts, tds, fds, adts, acons)
@@ -459,9 +460,9 @@ program = do
                    ,TDef <$> typedef
                    ,FDecl <$> globalFunction
                    ,ADecl <$> adtDecl
-                   ,ACDecl <$> adtConstructor
+                   ,ACDecl <$> adtCase
                    ]
-  let (classes, traits, typedefs, functions, adts, adtCons) = partitionDecls decls
+  let (classes, traits, typedefs, functions, adts, adtCases) = partitionDecls decls
   eof
   return Program{source
                 ,moduledecl
@@ -472,7 +473,7 @@ program = do
                 ,traits
                 ,classes
                 ,adts
-                ,adtCons
+                ,adtCases
                 }
     where
       hashbang = do string "#!"
@@ -760,128 +761,96 @@ partitionClassAttributes = partitionClassAttributes' [] []
 
 adtDecl :: EncParser AdtDecl
 adtDecl = do
-  (try adtBlockDecl) <|> adtLineDecl
+  aIndent <- L.indentLevel
+  ameta <- buildMeta
+  (needsEnd, adt) <- indentBlock $ do
+    reserved "data"
+    name <- lookAhead upperChar >> identifier
+    params <- optionalTypeParameters
+    let aname = setRefNamespace emptyNamespace $ adtType name params
+    adtLineDecl aIndent ameta aname <|> adtBlockDecl ameta aname
+  when needsEnd $
+    atLevel aIndent $ reserved "end"
+  return adt
   where
-    adtLineDecl = do
-      ameta <- buildMeta
-      reserved "data"
-      name <- lookAhead upperChar >> identifier
-      params <- optionalTypeParameters
-      return ADT{ameta
-                ,aname = setRefNamespace emptyNamespace $ adtType name params
-                ,aconstructor = []
-                ,amethods = []
-                ,identity = name
-                }
-    adtBlockDecl = do
-      aIndent <- L.indentLevel
-      adecl <- indentBlock $ do
-        ameta <- buildMeta
-        reserved "data"
-        name <- lookAhead upperChar >> identifier
-        params <- optionalTypeParameters
-        return $ L.IndentSome
-                   Nothing
-                   (buildADT ameta name params)
-                   methodDecl
-      atLevel aIndent $ reserved "end"
-      return adecl
-    buildADT ameta name params methods =
-      return ADT{ameta
-                ,aname = setRefNamespace emptyNamespace $ adtType name params
-                ,aconstructor = []
-                ,amethods = methods
-                ,identity = name
-                }
+    adtLineDecl indent ameta aname = do
+      notFollowedBy (nl >> (reserved "end" <|>
+                            (indented indent anyChar >> return ())))
+      return $ L.IndentNone
+                 (False, -- No end needed
+                  ADT{ameta
+                     ,aname
+                     ,amethods = []
+                     })
+    adtBlockDecl ameta aname =
+      return $ L.IndentMany
+                 Nothing
+                 (buildADT ameta aname)
+                 methodDecl
+    buildADT ameta aname amethods =
+      return (True, -- end needed
+              ADT{ameta
+                 ,aname
+                 ,amethods
+                 })
 
-
---adtDecl :: EncParser AdtDecl
---adtDecl = do
---  aIndent <- L.indentLevel
---  ameta <- meta <$> getPosition
---  reserved "data"
---  decl <- (try (blockDecl ameta aIndent)) <|> lineDecl ameta
---  return decl
---  where
---    blockDecl ameta aIndent = indentBlock $ do
---      name <- lookAhead upperChar >> identifier
---      params <- optionalTypeParameters
---      return $ L.IndentSome
---        Nothing
---        (buildADT aIndent ameta name params)
---        methodDecl
---
---    buildADT aIndent ameta name params methods = do
---      atLevel aIndent $ reserved "end"
---      return ADT{ameta
---                ,aname = setRefNamespace emptyNamespace $ adtType name params
---                ,aconstructor = []
---                ,amethods = methods
---                ,identity = name
---                }
---
---    lineDecl ameta = do
---      name <- lookAhead upperChar >> identifier
---      params <- optionalTypeParameters
---      return ADT{ameta
---                ,aname = setRefNamespace emptyNamespace $ adtType name params
---                ,aconstructor = []
---                ,amethods = []
---                ,identity = name
---                }
-
-adtConstructor :: EncParser AdtConstructor
-adtConstructor = do
-  (try adtConsBlockDecl) <|> adtConsLineDecl
+adtCase :: EncParser AdtCase
+adtCase = do
+  acIndent <- L.indentLevel
+  acmeta <- buildMeta
+  (needsEnd, adtCase) <- indentBlock $ do
+    reserved "case"
+    name <- lookAhead upperChar >> identifier
+    params <- optionalTypeParameters
+    let acname = setRefNamespace emptyNamespace $
+                 adtCaseType name params 0
+    acfields <- option [] $ parens (commaSep paramDecl)
+    colon
+    acparent <- parentType
+    adtCaseLineDecl acIndent acmeta acname acfields acparent <|>
+      adtCaseBlockDecl acmeta acname acfields acparent
+  when needsEnd $
+    atLevel acIndent $ reserved "end"
+  return adtCase
   where
-    adtConsLineDecl = do
-      acmeta <- buildMeta
-      reserved "case"
-      name <- lookAhead upperChar >> identifier
-      params <- optionalTypeParameters
-      acfields <- parens (commaSep paramDecl)
-      colon
-      parentIdentity <- lookAhead parentID
-      acomposition <- traitComposition
-      return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
-                        adtConsType name params
-                     ,acfields
-                     ,acomposition
-                     ,acmethods = []
-                     ,parentIdentity
-                     }
-    parentID = do
-      c <- upperChar
-      rest <- identifier
-      return (c:rest)
+    parentType = do
+      lookAhead upperChar
+      full <- modulePath
+      let ns = explicitNamespace $ init full
+          refId = show $ last full
+      parameters <- option [] $ brackets (commaSep1 typ)
+      let tcname = if isEmptyNamespace ns
+                   then adtType refId parameters
+                   else setRefNamespace ns $
+                        adtType refId parameters
+      return TraitLeaf{tcname, tcext = []}
 
-    adtConsBlockDecl :: EncParser AdtConstructor
-    adtConsBlockDecl = do
-      acIndent <- L.indentLevel
-      acdecl <- indentBlock $ do
-        acmeta <- buildMeta
-        reserved "case"
-        name <- lookAhead upperChar >> identifier
-        params <- optionalTypeParameters
-        acfields <- parens (commaSep paramDecl)
-        colon
-        parentIdentity <- lookAhead parentID
-        acomposition <- traitComposition
+    adtCaseLineDecl indent acmeta acname acfields acparent = do
+      notFollowedBy (nl >> (reserved "end" <|>
+                            (indented indent anyChar >> return ())))
+      return $ L.IndentNone
+                 (False, -- No end needed
+                  ADTCase{acmeta
+                         ,acname
+                         ,acfields
+                         ,acparent
+                         ,acmethods = []
+                         })
+
+    adtCaseBlockDecl acmeta acname acfields acparent = do
         return $ L.IndentMany
                    Nothing
-                   (buildAdtCons acmeta name params acfields acomposition parentIdentity)
+                   (buildAdtCase acmeta acname acfields acparent)
                    methodDecl
-      atLevel acIndent $ reserved "end"
-      return acdecl
 
-    buildAdtCons acmeta name params acfields acomposition parentIdentity acmethods =
-      return  ADTcons{acmeta, acname = setRefNamespace emptyNamespace $
-                        adtConsType name params
+    buildAdtCase acmeta acname acfields acparent acmethods =
+      return (True, -- end needed
+              ADTCase{acmeta
+                     ,acname
                      ,acfields
-                     ,acomposition
+                     ,acparent
                      ,acmethods
-                     ,parentIdentity
-                     }
+                     })
 
 -- TODO: Allow linebreak (with indent) for trait inclusion
 classDecl :: EncParser ClassDecl

@@ -8,14 +8,14 @@ local class Supr[sharable t]
     var numOfWorkers: int
     var workers : [(Worker[t],int,int)]
 
-    def init(data:[t]) : unit
+    def init(arr:[t]) : unit
         this.numOfWorkers = 4
-        this.workers = this.distributeArray(data)
+        this.workers = this.distributeArray(arr)
     end
 
-    def distributeArray(data: [t]) : [(Worker[t],int,int)]
+    def distributeArray(arr: [t]) : [(Worker[t],int,int)]
         var numOfSplits = this.numOfWorkers
-        this.size = |data|
+        this.size = |arr|
         var rest = this.size % numOfSplits
         var splitSize = (this.size  - rest) / numOfSplits
 
@@ -27,13 +27,13 @@ local class Supr[sharable t]
             var first = splitSize*i
             var last = splitSize*(i+1)-1
             if i < indexToGetExtra then
-                splits(i) = this.createWorkers(data,first,last)
+                splits(i) = this.createWorkers(arr,first,last)
             else
                 if i == indexToGetExtra then
-                    splits(i) = this.createWorkers(data,first,last+1)
+                    splits(i) = this.createWorkers(arr,first,last+1)
                     shift += 1
                 else
-                    splits(i) = this.createWorkers(data,first+shift,last+shift+1)
+                    splits(i) = this.createWorkers(arr,first+shift,last+shift+1)
                     shift += 1
                 end
             end
@@ -41,11 +41,11 @@ local class Supr[sharable t]
         splits
     end
 
-    def createWorkers(data:[t],start:int,last:int) : (Worker[t],int,int)
+    def createWorkers(arr:[t],start:int,last:int) : (Worker[t],int,int)
         var splitSize = last-start+1
         var split = new [t](splitSize)
         repeat index <- splitSize do
-            split(index) = data(start+index)
+            split(index) = arr(start+index)
         end
         var worker = new Worker[t](split)
         (worker,start,last)

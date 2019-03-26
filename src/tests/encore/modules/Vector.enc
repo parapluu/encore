@@ -2,7 +2,7 @@
 
 module Vector
 local class Vector[t]
-  var data : [t]
+  var arr : [t]
   def init() : unit
     let
       b = new [int](3)

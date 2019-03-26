@@ -138,10 +138,8 @@ class Subtraction : Expr(left, right) + Binary
 end
 active class Main
   def main() : unit
-    val zero = new Value(0)
     val two = new Value(2)
     val minusTwo = new Negation(new Value(2))
-    val three = new Value(3)
     val x = new Variable("x")
     val e = new Subtraction(x, new Addition(two, minusTwo))
     match e.eval() with

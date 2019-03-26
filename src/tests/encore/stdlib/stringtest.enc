@@ -11,7 +11,7 @@ END
 
 fun strcmp(a : String, b : String) : bool
   EMBED (bool)
-    strcmp(#{a}->_enc__field_data, #{b}->_enc__field_data) == 0;
+    strcmp(#{a}->_enc__field_cstring, #{b}->_enc__field_cstring) == 0;
 
   END
 end

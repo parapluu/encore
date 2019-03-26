@@ -13,19 +13,19 @@ read class Data[t] : Id
 end
 
 local class Link[t] : Id
-  var data : Data[t]
+  var payload : Data[t]
   var next : Link[t]
   def init(elem : t, next : Link[t]) : unit
     let
-      data = new Data(elem)
+      payload = new Data(elem)
     in
-      data.elem = elem
-      this.data = data
+      payload.elem = elem
+      this.payload = payload
       this.next = next
     end
   end
-  def getData() : Data[t]
-    this.data
+  def getPayload() : Data[t]
+    this.payload
   end
   def getNextLink() : Link[t]
     this.next
@@ -61,7 +61,7 @@ local class List[t]: Id
       cursor = cursor.getNextLink()
       n = n - 1
     end
-    cursor.getData()
+    cursor.getPayload()
   end
   def pop() : Data[t]
     let
@@ -69,7 +69,7 @@ local class List[t]: Id
     in
       this.first = this.first.getNextLink()
       this.size = this.size - 1
-      head.getData()
+      head.getPayload()
     end
   end
   def show() : unit

@@ -65,6 +65,7 @@
         "chain"
         "class"
         "consume"
+        "data"
         "def"
         "do"
         "else"

@@ -11,7 +11,7 @@ fun doCompliment(c1 : int, c2 : int) : int
   else if c1 == 1 && c2 == 2 then
     3
   else if c1 == 1 && c2 == 3 then
-    2 
+    2
   else if c1 == 2 && c2 == 1 then
     3
   else if c1 == 2 && c2 == 2 then
@@ -74,7 +74,7 @@ fun spellAndPrint(n : int) : unit
   val spelledList = spell(n)
   var cursor = spelledList.first
   while cursor != null do
-    print("{} ", cursor.getData().getValue())
+    print("{} ", cursor.getPayload().getValue())
     cursor = cursor.getNextLink()
   end
 end
@@ -86,7 +86,7 @@ active class Creature
   var sameCount : int
   var count : int
   var silent : bool
-  
+
   def init(place : MeetingPlace, colour : int, id : int, silent : bool) : unit
     this.place = place
     this.colour = colour
@@ -95,7 +95,7 @@ active class Creature
     this.count = 0
     this.silent = silent
   end
-  
+
   def meet(id : int, colour : int) : unit
     this.count = this.count + 1
     this.colour = colour
@@ -104,14 +104,14 @@ active class Creature
     end
     this.place!meet(this, this.id, this.colour)
   end
-  
+
   def stop() : unit
     unless this.silent then
       print("{} {}\n", this.count, this.sameCount)
     end
     this.place!sumMeetings(this.count)
   end
-  
+
   def run() : unit
     this.place!meet(this, this.id, this.colour)
   end
@@ -128,11 +128,11 @@ active class MeetingPlace
   var main : Main
   var firstRun : bool
   var started : bool
-  
+
   def start() : unit
     this.started = true
   end
-  
+
   def init(meetingsLeft : int, main : Main, numberOfCreatures : int, firstRun : bool) : unit
     this.meetingsLeft = meetingsLeft
     this.firstColour = -1
@@ -144,7 +144,7 @@ active class MeetingPlace
     this.firstRun = firstRun
     this.started = false
   end
-  
+
   def sumMeetings(meetings : int) : unit
     this.meetings = this.meetings + meetings
     this.amountOfCreaturesDone = this.amountOfCreaturesDone + 1
@@ -155,7 +155,7 @@ active class MeetingPlace
       end
     end
   end
-  
+
   def meet(chameneos : Creature, id : int, c : int) : unit
     if not(this.started) then
       this!meet(chameneos, id, c)
@@ -180,12 +180,12 @@ end
 
 active class Main
   var meetings : int
-  
+
   def runSecondScenario() : unit
     val colours = [1, 2, 3, 2, 3, 1, 2, 3, 2, 1]
     this!runDefault(this.meetings, colours, false)
   end
-  
+
   def runDefault(n : int, colours : [int], firstRun : bool) : unit
     val  place = new MeetingPlace(n, this, |colours|, firstRun)
     repeat i <- |colours| do
@@ -199,7 +199,7 @@ active class Main
     end
     place!start()
   end
-  
+
   def run(meetings : int, creatureAmount : int) : unit
     val place = new MeetingPlace(meetings, this, creatureAmount, false)
     repeat i <- creatureAmount do
@@ -209,11 +209,11 @@ active class Main
     end
     place!start()
   end
-  
+
   def printColoursAux(c1 : int, c2 : int) : unit
     print("{} + {} -> {}\n", c1, c2, doCompliment(c1, c2))
   end
-  
+
   def printColours() : unit
     this.printColoursAux(1, 1)
     this.printColoursAux(1, 2)
@@ -226,14 +226,14 @@ active class Main
     this.printColoursAux(3, 3)
     print("\n")
   end
-  
+
   def extractor(maybe : Maybe[int]) : int
     match maybe with
       case Nothing => -1
       case Just(i) => i
     end
   end
-  
+
   def main(argv : [String]) : unit
     if |argv| == 1 then
       -- This was written because the results are not deterministic and the CI
