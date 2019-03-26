@@ -7,7 +7,7 @@ These probing tools allows the user to gain insight into how many actors and fut
 * [Installation](#installation)
 	* [Prerequisites](#prerequisites)
 	* [Setup](#setup)
-		* [MacOS 10.11+](#macos-10.11+)
+		* [MacOS 10.11+](#macos-1011)
 		* [Parser](#parser)
 * [Usage](#usage)
 	* [Dtrace](#dtrace)
