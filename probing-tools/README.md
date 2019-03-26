@@ -66,6 +66,12 @@ This assumes that the working directory is ``probing-tools/dtrace``, and will pr
 
 **Note:** If you want the output to be in a human readable format, you can ommit the ``-o`` flag, and replace the ``XML`` argument with an arbitrary argument (you can not leave it empty, though).
 
+**Note:** If you need to pass an argument to the Encore program, you may do that by enclosing the target binary and the arguments in quotation marks, like so:
+
+```
+$ dtrace -o ../output.xml -Cs dtrace.d -c "./[target binary] someArgument" XML
+```
+
 ### SystemTap
 
 To probe the program using SystemTap, run the following command:
