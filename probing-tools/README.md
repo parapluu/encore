@@ -1,4 +1,4 @@
-# Probing toolsets for Encore
+# Probing toolset for Encore
 
 These probing tools allows the user to gain insight into how many actors and futures are created, how work stealing occurs, succeeds or fails, and how many messages are sent and more, in a running Encore program.
 
