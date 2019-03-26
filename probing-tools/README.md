@@ -71,7 +71,7 @@ This assumes that the working directory is ``probing-tools/dtrace``, and will pr
 To probe the program using SystemTap, run the following command:
 
 ```
-$ stap systemTapXML.stp -c [target binary} -o output.XML
+$ stap systemTapXML.stp -c [target binary] -o output.XML
 ```
 
 This assumes that the working directory is ``probing-tools/systemtap``, and will produce an XML-file in the parent directory with the output from the SystemTap script.
