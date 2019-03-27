@@ -88,15 +88,16 @@ desugarDefaultParametersClass p c@(Class{cmethods}) = c{cmethods = cmethods ++ c
 
 
 desugarProgram :: Program -> Program
-desugarProgram p@(Program{traits, classes, functions, adts, adtCons}) =
+desugarProgram p@(Program{traits, classes, functions, adts, adtCases}) =
   p{
-    traits = map desugarTrait $ traits ++ adtTraits,
-    classes = map (desugarClass . desugarClassParams . (desugarDefaultParametersClass p)) $ classes ++ adtClasses,
-    functions = (map desugarFunction $ functions ++ adtFunctions) ++ concat (map desugarDefaultParameters functions)
+    traits = map desugarTrait $ traits ++ adtTraits
+   ,classes =
+      map (desugarClass . desugarClassParams . desugarDefaultParametersClass p) $
+          classes ++ adtClasses
+   ,functions = (map desugarFunction $ functions ++ adtFunctions) ++ concatMap desugarDefaultParameters functions
   }
   where
-
-    (adtTraits, adtClasses, adtFunctions) = partitionAdts [] [] [] (sortAdtCons adts adtCons)
+    (adtTraits, adtClasses, adtFunctions) = partitionADTs adts adtCases
 
     desugarTrait t@Trait{tmethods} = t{tmethods = map desugarMethod tmethods}
 
@@ -116,24 +117,20 @@ desugarProgram p@(Program{traits, classes, functions, adts, adtCons}) =
                       ,mheader=awaitHeader
                       ,mlocals=[]
                       ,mbody=Await emeta $ VarAccess emeta (qName "f")}
-        awaitHeader = Header{hmodifiers=[]
-                            ,kind=NonStreaming
-                            ,htypeparams=[typeVar "_t"]
-                            ,hname=Name "await"
-                            ,htype=unitType
-                            ,hparams=[awaitParam]}
+        awaitHeader = Header{hmodifiers = []
+                            ,kind = NonStreaming
+                            ,htypeparams = [typeVar "_t"]
+                            ,hname = Name "await"
+                            ,htype = unitType
+                            ,hparams = [awaitParam]
+                            }
         awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t", pdefault=Nothing}
         suspend = Method{mmeta
                         ,mimplicit = True
                         ,mheader = suspendHeader
                         ,mlocals = []
                         ,mbody = Suspend emeta}
-        suspendHeader = Header{hmodifiers=[]
-                              ,kind=NonStreaming
-                              ,htypeparams=[]
-                              ,hname=Name "suspend"
-                              ,htype=unitType
-                              ,hparams=[]}
+        suspendHeader = simpleHeader (Name "suspend") [] unitType
         pmeta = Meta.meta (Meta.getPos cmeta)
         emeta = Meta.meta (Meta.getPos cmeta)
         mmeta = Meta.meta (Meta.getPos cmeta)
@@ -217,7 +214,7 @@ optionalAccess e = e
 selfSugar :: Expr -> Expr
 selfSugar e = setSugared e e
 
-cloneMeta :: Meta.Meta Expr -> Meta.Meta Expr
+cloneMeta :: Meta.Meta a -> Meta.Meta b
 cloneMeta m = Meta.meta (Meta.getPos m)
 
 -- | A @MiniLet@ that has not been taken care of by @desugar@ is
@@ -237,130 +234,149 @@ expandMiniLets (MiniLet{emeta, mutability, decl}:seq) =
         }]
 expandMiniLets (e:seq) = e:expandMiniLets seq
 
-sortAdtCons :: [AdtDecl] -> [AdtConstructor] -> [AdtDecl]
-sortAdtCons adts [] = adts
-sortAdtCons adts (con:cs) =
-  sortAdtCons (insertConsInAdt adts con) cs
+partitionADTs :: [AdtDecl] -> [AdtCase] -> ([TraitDecl], [ClassDecl], [Function])
+partitionADTs adts cases =
+  let deconstructed = map (partitionADT cases) adts
+      hasADT ADTCase{acparent} = any ((getId (tcname acparent) ==) . getId . aname) adts
+      -- For error handling, include the cases where the ADT is not known
+      orphanedADTClasses = map buildOrphanedADTClass $
+                           List.filter (not . hasADT) cases
+      concat3 =
+        foldr (\(ts, cs, fs) (ts', cs', fs') ->
+               (ts ++ ts', cs ++ cs', fs ++ fs')) ([], orphanedADTClasses, [])
+  in
+    concat3 deconstructed
   where
-    insertConsInAdt [] (cons@ADTcons{acmeta, parentIdentity}) =
-      error ((show $ Meta.getPos acmeta) ++ ": ADT " ++ (show parentIdentity) ++ " not defined")
-    insertConsInAdt (adt@ADT{identity, aconstructor}:as) (cons@ADTcons{parentIdentity}) =
-      if (identity == parentIdentity)
-      then (adt{aconstructor = cons:aconstructor}:as)
-      else adt:(insertConsInAdt as cons)
+    buildOrphanedADTClass ADTCase{acmeta, acname, acparent} =
+      let orphanedCapability =
+            typeMap makeOrphan
+            (capabilityFromTraitComposition (Just acparent))
+      in
+        Class{cmeta = cloneMeta acmeta
+             ,cname = transferRefSourceAndNamespace acname $
+                      makeRead $
+                      adtCaseType (getId acname) (getTypeParameters acname) 0
+             ,ccomposition = Just (traitCompositionFromCapability orphanedCapability)
+             ,cfields = []
+             ,cmethods = []
+             }
+    makeOrphan ty
+      | isADT ty = refTypeWithParams (getId ty) (getTypeParameters ty)
+      | otherwise = ty
 
-partitionAdts :: [TraitDecl] -> [ClassDecl] -> [Function] -> [AdtDecl] -> ([TraitDecl], [ClassDecl], [Function])
-partitionAdts ts cs ms [] = (ts, cs, ms)
-partitionAdts ts cs ms (ADT{ameta, aname, aconstructor, amethods}:rest) =
-    partitionAdts (t:ts) (c ++ cs) (m ++ ms) rest
+partitionADT :: [AdtCase] -> AdtDecl -> ([TraitDecl], [ClassDecl], [Function])
+partitionADT allCases ADT{ameta, aname, amethods} =
+  ([t], cs, fs)
     where
-      t = Trait{tmeta
-               ,tname = makeRead traitName
-               ,treqs = RequiredField{rfield = Field{fmeta, fmut = Val, fname = Name "_ADT_tag", ftype = intType, fexpr = Nothing}}:
-                        (map (\con -> RequiredMethod{rheader = headerFromCons con}) aconstructor)
+      cases = List.filter ((== getId aname) . getId . tcname . acparent) allCases
+
+      t = Trait{tmeta = cloneMeta ameta
+               ,tname = transferRefSourceAndNamespace aname $
+                        makeRead $
+                        adtType (getId aname) (getTypeParameters aname)
+               ,treqs = RequiredField{rfield = tagField ameta}:
+                        map (RequiredMethod . headerFromCons) cases
                ,tmethods = amethods
                }
+      cs = zipWith buildADTClass cases [1..]
+      fs = map buildADTFunction cases
 
-      c = map (\(a@ADTcons{acmeta, acname, acfields, acomposition, acmethods}, tag) ->
-          let
-            fields = Field{fmeta, fmut = Val, fname = Name "_ADT_tag", ftype = intType, fexpr = Nothing}:
-              (map (\p@Param{pmut, pname, ptype} ->
-                         Field{fmeta, fmut = pmut, fname = pname, ftype = ptype, fexpr = Nothing})) acfields
-            traitExtensions = map (\p@Param{pname} -> FieldExtension{extname = pname}) acfields
-          in
-            Class{cmeta
-                 ,cname = makeRead $ setRef acname $
-                     adtClassType (reverse (stripName (showWithoutMode acname) [])) tag (getTypeParameters acname)
-                 ,ccomposition = Just acomposition{tcext = traitExtensions}
-                 ,cfields = fields
-                 ,cmethods = (initMethod a tag):(extractorMethods a aconstructor)++amethods++acmethods
+      tagField meta =
+        Field{fmeta = cloneMeta meta
+             ,fmut = Val
+             ,fname = Name "_ADT_tag"
+             ,ftype = intType
+             ,fexpr = Nothing
+             }
+
+      headerFromCons ADTCase{acname} =
+        simpleHeader (Name $ getId acname) [] intType
+
+      buildADTClass ADTCase{acmeta, acname, acfields, acparent, acmethods} tag =
+        Class{cmeta = cloneMeta acmeta
+             ,cname = transferRefSourceAndNamespace acname $
+                      makeRead $
+                      adtCaseType (getId acname) (getTypeParameters acname) tag
+             ,ccomposition = Just acparent{tcext = traitExtensions}
+             ,cfields = tagField acmeta : map buildField acfields
+             ,cmethods = initMethod :
+                         extractorMethods ++
+                         acmethods
+             }
+        where
+          buildField Param{pmut, pname, ptype} =
+            Field{fmeta = cloneMeta acmeta
+                 ,fmut = pmut
+                 ,fname = pname
+                 ,ftype = ptype
+                 ,fexpr = Nothing
                  }
-              ) $ zip aconstructor [1..length aconstructor]
+          traitExtensions = map (FieldExtension . pname) acfields
 
-      m = map (\x@ADTcons{acmeta, acname, acfields, acomposition} ->
-              Function{funmeta
-                      ,funheader = Header{hmodifiers = []
-                                         ,kind = NonStreaming
-                                         ,htypeparams = getTypeParameters acname
-                                         ,hname = Name (reverse $ (stripName (showWithoutMode acname) []))
-                                         ,htype = capabilityFromTraitComposition (Just acomposition)
-                                         ,hparams = acfields
-                                         }
-                      ,funbody = NewWithInit{emeta
-                                            ,ty = makeRead $ setRef acname $ classType (reverse $ stripName (showWithoutMode acname) []) (getTypeParameters acname)
-                                            ,args = map (\x@Param{pname} -> VarAccess{emeta ,qname = qName $ show pname }) acfields
-                                            }
-                      ,funlocals = []
-                      ,funsource = getRefSourceFile acname}) aconstructor
+          initMethod =
+            Method{mmeta = cloneMeta acmeta
+                  ,mimplicit = True
+                  ,mheader = simpleHeader constructorName acfields unitType
+                  ,mlocals = []
+                  ,mbody = Seq{emeta
+                              ,eseq = tagAssignment :
+                                      map (fieldAssignment . pname) acfields}
+                  }
+            where
+              emeta = cloneMeta acmeta
+              tagAssignment =
+                Assign{emeta
+                      ,lhs = FieldAccess{emeta
+                                        ,target = VarAccess{emeta ,qname = qLocal thisName}
+                                        ,name = Name "_ADT_tag"}
+                      ,rhs = IntLiteral{emeta, intLit = tag}
+                      }
+              fieldAssignment name =
+                  Assign{emeta
+                        ,lhs = FieldAccess{emeta
+                                          ,target = VarAccess{emeta
+                                                             ,qname = qLocal thisName}
+                                          ,name}
+                        ,rhs = VarAccess{emeta, qname = qLocal name}
+                        }
 
-      emeta = Meta.meta (Meta.getPos ameta)
-      cmeta = Meta.meta (Meta.getPos ameta)
-      mmeta = Meta.meta (Meta.getPos ameta)
-      tmeta = Meta.meta (Meta.getPos ameta)
-      fmeta = Meta.meta (Meta.getPos ameta)
-      funmeta = Meta.meta (Meta.getPos ameta)
-      stripName (c:str) res = if c == '['
-                              then res
-                              else stripName str (c:res)
-      stripName [] res = res
-      setRef name ty =
-        let
-          sourceFile = getRefSourceFile name
-          namespace  = case getRefNamespace name of
-                       Just(ns) -> ns
-                       Nothing -> emptyNamespace
-        in
-          setRefSourceFile sourceFile $
-                           setRefNamespace namespace ty
-      typeParams = getTypeParameters aname
-      traitName = setRef aname $ adtTraitType (reverse (stripName (showWithoutMode aname) [])) typeParams
+          extractorMethods = map buildExtractorMethod cases
+          buildExtractorMethod c@ADTCase{acmeta, acname = acname'} =
+            Method{mmeta = cloneMeta acmeta
+                  ,mimplicit = True
+                  ,mheader = headerFromCons c
+                  ,mlocals = []
+                  ,mbody
+                  }
+            where
+              emeta = cloneMeta acmeta
+              mbody
+                | acname == acname' =
+                    FieldAccess{emeta
+                               ,target = VarAccess{emeta
+                                                  ,qname = qLocal thisName
+                                                  }
+                               ,name = Name "_ADT_tag"
+                               }
+                | otherwise = IntLiteral{emeta, intLit = 0}
 
-
-      initMethod cons@ADTcons{acmeta, acname, acfields} tag =
-        method header body mmeta
-        where
-          header = (headerFromCons cons){htype = unitType
-                                        ,hparams = map (\p@Param{pname, ptype} -> p) acfields
-                                        ,hname = Name "init"
-                                        }
-          body = Seq{emeta, eseq = (tagAssignment:map (\p@Param{pname} -> assignment pname) acfields)}
-          tagAssignment = Assign{emeta
-                                ,lhs = FieldAccess{emeta ,target = VarAccess{emeta ,qname = qLocal thisName} ,name = Name "_ADT_tag"}
-                                ,rhs = IntLiteral{emeta, intLit = tag}
-                                }
-          assignment name = Assign{emeta
-                                  ,lhs = FieldAccess{emeta ,target = VarAccess{emeta ,qname = qLocal thisName} ,name = name}
-                                  ,rhs = VarAccess{emeta, qname = qName $ show name}
-                                  }
-
-      extractorMethods con@ADTcons{acmeta} cons =
-        map (\c@ADTcons{acmeta, acname, acfields} ->
-          method (headerFromCons c) (body c) mmeta
-        ) cons
-        where
-          body c@ADTcons{acfields} =
-            if (show c == show con)
-            then FieldAccess{emeta, target = VarAccess{emeta, qname = qLocal thisName}, name = Name "_ADT_tag"}
-            else IntLiteral{emeta, intLit = 0}
-
-      method header body mmeta=
-        Method{mmeta
-              ,mimplicit = True
-              ,mheader = header
-              ,mlocals = []
-              ,mbody = body
-              }
-
-      headerFromCons ADTcons{acname, acfields} =
-        Header{
-          hmodifiers = [],
-          kind = NonStreaming,
-          htypeparams = [],
-          hname = Name (reverse $ stripName (showWithoutMode acname) []),
-          htype = intType,
-          hparams = []
-        }
-
+      buildADTFunction ADTCase{acmeta, acname, acfields, acparent} =
+        let emeta = cloneMeta acmeta in
+        Function{funmeta = cloneMeta acmeta
+                ,funheader = Header{hmodifiers = []
+                                   ,kind = NonStreaming
+                                   ,htypeparams = getTypeParameters acname
+                                   ,hname = Name $ getId acname
+                                   ,htype = capabilityFromTraitComposition (Just acparent)
+                                   ,hparams = acfields
+                                   }
+                ,funbody = NewWithInit{emeta
+                                      ,ty = transferRefSourceAndNamespace aname $
+                                            classType (getId acname) (getTypeParameters acname)
+                                      ,args = map (\Param{pname} -> VarAccess{emeta, qname = qLocal pname}) acfields
+                                      }
+                ,funlocals = []
+                ,funsource = getRefSourceFile acname}
 
 desugar :: Expr -> Expr
 

@@ -32,7 +32,7 @@ data Program = Program {
   traits :: [TraitDecl],
   classes :: [ClassDecl],
   adts :: [AdtDecl],
-  adtCons :: [AdtConstructor]
+  adtCases :: [AdtCase]
 } deriving (Show)
 
 setProgramSource source p = p{source}
@@ -176,6 +176,14 @@ data FunctionHeader =
         hparams     :: [ParamDecl]
     } deriving(Eq, Show)
 
+simpleHeader hname hparams htype =
+  Header{hmodifiers = []
+        ,kind = NonStreaming
+        ,htypeparams = []
+        ,hname
+        ,hparams
+        ,htype
+        }
 
 setHeaderType ty h = h{htype = ty}
 
@@ -233,22 +241,16 @@ data ClassDecl = Class {
 data AdtDecl = ADT {
   ameta        :: Meta AdtDecl,
   aname        :: Type,
-  aconstructor :: [AdtConstructor],
-  amethods     :: [MethodDecl],
-  identity     :: String
+  amethods     :: [MethodDecl]
 } deriving (Show)
 
-data AdtConstructor = ADTcons {
-  acmeta         :: Meta AdtConstructor,
+data AdtCase = ADTCase {
+  acmeta         :: Meta AdtCase,
   acname         :: Type,
   acfields       :: [ParamDecl],
-  acomposition   :: TraitComposition,
-  acmethods      :: [MethodDecl],
-  parentIdentity :: String
+  acparent       :: TraitComposition,
+  acmethods      :: [MethodDecl]
 } deriving (Show)
-
-fieldsFromClass :: ClassDecl -> [FieldDecl]
-fieldsFromClass c@Class{cfields} = cfields
 
 instance Eq ClassDecl where
   a == b = getId (cname a) == getId (cname b)
@@ -284,12 +286,12 @@ instance HasMeta AdtDecl where
         error "AST.hs: Cannot set the type of an ADT"
     showWithKind ADT{aname} = "data '" ++ getId aname ++ "'"
 
-instance HasMeta AdtConstructor where
+instance HasMeta AdtCase where
     getMeta = acmeta
     setMeta ac m = ac{acmeta = m}
     setType _ _ =
         error "AST.hs: Cannot set the type of an ADT"
-    showWithKind ADTcons{acname} = "data '" ++ getId acname ++ "'" --TODO: ?
+    showWithKind ADTCase{acname} = "case '" ++ getId acname ++ "'"
 
 data Requirement =
     RequiredField {
@@ -529,13 +531,7 @@ emptyConstructor cdecl =
     let pos = AST.AST.getPos cdecl
     in Method{mmeta = meta pos
              ,mimplicit = True
-             ,mheader = Header{hmodifiers = []
-                              ,kind = NonStreaming
-                              ,htypeparams = []
-                              ,hname = constructorName
-                              ,hparams = []
-                              ,htype = unitType
-                              }
+             ,mheader = simpleHeader constructorName [] unitType
              ,mbody = Skip (meta pos)
              ,mlocals = []}
 
@@ -623,13 +619,10 @@ data Expr = Skip {emeta :: Meta Expr}
           | Optional {emeta :: Meta Expr,
                       optTag :: OptionalPathComponent}
           | AdtExtractorPattern {emeta :: Meta Expr,
-                                 ty :: Type,
                                  name :: Name,
                                  arg :: Expr,
-                                 fieldNames :: [String],
                                  adtClassDecl :: ClassDecl}
           | ExtractorPattern {emeta :: Meta Expr,
-                              ty :: Type,
                               name :: Name,
                               arg :: Expr}
           | FunctionCall {emeta :: Meta Expr,
@@ -895,6 +888,7 @@ isImpure Suspend {} = True
 isImpure Assign {} = True
 isImpure NewWithInit {} = True
 isImpure New {} = True
+isImpure Match {} = True
 isImpure _ = False
 
 hasBody :: Expr -> Bool

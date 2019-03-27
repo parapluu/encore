@@ -10,12 +10,12 @@ end
 fun initial() : Position
   0
 end
-fun filterLessThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
-  var result = new ArrayList[int](data.size())
+fun filterLessThan(arr : borrowed ArrayList[int], pivot : int) : ArrayList[int]
+  var result = new ArrayList[int](arr.size())
   var i = 0
-  while i < data.size() do
+  while i < arr.size() do
     let
-      d = data.at(i)
+      d = arr.at(i)
     in
       if d < pivot then
         result.add(d)
@@ -25,12 +25,12 @@ fun filterLessThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
   end
   consume result
 end
-fun filterEqualsTo(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
-  var result = new ArrayList[int](data.size())
+fun filterEqualsTo(arr : borrowed ArrayList[int], pivot : int) : ArrayList[int]
+  var result = new ArrayList[int](arr.size())
   var i = 0
-  while i < data.size() do
+  while i < arr.size() do
     let
-      d = data.at(i)
+      d = arr.at(i)
     in
       if d == pivot then
         result.add(d)
@@ -40,12 +40,12 @@ fun filterEqualsTo(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
   end
   consume result
 end
-fun filterGreaterThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[int]
-  var result = new ArrayList[int](data.size())
+fun filterGreaterThan(arr : borrowed ArrayList[int], pivot : int) : ArrayList[int]
+  var result = new ArrayList[int](arr.size())
   var i = 0
-  while i < data.size() do
+  while i < arr.size() do
     let
-      d = data.at(i)
+      d = arr.at(i)
     in
       if d > pivot then
         result.add(d)
@@ -56,29 +56,29 @@ fun filterGreaterThan(data : borrowed ArrayList[int], pivot : int) : ArrayList[i
   consume result
 end
 
-fun quicksortSeq(data : borrowed ArrayList[int]) : ArrayList[int]
+fun quicksortSeq(arr : borrowed ArrayList[int]) : ArrayList[int]
   let
-    dataLength = data.size()
+    arrLength = arr.size()
   in
-    var result = new ArrayList[int](dataLength)
-    if dataLength < 2 then
-      result.addAll(data)
+    var result = new ArrayList[int](arrLength)
+    if arrLength < 2 then
+      result.addAll(arr)
       consume result
     else
-      val pivot = data.at(data.size() / 2)
-      var leftUnsorted = filterLessThan(data, pivot)
+      val pivot = arr.at(arr.size() / 2)
+      var leftUnsorted = filterLessThan(arr, pivot)
       var leftSorted = quicksortSeq(leftUnsorted)
-      var equalElements = filterEqualsTo(data, pivot)
-      var rightSorted = quicksortSeq(filterGreaterThan(data, pivot))
+      var equalElements = filterEqualsTo(arr, pivot)
+      var rightSorted = quicksortSeq(filterGreaterThan(arr, pivot))
       result.addAll(leftSorted)
       result.addAll(equalElements)
       result.addAll(rightSorted)
-      assertTrue(result.size() == data.size(), "the size of the resulting array is different from the size of the input")
+      assertTrue(result.size() == arr.size(), "the size of the resulting array is different from the size of the input")
       consume result
     end
   end
 end
-fun checkSorted(data : ArrayList[int]) : bool
+fun checkSorted(arr : ArrayList[int]) : bool
   true
 end
 fun randomInitialArray(n : int, s : int, m : int) : ArrayList[int]
@@ -115,14 +115,14 @@ active class QuickSortActor : Id
     this.numFragments = 0
     this.myPosition = pos
   end
-  def done(var data : ArrayList[int], position : Position) : unit
-    if data != null then
+  def done(var arr : ArrayList[int], position : Position) : unit
+    if arr != null then
       if position == left() then
-        data.addAll(consume this.result)
-        this.result = consume data
+        arr.addAll(consume this.result)
+        this.result = consume arr
       else
         if position == right() then
-          this.result.addAll(data)
+          this.result.addAll(arr)
         end
       end
       this.numFragments = this.numFragments + 1
@@ -140,20 +140,20 @@ active class QuickSortActor : Id
       this.result = consume res
     end
   end
-  def sort(data : ArrayList[int]) : unit
+  def sort(arr : ArrayList[int]) : unit
     let
-      dataLength = data.size()
+      arrLength = arr.size()
     in
-      if dataLength < this.t then
-        this.result = quicksortSeq(data)
+      if arrLength < this.t then
+        this.result = quicksortSeq(arr)
         this.notify()
       else
         let
-          pivot = data.at(dataLength / 2)
+          pivot = arr.at(arrLength / 2)
         in
-          (new QuickSortActor(this, left(), this.t, data.size()))!sort(filterLessThan(data, pivot))
-          (new QuickSortActor(this, right(), this.t, data.size()))!sort(filterGreaterThan(data, pivot))
-          this.result = filterEqualsTo(data, pivot)
+          (new QuickSortActor(this, left(), this.t, arr.size()))!sort(filterLessThan(arr, pivot))
+          (new QuickSortActor(this, right(), this.t, arr.size()))!sort(filterGreaterThan(arr, pivot))
+          this.result = filterEqualsTo(arr, pivot)
           this.numFragments = this.numFragments + 1
         end
       end

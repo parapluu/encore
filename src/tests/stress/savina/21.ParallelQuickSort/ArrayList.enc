@@ -46,7 +46,7 @@ linear class ArrayList[t] : Id
     this.dat(this.size) = value
     this.size = this.size + 1
   end
-  def data() : [t]
+  def getData() : [t]
     this.dat
   end
 end

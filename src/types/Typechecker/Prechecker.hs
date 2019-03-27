@@ -282,6 +282,7 @@ instance Precheckable ClassDecl where
                           mapM resolveTypeParameter (getTypeParameters cname)
       cname' <- local (addTypeParameters typeParams) $
                       resolveType (setTypeParameters cname typeParams)
+      checkADT
 
       ccomposition' <- checkComposition cname'
       cfields' <- mapM (local (addTypeParameters typeParams . addThis cname') .
@@ -312,6 +313,11 @@ instance Precheckable ClassDecl where
                                 typesFromTraitComposition ccomposition
             assertDistinct "declaration" cfields
             assertDistinct "declaration" cmethods
+        checkADT =
+          when (isADT cname) $
+            unless (isADT $ capabilityFromTraitComposition ccomposition) $
+                   tcError $ NonADTCaseError
+                               (capabilityFromTraitComposition ccomposition)
 
         checkComposition thisType = do
           let capability = capabilityFromTraitComposition ccomposition

@@ -20,7 +20,7 @@ local class File
 
   def private open() : unit
     this.file = EMBED (FILE)
-                  FILE *file = fopen(#{this.file_name.data}, #{this.mode.data});
+                  FILE *file = fopen(#{this.file_name.cstring}, #{this.mode.cstring});
                   file;
                 END
     if not this.valid() then
@@ -45,14 +45,14 @@ local class File
         abort("Cannot open file, exiting.")
     end
     EMBED (unit)
-      fprintf(#{this.file}, #{content.data});
+      fprintf(#{this.file}, #{content.cstring});
     END
   end
 
   def private valid() : bool
     EMBED (bool) (bool)#{this.file}; END
   end
-  
+
   -- read a line
   def readline() : String
     var line = EMBED (CString)
@@ -62,7 +62,7 @@ local class File
                END
     new String(line)
   end
-  
+
   def eof() : bool
     EMBED (bool) feof(#{this.file}); END
   end
@@ -77,7 +77,7 @@ fun with_file[t](fname : FilePath, f : File -> t, mode : String = "r") : t
 end
 
 -- this is a bad idea for large files because file is read in totality into memory
--- a lazy approach is required. 
+-- a lazy approach is required.
 fun read_file(fname : FilePath) : String
   val file = new File(fname, "r")
   val sb = new StringBuffer()

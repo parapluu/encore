@@ -34,11 +34,11 @@ active class Manager
     -- print("Hello, I am your new manager\n")
   end
 
-  def dataItem(data:real, from:Producer) : unit
+  def dataItem(payload:real, from:Producer) : unit
     if this.available_consumers.is_empty() then
-      this.pending_data.append(data)
+      this.pending_data.append(payload)
     else
-      this.available_consumers.take() ! process(data)
+      this.available_consumers.take() ! process(payload)
       -- print("Consumed {} litres\n", data)
     end
 
