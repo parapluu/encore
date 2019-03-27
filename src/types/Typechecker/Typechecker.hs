@@ -35,7 +35,6 @@ import Typechecker.TypeError
 import Typechecker.Backtrace
 import Typechecker.Util
 import Text.Printf (printf)
-import Debug.Trace
 
 -- | The top-level type checking function
 typecheckProgram :: Map FilePath LookupTable -> Program ->

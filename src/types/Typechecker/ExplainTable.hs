@@ -1,15 +1,20 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
-module Typechecker.ExplainTable (lookupHash, lookupHashW) where
+module Typechecker.ExplainTable (explain) where
 
 import Typechecker.TypeError (Error(..), Warning(..))
 
 
-lookupHash :: Error -> Maybe Int
-lookupHash err = toKey err
+class Explanainable a where
+    explain :: a -> Maybe Int
 
-lookupHashW :: Warning -> Maybe Int
-lookupHashW w = toKeyW w
+instance Explanainable Error where
+    explain err = toKey err
+
+instance Explanainable Warning where
+    explain warn = toKeyW warn
+
+
 
 
 

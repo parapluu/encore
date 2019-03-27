@@ -14,9 +14,8 @@ import System.Directory
 import System.IO
 import System.Exit
 import System.Process
-import System.Posix.Process
-import qualified Data.ByteString.Lazy as B
-import System.Pager
+import qualified Data.ByteString.Lazy as B (readFile)
+import System.Pager (sendToPager)
 import System.Posix.Directory
 import Data.List
 import Data.List.Utils(split)
@@ -421,7 +420,6 @@ main =
       verbose options str = when (Verbose `elem` options)
                                   (putStrLn str)
 
-      showWarnings = mapM printWarning . reverse
       
       helpMessage =
         "Welcome to the Encore compiler!\n" <>
@@ -447,6 +445,8 @@ main =
         printf "*** Error during typechecking *** \n\n"
         printError e
         abort $ "Aborting due to previous error"
+
+      showWarnings = mapM printWarning . reverse
 
 
       isExplain (Explain _) = True

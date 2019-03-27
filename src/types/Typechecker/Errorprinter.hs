@@ -87,7 +87,7 @@ prettyError tcErr@(TCError err@(UnknownRefTypeError ty) _) _
 prettyError (TCError err Env{bt = []}) _ =
     declareError err <+> description err
 prettyError tcErr@(TCError err _) code =
-    declareError err <+> description err $+$ codeViewer_ver1 tcErr code
+    declareError err <+> description err $+$ codeViewer tcErr code
 -- Possible extensions:
 --  Duplicate Class -> print positions (File + line) of the two classes
 --  Type error in func call -> print a version of codeViewer that also shows the function head
@@ -97,28 +97,23 @@ prettyWarning :: TCWarning -> [String] -> Doc TCStyle
 prettyWarning (TCWarning w Env{bt = []}) _ =
     declareWarning w <+> description w
 prettyWarning tcWarn@(TCWarning w _) code =
-        declareWarning w <+> description w $+$ codeViewer_ver1 tcWarn code
+        declareWarning w <+> description w $+$ codeViewer tcWarn code
 
 pipe = char '|'
 
 declareError :: Error -> Doc TCStyle
-declareError err =
-    let
-        hash = case lookupHash err of
-            Nothing -> empty
-            Just num -> text $ printf "[E%04d]" num
-    in
-        styleClassify $ text "Error" <> hash <> char ':'
-
+declareError = styleDeclaration "[E%04d]" "Error" . explain
 
 declareWarning :: Warning -> Doc TCStyle
-declareWarning w =
+declareWarning = styleDeclaration "[W%04d]" "Warning" . explain
+
+styleDeclaration format msg explanation =
     let
-        hash = case lookupHashW w of
+        hash = case explanation of
             Nothing -> empty
-            Just num -> text $ printf "[W%04d]" num
+            Just num -> text $ printf format num
     in
-        styleClassify $ text "Warning" <> hash <> char ':'
+        styleClassify $ text msg <> hash <> char ':'
 
 description :: Show a => a -> Doc TCStyle
 description ty = styleDesc $ text $ show ty
@@ -127,9 +122,9 @@ description ty = styleDesc $ text $ show ty
 showPosition :: Position -> Doc TCStyle
 showPosition pos = styleLogistic (text "-->") <+> (text $ show $ pos)
 
-codeViewer_ver1 :: (TCType a, Suggestable a) => a -> [String] -> Doc TCStyle
-codeViewer_ver1 _ [] = error "TypeError.hs: No code to view"
-codeViewer_ver1 err (cHead:cTail) =
+codeViewer :: (TCType a, Suggestable a) => a -> [String] -> Doc TCStyle
+codeViewer _ [] = error "TypeError.hs: No code to view"
+codeViewer err (cHead:cTail) =
     nest (digitLen) $ showPosition pos $+$
     styleLogistic pipe $+$
     showCodeHead
@@ -170,41 +165,6 @@ codeViewer_ver1 err (cHead:cTail) =
             | otherwise = False
 
 
-
-codeViewer_ver2 :: (TCType a, Suggestable a) => a -> [String] -> Doc TCStyle
-codeViewer_ver2 _ [] = error "TypeError.hs: No code to view"
-codeViewer_ver2 err (cHead:cTail) =
-    let
-        pos = currentBTPos err
-        ((sL, sC), (eL, eC)) = getPositions pos
-        digitLen = 1 + (length $ show eL) --One additional for the space between line-number and pipe
-        tailCode = zipWith (codeLine " |") cTail (range (sL+1, eL))
-    in
-        if sL == eL
-            then
-                nest (digitLen) $ showPosition pos $+$
-                styleLogistic pipe $+$
-                codeLine "" cHead sL $+$
-                styleLogistic pipe <>
-                styleHighlight (lineHighlighter sC eC '^') <+>
-                styleHighlight (smallSuggest err) $+$
-                longSuggest err
-            else
-                nest (digitLen) $ showPosition pos $+$
-                styleLogistic pipe $+$
-                codeLine "  " cHead sL $+$
-                styleLogistic pipe <>
-                styleHighlight (multilineHighlighter sC FirstLine '^') $+$
-                vcat tailCode $+$
-                styleLogistic pipe <>
-                styleHighlight (multilineHighlighter eC LastLine '^') <+>
-                styleHighlight (smallSuggest err) $+$
-                longSuggest err
-
-
--- Remove if version 2 is not to be used
-lineHighlighter :: Int -> Int -> Char -> Doc ann
-lineHighlighter s e c = text $ replicate (s-1) ' ' ++ replicate (e-s) c
 
 -- Remove if version 1 is not to be used
 singleLineHighlighter :: Int -> Int -> Char -> Doc ann

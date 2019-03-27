@@ -45,18 +45,14 @@ instance Suggestable TCError where
         | isMethodNameAFunction name ty env = text $ printf "Did you mean function `%s`?" (show name)
     smallSuggest _ = empty
 
+
+
     longSuggest (TCError (TypeMismatchError actual expected) _) =
-        let
-            expect = text "expected type" <+> styleDesc (text $ show expected)
-            found  = text "   found type" <+> styleDesc (text $ show actual)
-        in
-            makeNotation <+> vcat [expect, found]
-    longSuggest (TCError (TypeWithCapabilityMismatchError actual cap expected) _) =
-        let
-            expect = text "expected type" <+> styleDesc (text $ show expected)
-            found  = text "   found type" <+> styleDesc (text $ show actual)
-        in
-            makeNotation <+> vcat [expect, found]
+            makeNotation <+> vcat [expect expected, found actual]
+        where
+            expect e = text "expected type" <+> styleDesc (text $ show e)
+            found a  = text "   found type" <+> styleDesc (text $ show a)
+
     longSuggest (TCError (WrongNumberOfMethodArgumentsError name targetType _ _) env) = 
         let 
             header = snd . fromJust $ findMethodWithEnvironment name targetType env
