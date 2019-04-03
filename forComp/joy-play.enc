@@ -1,0 +1,124 @@
+import Containers
+
+active class Foo
+  var value : int
+
+  def init(num : int): unit
+    this.value = num
+  end
+
+  def foo_printer(): unit
+    this.value += 1
+    print("New value: {}\n", this.value)
+  end
+
+  def changeValue(value : int) : unit
+    this.value = value
+  end
+
+  def getValue() : int
+    return this.value
+  end
+
+end
+
+active class Bar
+  var animal : String
+  var count : int
+
+  def init():unit
+    this.animal = "horse"
+    this.count = 1
+  end
+
+  def newAnimal(animal : String) : unit
+    this.animal = animal
+  end
+
+  def print_animal() : unit
+    print("{}\n", this.animal)
+  end
+
+  def change_animal(): unit
+    if (this.count == 1) then
+      this.animal = "bear"
+      this.count = 2
+    else
+      this.animal = "horse"
+      this.count = 1
+    end
+  end
+
+  def whatisme(): unit
+    print("{}\n", this.animal)
+  end
+
+end
+
+active class Listor
+  var lista : [Bar]
+
+  def init(animalOne : String, animalTwo: String, animalThree : String) : unit
+    var one = new Bar()
+    var two = new Bar()
+    var three = new Bar()
+
+
+    one!newAnimal(animalOne)
+    two!newAnimal(animalTwo)
+    three!newAnimal(animalThree)
+
+    this.lista = [one, two, three]
+  end
+
+  def getLista() : [Bar]
+    return this.lista
+  end
+
+end
+
+fun compare() : bool
+  return true
+end
+
+active class Main
+
+  def main(): unit
+    var foo = new Foo(5)
+    var x = 5
+    var bar = new Bar()
+    var fooList = [new Foo(5), new Foo(4), new Foo(3)]
+    var barList = [new Bar(), new Bar(), new Bar()]
+
+    var listan = new Listor("Katt", "Hund", "Kalabanan")
+
+    for x <- fooList do
+      x!foo_printer()
+    end
+
+    print("First element {}\n", get(fooList(0)!getValue()))
+
+    for x <- get(listan!getLista()) do
+      x!print_animal()
+    end
+
+    for elem <- [5..10] do
+      print("elem from 5 to 10: {}\n", elem)
+    end
+
+    for i <- [0 .. 9] do
+      fooList(0) = new Foo(i)
+      fooList(0)!foo_printer()
+    end
+
+    var tuple = (1, 2, 3)
+    print("Does Encore have tupples? {}\n", tuple)
+
+    for x <- [] do
+      print("SHOULD NOT GET HERE")
+    end
+
+  end
+
+
+end

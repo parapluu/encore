@@ -1,0 +1,106 @@
+import Data.Maybe
+
+-- Different types of modes active, local, read, linear or subord
+subord class Node [t]
+  var elem : t
+  var next : Node
+
+  def init(element : t) : unit
+    this.node = element
+    this.next = Nothing
+  end
+
+  def setNext(node : Node) : unit
+    this.next = node
+  end
+
+  def getNext() : Maybe Node
+    return this.next
+  end
+
+  def getElem() : t
+    return this.elem
+  end
+
+  def changeElem[v](f : t -> v) : unit
+    this.elem = f(this.elem)
+  end
+
+  def compare(elem: t) : bool
+    if this.elem == elem then
+      return true
+    else
+      return false
+    end
+  end
+end
+
+active class ActiveContainer [t]
+
+  var first : [Node]
+  var last : [Node]
+  var size : int
+
+  def init() : unit
+    this.first = Nothing
+    this.last = Nothing
+  end
+
+  def insert(elem : t) : unit
+    var node = new Node[t](elem)
+    match this.size with
+      case 0 =>
+        this.first = node
+        this.last = node
+      end
+      case _ =>
+        this.last.setNext(node)
+        this.last = node
+      end
+    end
+    this.size += 1
+  end
+
+  def compare(cont : ActiveContainer[t]) : bool
+    current = this.first
+    if (this.size != cont.size) then
+      return false
+    while (current != Nothing) do
+
+    end
+  end
+
+
+-- Not sure if this works
+  def conc(container : ActiveContainer[t]) : unit
+    container.foldl(this.insert)
+    this.size += container.size
+  end
+
+  def foldl(f : t -> unit) : unit
+    var current = this.first
+    while (current != Nothing) do
+      f(current.getElem())
+      current = current.getNext()
+    end
+  end
+
+  def map[v](f : t -> v) : ActiveContainer[v]
+    var current = this.first
+    while (current != Nothing) do
+      current.changeElem(f)
+      current = current.getNext()
+    end
+  end
+
+  def flatMap(f : t -> ActiveContainer[v]) : ActiveContainer[v]
+    var current = this.first
+    var newCont = new ActiveContainer[v]
+      while (current != Nothing) do
+        var vCont = f(current.getElem())
+        newCont.conc(vCont) -- This is the flatening stepp
+        current = current.getNext()
+      end
+      return newCont
+  end
+end

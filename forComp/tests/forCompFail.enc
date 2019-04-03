@@ -1,0 +1,33 @@
+--None of these should compile at all
+
+-- Different types of modes active, local, read, linear or subord
+active class Main
+
+  def main() : unit
+    --NOT WORK
+
+    -- For comprehension with no containers
+    for x do
+      x += 1
+    end
+
+    -- using a container without map or flatmap in them
+    var noFlatMap = ("Hej", "Blä", 5)
+    for x <- noFlatMap do
+      x = "Kajsa"
+    end
+
+    -- for-body is empty
+    var simpleList = for x <- [0 .. 3] do
+                     end
+
+    -- not allowed to change a lists type, containers are homogenous
+    var li = new LinkedList[String]
+    li.insert("Kajsa")
+    for x <- li do
+      x = 2
+    end
+
+
+  end
+end

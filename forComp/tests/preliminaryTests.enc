@@ -1,0 +1,169 @@
+--These are preliminary for-comprehension tests
+-- The following assumptions have been made:
+--  1. It is possible to loop over empty structures
+--     which either does nothing,
+--     or returns a new struct that is empty.
+--  2. It is possible to loop over different kinds of structures
+--     If using for as a function call, it will return
+--     a similar struct as the first one listed, but perhaps
+--     containing elements of different type.
+--  3. It is not possible the type of an element in a structure
+--  4. Looping over multiple structures is done in a nested may:
+--        for x <- [1, 2], y <- [3, 4]
+--     would loop over all the y elements for every x element
+--  5. Mutable variables can be changed inside a for-loop
+--  6. Do not have tests yet, but it should not be able to iterate
+--     over a future, but can itterate over a struct containing futures.
+--  7. To use for over a structure, it must only allow one type of element
+
+import Test.Unit
+import Data.Maybe
+import Containers
+
+-- Tests normal/old forcomprehension which should work
+fun basicTest() : bool
+
+  var li = [0, 1, 2, 3, 4]
+  for x <- li do
+    x += 1
+  end
+  return (li == [1, 2, 3, 4, 5])
+
+end
+
+-- Tests handling of empty list
+fun emptyListTest() : bool
+  success = true
+
+  for x <- [] do
+    success = false
+  end
+
+  var simpleListTwo = for x <- [] do
+                        success = false
+                      end
+  success = success && (simpleListTwo == [])
+
+  for x <- [1, 2], y <- [] do
+    success = false
+  end
+
+  for x <- [], y <- [1, 2] do
+    success = false
+  end
+
+  return success
+
+end
+
+-- Tests basic for-comprehension as a functioncall
+fun forFuncTest() : bool
+  var simpleListOne = for x <- [1 .. 9] do
+                        x - 1
+                      end
+  return (simpleList == [0, 1, 2, 3, 4, 5, 6, 7, 8])
+end
+
+-- Tests implicit yield
+fun forFuncSideTest() : bool
+  li = [5, 5, 5]
+  var simpleListOne = for x <- [1, 2, 3], y <- li do
+                        y = x
+                        x + 1
+                      end
+  return (simpleList == [2, 2, 2, 3, 3, 3, 4, 4, 4] && li == [3, 3, 3])
+end
+
+-- Tests that it can handle simple containers that support map and flatMap
+fun containerTest() : bool
+  var li = new LinkedList[String]
+  var comp = new LinkedList[String]
+
+  li.insert("Kajsa")
+  li.insert("Hund")
+  li.insert("Anka")
+
+  li.insert("Katt")
+  li.insert("Katt")
+  li.insert("Katt")
+
+  for x <- li do
+    x = "Katt"
+  end
+
+  return li.isEqual(comp)
+
+end
+
+-- Tests changing mutable variables
+fun mutableVarTest() : bool
+  var li = new LinkedList[int]
+  var comp = new LinkedList[int]
+  var num = 0
+
+  comp.insert(1)
+  comp.insert(2)
+  comp.insert(3)
+
+  for x <- [1 .. 3] do
+    li.insert(x)
+  end
+
+  for x <- li do
+    num += x
+  end
+
+  return li.isEqual(comp) && num == 6
+end
+
+-- Tests that it can handle different containers
+fun diffStructTest() : bool
+  var li1 = new LinkedList[int]
+  var li2 = new Array[String]
+  var comp = new LinkedList[(int, String)]
+
+  li1.insert(1)
+  li1.insert(2)
+  li1.insert(4)
+
+  li2.insert("Katt")
+
+  comp.insert((1, "Katt"))
+  comp.insert((2, "Katt"))
+  comp.insert((3, "Katt"))
+
+  var simpleList = for x <- li1, y <- li2 do
+                     (x, y)
+                   end
+  return simpleList == comp
+end
+
+-- Tests handling empty container
+fun emptyStructTest() : bool
+  var li = new LinkedList[int]
+  for x <- li do
+    return false
+  end
+  return true
+end
+
+active class Main
+
+  def main() : unit
+    val test = new TestSuite("for-comprehension", 100)
+    test.assert_true("Basic Test", basicTest)
+
+    test.assert_true("Empty lists handling", emptyListTest)
+
+    test.assert_true("For as a functioncall", forFuncTest)
+
+    test.assert_true("Handle containers", containerTest)
+
+    test.assert_true("Handle mutable variables", mutableVarTest)
+
+    test.assert_true("loop over diff container", diffStructTest)
+
+    test.assert_true("Empty Container", emptyStructTest)
+
+  end
+end
