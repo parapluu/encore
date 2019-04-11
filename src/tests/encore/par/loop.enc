@@ -1,0 +1,104 @@
+import ParT.ParT
+
+EMBED
+#include<unistd.h>
+END
+
+local class MyObject
+  var x : int
+  val id : int = 0
+
+  def init(id: int, x: int): unit
+    this.id = id
+    this.x = x
+  end
+end
+
+read class Counter
+  val id: uint = 0
+  val x: uint = 0
+
+  def init(id: uint): unit
+    this.id = id
+  end
+
+  def inc(): uint
+    EMBED (uint)
+      // safely cheating to increment the counter
+      #{this.x} = #{this.x} + 1;
+    END
+  end
+end
+
+active class Delayer
+  val counter: Counter
+  val timer: uint
+
+  def init(timer: uint): unit
+    this.timer = timer
+    this.counter = new Counter(1)
+  end
+
+  def startDelay(): Counter
+    EMBED (unit)
+      sleep(#{this.timer});
+    END
+    this.counter
+  end
+end
+
+--
+-- Tests that the ParT does not block until all elements satisfy the test condition.
+-- Fulfilled items in the ParT are "streamed" to other combinators.
+--
+fun testStreamingElementsFromLoop(): unit
+  println("\n- Tests 'streaming' fulfilled elements from the loop:\n")
+  val p = liftv(new Counter(100)) ||| liftf((new Delayer(2))!startDelay())
+  val pp = loop(p, fun (y: Counter)
+                     y.inc()
+                     liftv(y)
+                   end,
+                   fun (exit: Counter) => exit.x >= 5)
+  prune(fun (f : Fut[Maybe[Counter]])
+          join(liftf(f ~~> fun (m : Maybe[Counter])
+                             match m with
+                               case Just(c) =>
+                                 do
+                                   println("\t* Streaming counter with id: {}", c.x)
+                                   liftv(c.x)
+                                 end
+                               end
+                             end
+                           end))
+        end, pp)
+  println("\t* Printing sorted solution")
+  val pp' = extract(pp)
+  for x <- pp' do
+    print("\t\t{}, ", x.id)
+  end
+end
+
+
+--
+-- Tests that the ParT loops until all elements satisfy the test condition
+--
+fun testLoopUntilExitCondition(): unit
+  println("\n- Tests looping until exit condition is met:\n")
+  val p = liftv(new MyObject(0, 3)) ||| liftv(new MyObject(1, 0)) ||| liftv(new MyObject(2, -9)) ||| liftv(new MyObject(3, 4))
+  val pp = loop(p, fun (y: MyObject)
+                     y.x += 1
+                     liftv(y)
+                   end,
+                   fun (exit: MyObject) => exit.x >= 5)
+  println("\tPrinting sorted solution")
+  for x <- extract(pp) do
+    print("\t{}, ", x.id)
+  end
+end
+
+active class Main
+  def main(): unit
+    testLoopUntilExitCondition()
+    testStreamingElementsFromLoop()
+  end
+end

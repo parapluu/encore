@@ -166,4 +166,9 @@ par_t* party_zip_with(pony_ctx_t **ctx,
                       pony_type_t *type);
 
 
+par_t* party_prune(pony_ctx_t **ctx,
+                   closure_t *fn,
+                   par_t *par,
+                   pony_type_t *parType,
+                   pony_type_t *returnedType);
 #endif
