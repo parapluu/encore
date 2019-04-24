@@ -49,7 +49,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
 optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison,
-                   dropBorrowBlocks, forwardGeneral]
+                   dropBorrowBlocks, forwardGeneral, forIntoFlatMapCall]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -175,3 +175,43 @@ forwardGeneral = extend forwardGeneral'
                         ,pdefault= Nothing}
 
     forwardGeneral' e = e
+
+-- Desugars a for-loop into nested calls to map and flatMap:
+--
+-- for x <- listA, y <- listB, z <- ListC do
+--      -- body of instructions
+-- end
+--
+-- into
+--
+-- listA.flatMap(listB.flatMap(listC.map(body)))
+-- Credit: kaeluka for the use of foldl1 and zipWith in this manner
+forIntoFlatMapCall = extend forIntoFlatMapCall'
+  where
+    forIntoFlatMapCall' e@For{emeta, sources, body} =
+      let
+        n = length sources
+        methodCalls = replicate (n-1) (Name "flatMap") ++ [Name "map"]
+        setCalls = zipWith (intoMethodCall emeta) methodCalls sources
+      in
+        foldl1 (\procCall call -> procCall . call) setCalls $ body
+      where
+
+        intoMethodCall met methodName ForSource{forVar, collection} body =
+          MethodCall {emeta = met,
+                      typeArguments = [],
+                      target = collection,
+                      name = methodName,
+                      args = [Closure {emeta = emeta,
+                                       eparams = [Param {pmeta = Meta.meta (Meta.getPos met),
+                                                         pmut = Val,
+                                                         pname = forVar ,
+                                                         ptype = intType, -- same problem as before, have to get the type. Hardcoded
+                                                         pdefault = Nothing }],
+                                       mty = Nothing,
+                                       body = body}]
+                      }
+
+-- Variables that might be mutated in for-loops are boxed
+--boxMutableVariables = extend boxMutableVariables'
+--  extendMutableVariables' e@For{emeta, sources, body} = 0

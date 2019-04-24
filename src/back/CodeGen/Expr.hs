@@ -677,7 +677,11 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (_,tbody) <- translate body
     return (unit, While (StatAsExpr ncond tcond) (Statement tbody))
 
-  translate for@(A.For {A.name, A.step, A.src, A.body}) = do
+  -- JOY for-comprehension TODO--will need to fix this, but need help!!
+  {-translate for@(A.For {A.sources, A.body}) = do
+      (bodyN, bodyT) <- translate body-}
+
+  {-translate for@(A.For {A.name, A.step, A.src, A.body}) = do
     indexVar <- Var <$> Ctx.genNamedSym "index"
     eltVar   <- Var <$> Ctx.genNamedSym (show name)
     startVar <- Var <$> Ctx.genNamedSym "start"
@@ -746,7 +750,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     where
       translateSrc src selector var rhs
           | A.isRangeLiteral src = translate (selector src)
-          | otherwise = return (var, Assign (Decl (int, var)) rhs)
+          | otherwise = return (var, Assign (Decl (int, var)) rhs) -}
 
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.genNamedSym "ite"

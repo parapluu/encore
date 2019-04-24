@@ -1443,8 +1443,21 @@ expr = notFollowedBy nl >>
         cond <- expression
         reserved "then"
         return $ \thn -> Unless{emeta, cond, thn}
+      -- JOY for-comprehension
+      for = blockedConstruct $  do
+        emeta <- buildMeta
+        reserved "for"
+        sources <- option [] $ (commaSep getForSource)
+        reserved "do"
+        return $ \body -> For{emeta, sources, body}
+        where
+          getForSource = do
+             forVar <- Name <$> identifier
+             reservedOp "<-"
+             collection <- expression
+             return ForSource {forVar, collection}
 
-      for = blockedConstruct $ do
+      {-for = blockedConstruct $ do
         emeta <- buildMeta
         reserved "for"
         name <- Name <$> identifier
@@ -1454,7 +1467,7 @@ expr = notFollowedBy nl >>
         step <- option (IntLiteral stepMeta 1)
                        (do {reserved "by"; expression})
         reserved "do"
-        return $ \body -> For{emeta, name, src, step, body}
+        return $ \body -> For{emeta, name, src, step, body}-}
 
       while = blockedConstruct $ do
         emeta <- buildMeta

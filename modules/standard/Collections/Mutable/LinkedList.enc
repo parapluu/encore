@@ -4,6 +4,8 @@ import Data.Either
 import Data.Maybe
 import Collections.Mutable.Collection
 -- import Collections.Mutable.Iterable
+-- JOY for-comprehension
+import Collections.Mutable.Functor
 
 local class LinkedNode[t] : Id
   var value : t
@@ -16,7 +18,7 @@ local class LinkedNode[t] : Id
   end
 end
 
-local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id
+local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id + Functor[t](map(), flatMap())
   var first : Maybe[LinkedNode[t]]
   var last  : Maybe[LinkedNode[t]]
   var size  : int

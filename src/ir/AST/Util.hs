@@ -93,7 +93,11 @@ getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren DoWhile {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
-getChildren For {name, step, src, body} = [step, src, body]
+-- JOY for-comprehension
+getChildren For {sources, body} = body : concatMap getChildrenFor' sources
+ where
+    getChildrenFor' ForSource {collection} = [collection]
+-- getChildren For {name, step, src, body} = [step, src, body]
 getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
   where
     getChildrenClauses = concatMap getChildrenClause
@@ -173,7 +177,10 @@ putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [cond, body] e@(DoWhile {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
-putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
+-- JOY for-comprehension
+putChildren (body:sourceList) e@(For {sources}) =
+  e{body = body, sources = zipWith (\collec s -> s{collection = collec}) sourceList sources}
+--putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
 putChildren (arg:clauseList) e@(Match {clauses}) =
     e{arg = arg, clauses=putClausesChildren clauseList clauses}
     where putClausesChildren [] [] = []
@@ -443,8 +450,13 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           fvDecls (vars, expr) (free, bound) =
             let xs = map (qLocal . varName) vars
             in (freeVariables' bound expr ++ free, xs ++ bound)
-    freeVariables' bound e@For{name, step, src, body} =
-      freeVariables' (qLocal name:bound) =<< getChildren e
+    -- JOY for-comprehension not sure what to do here
+    freeVariables' bound e@For{sources, body} =
+      freeVariables' (getForVar++bound) =<< getChildren e
+      where
+        getForVar = map (\ForSource{forVar, collection} -> qLocal forVar) sources
+    {-freeVariables' bound e@For{name, step, src, body} =
+      freeVariables' (qLocal name:bound) =<< getChildren e -}
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
 
 markStatsInBody ty e
@@ -475,8 +487,13 @@ mark asParent s@Let{body, decls} =
   where
     markDecl (n, e) = (n, markAsExpr e)
 mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsStat body}
-mark asParent s@For{step, src, body} =
-  asParent s{step=markAsExpr step, src=markAsExpr src, body=markAsStat body}
+-- JOY for-comprehension, doesn't work, type matching is wrong.
+mark asParent s@For{sources, body} =
+  asParent s{sources = map markAsForSource sources, body=markAsStat body}
+  where
+    markAsForSource ForSource{forVar, collection} = ForSource {forVar, collection = markAsExpr collection}
+{-mark asParent s@For{step, src, body} =
+  asParent s{step=markAsExpr step, src=markAsExpr src, body=markAsStat body}-}
 mark asParent s =
   let
     children = AST.Util.getChildren s

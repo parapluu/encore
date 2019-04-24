@@ -369,15 +369,14 @@ ppExpr Repeat {name, times, body} =
     "repeat" <+> ppName name <+> "<-" <+> ppExpr times <+> "do" $+$
          indent (ppBody body) $+$
     "end"
-ppExpr For {name, step = IntLiteral{intLit = 1}, src, body} =
-    "for" <+> ppName name <+> "<-" <+> ppExpr src <+> "do" $+$
-         indent (ppBody body) $+$
+-- JOY for-comprehension
+ppExpr For {sources, body} =
+    "for" <+> commaSep (map ppForSource sources) <+> "do" $+$
+          indent (ppBody body) $+$
     "end"
-ppExpr For {name, step, src, body} =
-    "for" <+> ppName name <+> "<-" <+> ppExpr src <+>
-    "by" <+> ppExpr step <+> "do" $+$
-         indent (ppBody body) $+$
-    "end"
+    where
+      ppForSource (ForSource {forVar, collection}) =
+        ppName forVar <+> "<-" <+> ppExpr collection
 ppExpr Match {arg, clauses} =
     "match" <+> ppExpr arg <+> "with" $+$
          ppMatchClauses clauses $+$

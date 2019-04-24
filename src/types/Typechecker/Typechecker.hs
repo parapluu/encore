@@ -1722,33 +1722,43 @@ instance Checkable Expr where
                                         ,stop = eStop
                                         ,step = eStep}
 
-    --  E |- rng : Range
-    --  E, x : int |- e : ty
-    -- --------------------------
-    --  E |- for x <- rng e : ty
 
-    --  E |- arr : [ty]
-    --  E, x : int |- e : ty
-    -- --------------------------
-    --  E |- for x <- arr e : ty
-    doTypecheck for@(For {name, step, src, body}) =
-        do stepTyped <- doTypecheck step
-           srcTyped  <- doTypecheck src
-           let srcType = AST.getType srcTyped
+    -- JOY for-comprehension
+    doTypecheck for@(For {sources, body}) = do
+      ty <- returnType $ head sources -- first collection is also the retunr type
+      sourceTypes <- typeCheckSources sources
+      forVarList <- getForVarTypeList sources
+      bodyType <- typecheckBody forVarList body
+      return $ setType ty for{sources = sourceTypes,
+                                 body = bodyType}
+      where
+        typeCheckSources :: [ForSource] -> TypecheckM [ForSource]
+        typeCheckSources sourceList =  do
+          typedSources <- mapM typeCheckSource sourceList
+          return typedSources
 
-           unless (isArrayType srcType || isRangeType srcType) $
-             pushError src $ NonIterableError srcType
+        typeCheckSource fors@(ForSource{collection}) = do
+            collectionTyped <- doTypecheck collection
+            let collectionType = AST.getType collectionTyped
+            --unless (isIterableClass collectionType) $
+              --pushError collection $ NonIterableError collectionType
+            return fors{collection = setType collectionType collectionTyped}
 
-           let elementType = if isRangeType srcType
-                             then intType
-                             else getResultType srcType
-           bodyTyped <- typecheckBody elementType body
-           return $ setType unitType for{step = stepTyped
-                                        ,src  = srcTyped
-                                        ,body = bodyTyped}
-        where
-          addIteratorVariable ty = extendEnvironmentImmutable [(name, ty)]
-          typecheckBody ty = local (addIteratorVariable ty) . typecheck
+        returnType sour@(ForSource{forVar, collection}) = do
+          typedCollection <- doTypecheck collection
+          let eCollection = AST.getType typedCollection
+          return eCollection
+
+        getForVarTypeList sourceList = mapM getForVarType sourceList
+
+        getForVarType ForSource{forVar, collection} = do
+          collectionTyped <- doTypecheck collection
+          let collectionType = AST.getType collectionTyped
+          let forVarType = intType --TODO: fix this. Hårdkodat
+          return (forVar, forVarType)
+
+        addIteratorVariable forVarList = extendEnvironmentImmutable forVarList
+        typecheckBody forVarList = local (addIteratorVariable forVarList) . typecheck
 
    ---  |- ty
     --  E |- size : int

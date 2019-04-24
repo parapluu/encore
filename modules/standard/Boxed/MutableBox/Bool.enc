@@ -1,0 +1,20 @@
+-- This file was automatically converted by encorec
+
+module MutBool
+
+local class MutBool
+  var value : bool
+
+  def init(x : bool) : unit
+    this.value = x
+  end
+
+  def show() : String
+    string_from_bool(this.value)
+  end
+
+  def value() : bool
+    this.value
+  end
+
+end

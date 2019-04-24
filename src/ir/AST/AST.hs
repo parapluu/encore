@@ -600,6 +600,12 @@ data VarDecl =
              varType :: Type}
   deriving(Eq, Show)
 
+-- JOY for-comprehension
+data ForSource =
+     ForSource { forVar :: Name,
+                 collection :: Expr}
+     deriving(Eq, Show)
+
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}
           | Continue {emeta :: Meta Expr}
@@ -684,11 +690,15 @@ data Expr = Skip {emeta :: Meta Expr}
                     name :: Name,
                     times :: Expr,
                     body :: Expr}
+          -- JOY for-comprehension
           | For {emeta  :: Meta Expr,
-                 name   :: Name,
+                sources :: [ForSource],
+                  body   :: Expr}
+          {-| For {emeta  :: Meta Expr,
+                  name   :: Name,
                  step   :: Expr,
                  src    :: Expr,
-                 body   :: Expr}
+                 body   :: Expr}-}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
                    clauses :: [MatchClause]}
