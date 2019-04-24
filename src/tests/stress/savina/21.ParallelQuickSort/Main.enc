@@ -1,12 +1,16 @@
 import Random
 import ArrayList
+
 typedef Position = int
+
 fun left() : Position
   -(1)
 end
+
 fun right() : Position
   1
 end
+
 fun initial() : Position
   0
 end
@@ -84,18 +88,21 @@ end
 fun randomInitialArray(n : int, s : int, m : int) : ArrayList[int]
   var result = new ArrayList[int](n)
   val r = new Random(s)
-  for i <- [0..n - 1] do
-    result.add(r.random(m))
+  for i <- [0..size - 1] do
+    result.add(r.random(maxVal))
   end
   consume result
 end
-fun printArray(s : String, a : borrowed ArrayList[int]) : unit
-  if a.size() > 0 then
-    var result = string_from_int(a.at(0))
+
+fun printArray(s : String, list : borrowed ArrayList[int]) : unit
+  var n = list.size()
+
+  if n > 0 then
+    var result = string_from_int(list.at(0))
     var i = 1
-    while i < a.size() do
+    while i < n do
       result = result.concatenate(", ")
-      result = result.concatenate(string_from_int(a.at(i)))
+      result = result.concatenate(string_from_int(list.at(i)))
       i = i + 1
     end
     print("{}: {} \n", s, result)
@@ -103,16 +110,17 @@ fun printArray(s : String, a : borrowed ArrayList[int]) : unit
 end
 
 active class QuickSortActor : Id
-  var t : int
+  var seqThreshold : int
   var parent : QuickSortActor
   var result : ArrayList[int]
   var numFragments : int
-  var myPosition : Position
-  def init(parent : QuickSortActor, pos : Position, t : int, n : int) : unit
-    this.t = t
+  var myPosition : Position -- The position from the perspective of the parent, left or right part of original list
+
+  def init(parent : QuickSortActor, pos : Position, seqThreshold : int, n : int) : unit
+    this.seqThreshold = seqThreshold
     this.parent = parent
     this.result = new ArrayList[int](n)
-    this.numFragments = 0
+    this.numFragments = 0 -- Number of completed fragments, done when 3
     this.myPosition = pos
   end
   def done(var arr : ArrayList[int], position : Position) : unit
@@ -131,6 +139,7 @@ active class QuickSortActor : Id
       end
     end
   end
+
   def notify() : unit
     if this.parent != null then
       this.parent!done(consume this.result, this.myPosition)
@@ -160,6 +169,7 @@ active class QuickSortActor : Id
     end
   end
 end
+
 active class Main
   def argToInt(str : String) : int
     match str.to_int() with
@@ -172,14 +182,15 @@ active class Main
 
     end
   end
+
   def main(args : [String]) : unit
     let
-      n = 100 --1000000
-      m = 1152921504606846976 -- 2^60
-      t = 2048
-      s = 1024
+      numberOfElements  = 1000000
+      maxValue          = 1152921504606846976 -- 2^60
+      seqThreshold      = 2048
+      randomSeed        = 1024
     in
-      (new QuickSortActor(null, initial(), t, n))!sort(randomInitialArray(n, s, m))
+      (new QuickSortActor(null, initial(), seqThreshold, numberOfElements))!sort(randomInitialArray(numberOfElements, randomSeed, maxValue))
       println("Done!")
     end
   end

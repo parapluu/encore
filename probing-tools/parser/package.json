@@ -1,0 +1,6 @@
+{
+	"name": "parser",
+	"dependencies": {
+		"xml2js": "^0.4.19"
+	}
+}
