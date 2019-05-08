@@ -6,7 +6,5 @@ import Collections.Mutable.Collection
 local trait Functor[t]
   require def map[u](f : t -> u) : Collection[u]
   require def flatMap[u](f : t -> Functor[u]) : Collection[u]
-  --require def sideFlatMap[u](f : t -> unit) : unit
-  --  flatMap(f)
-  --end
+  require def foreach[u](f : t -> unit) : unit
 end
