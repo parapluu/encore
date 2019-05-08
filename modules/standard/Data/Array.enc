@@ -4,7 +4,7 @@ module Array
 
 -- new_with_default :: (int, a) -> [a]
 -- new_with_default(size, default) creates an array of size default
--- with each element 
+-- with each element
 fun new_with_default[a](size : int, default : a) : [a]
   val arr = new [a](size)
   for i <- [0 .. size - 1] do
@@ -91,6 +91,51 @@ fun map[a,b](f : a -> b, arr : [a]) : [b]
   ret
 end
 
+-- flatMap :: (a -> [b], [a]) -> [b]
+-- flatMap(f, arr) produces a new array containeing the results of applying f to
+-- the elements of arr
+-- This function is necessary for for-loops to work. Do not change without testing!
+-- TODO: write tests for these!!
+fun flatMap[a, b](f : a -> [b], arr : [a]) : [b]
+  val size = |arr|
+  var ret = new [b](0)
+  repeat i <- size do
+    var result = f(arr(i-1))
+    ret = concat(ret, result)
+  end
+
+  return ret
+end
+
+-- foreach(a -> unit, [a]) -> unit
+-- forach(f, arr) applied f to all elements of an array, without expecting a result.
+-- This function is necessary for for-loops to work. Do not change without testing!
+-- TODO: write tests for these!!
+fun foreach[a](f : a -> unit, arr : [a]) : unit
+  val size = |arr|
+  repeat i <- size do
+    f(arr(i-1))
+  end
+end
+
+-- concat :: ([a], [a]) -> [a]
+-- concat(firstArr, secondArr) produces a new array that is the concatination of
+-- the two input arrays.
+-- TODO: write tests for these!
+fun concat[a](firstArr : [a], secondArr : [a]) : [a]
+  val firstSize = |firstArr|
+  val secondSize = |secondArr|
+  val ret = new [a](firstSize + secondSize)
+  repeat i <- firstSize do
+    ret(i-1) = firstArr(i-1)
+  end
+  repeat i <- secondSize do
+    ret(i-1+firstSize) = secondArr(i-1)
+  end
+  return ret
+end
+
+
 -- show :: (a -> unit, [a]) -> unit
 -- show(showEl, arr) prints out array arr using function showEl to print the elements
 -- of the array
@@ -123,7 +168,7 @@ fun contains[t](arr : [t], to_find : t) : bool
 end
 
 -- contains_str :: ([String], String) -> bool
--- contains_str(arr, elem) is true if and only if elem appears in arr 
+-- contains_str(arr, elem) is true if and only if elem appears in arr
 -- tested using String.compare
 fun contains_str(arr : [String], to_find : String) : bool
   var retval = false
@@ -147,7 +192,7 @@ fun clone[t](src : [t]) : [t]
 end
 
 -- nclone :: ([t], int) -> Maybe[[t]]
--- nclone(arr,n) results in Just(arr') where arr' is a new array containing 
+-- nclone(arr,n) results in Just(arr') where arr' is a new array containing
 -- the first n elements of arr, in the case where n < |arr|, otherwise Nothing
 -- a new array containing the same contents as arr
 fun nclone[t](src : [t], n : uint) : Maybe[[t]]
@@ -161,4 +206,3 @@ fun nclone[t](src : [t], n : uint) : Maybe[[t]]
     Just(new_arr)
   end
 end
-

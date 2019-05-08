@@ -1453,9 +1453,10 @@ expr = notFollowedBy nl >>
         where
           getForSource = do
              forVar <- Name <$> identifier
+             let forVarType = Nothing
              reservedOp "<-"
              collection <- expression
-             return ForSource {forVar, collection}
+             return ForSource {forVar, forVarType, collection}
 
       {-for = blockedConstruct $ do
         emeta <- buildMeta

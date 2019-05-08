@@ -491,7 +491,7 @@ mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAs
 mark asParent s@For{sources, body} =
   asParent s{sources = map markAsForSource sources, body=markAsStat body}
   where
-    markAsForSource ForSource{forVar, collection} = ForSource {forVar, collection = markAsExpr collection}
+    markAsForSource ForSource{forVar, forVarType, collection} = ForSource {forVar, forVarType, collection = markAsExpr collection}
 {-mark asParent s@For{step, src, body} =
   asParent s{step=markAsExpr step, src=markAsExpr src, body=markAsStat body}-}
 mark asParent s =

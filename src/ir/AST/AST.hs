@@ -603,6 +603,7 @@ data VarDecl =
 -- JOY for-comprehension
 data ForSource =
      ForSource { forVar :: Name,
+                 forVarType :: Maybe Type,
                  collection :: Expr}
      deriving(Eq, Show)
 
@@ -694,11 +695,6 @@ data Expr = Skip {emeta :: Meta Expr}
           | For {emeta  :: Meta Expr,
                 sources :: [ForSource],
                   body   :: Expr}
-          {-| For {emeta  :: Meta Expr,
-                  name   :: Name,
-                 step   :: Expr,
-                 src    :: Expr,
-                 body   :: Expr}-}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
                    clauses :: [MatchClause]}

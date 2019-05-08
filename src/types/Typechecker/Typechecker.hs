@@ -1724,38 +1724,38 @@ instance Checkable Expr where
 
 
     -- JOY for-comprehension
+    -- returnType is unittye, is changed during the second typechecking when it has been desugaraed into a method call
     doTypecheck for@(For {sources, body}) = do
-      ty <- returnType $ head sources -- first collection is also the retunr type
-      sourceTypes <- typeCheckSources sources
+      sourcesTyped <- typeCheckSources sources
       forVarList <- getForVarTypeList sources
-      bodyType <- typecheckBody forVarList body
-      return $ setType ty for{sources = sourceTypes,
-                                 body = bodyType}
+      bodyTyped <- typecheckBody forVarList body
+      return $ setType unitType for{sources = sourcesTyped,
+                                      body = bodyTyped}
       where
         typeCheckSources :: [ForSource] -> TypecheckM [ForSource]
         typeCheckSources sourceList =  do
           typedSources <- mapM typeCheckSource sourceList
           return typedSources
-
-        typeCheckSource fors@(ForSource{collection}) = do
+        typeCheckSource fors@(ForSource{forVarType, collection}) = do
             collectionTyped <- doTypecheck collection
             let collectionType = AST.getType collectionTyped
-            --unless (isIterableClass collectionType) $
-              --pushError collection $ NonIterableError collectionType
-            return fors{collection = setType collectionType collectionTyped}
-
-        returnType sour@(ForSource{forVar, collection}) = do
-          typedCollection <- doTypecheck collection
-          let eCollection = AST.getType typedCollection
-          return eCollection
+            let forVarType = return $ getInnerType collectionType
+            return fors{forVarType = forVarType,
+                        collection = setType collectionType collectionTyped}
 
         getForVarTypeList sourceList = mapM getForVarType sourceList
-
         getForVarType ForSource{forVar, collection} = do
           collectionTyped <- doTypecheck collection
           let collectionType = AST.getType collectionTyped
-          let forVarType = intType --TODO: fix this. Hårdkodat
+          unless (isRefType collectionType || isArrayType collectionType || isRangeType collectionType) $
+             pushError collection $ NonIterableError collectionType
+          let forVarType = getInnerType collectionType
           return (forVar, forVarType)
+
+        getInnerType collectionType
+         | isArrayType collectionType = getResultType collectionType
+         | isRangeType collectionType = intType
+         | otherwise = head $ getTypeParameters collectionType
 
         addIteratorVariable forVarList = extendEnvironmentImmutable forVarList
         typecheckBody forVarList = local (addIteratorVariable forVarList) . typecheck

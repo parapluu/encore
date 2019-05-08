@@ -1,0 +1,20 @@
+-- This file was automatically converted by encorec
+
+module MutString
+
+local class MutString
+  var value : String
+
+  def init(x : String) : unit
+    this.value = x
+  end
+
+  def show() : String
+    this.value
+  end
+
+  def value() : String
+    this.value
+  end
+
+end

@@ -342,16 +342,18 @@ main =
        let optimizedTable = fmap optimizeProgram capturecheckedTable
 
        -- JOY for-comprehension
-
        -- Must type check again as desugaring i done in optimization
-       verbose options "== Typechecking =="
-       lastTypeCheckedTable <- typecheckProgramTable optimizedTable
+       --verbose options "== Typechecking 2 =="
+       --typecheckedTableTwo <- typecheckProgramTable optimizedTable
+
+       --verbose options "== Capturechecking 2 =="
+       --capturecheckedTableTwo <- capturecheckProgramTable typecheckedTableTwo
 
        verbose options "== Generating code =="
        let (mainDir, mainName) = dirAndName sourceName
            mainSource = mainDir </> mainName
        let fullAst = setProgramSource mainSource $
-                     compressProgramTable lastTypeCheckedTable
+                     compressProgramTable optimizedTable
 
        unless (TypecheckOnly `elem` options) $
          case checkForMainClass mainSource fullAst of

@@ -1,11 +1,16 @@
 module Optimizer.Optimizer(optimizeProgram) where
 
+
+import Debug.Trace
+import AST.PrettyPrinter
+
 import Identifiers
 import AST.AST
 import AST.Util
 import qualified AST.Meta as Meta
 import Types
 import Control.Applicative (liftA2)
+import Data.Maybe
 
 optimizeProgram :: Program -> Program
 optimizeProgram p@(Program{classes, traits, functions}) =
@@ -49,7 +54,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
 optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison,
-                   dropBorrowBlocks, forwardGeneral, forIntoFlatMapCall]
+                   dropBorrowBlocks, forwardGeneral] ++ [forDesugared]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -176,42 +181,89 @@ forwardGeneral = extend forwardGeneral'
 
     forwardGeneral' e = e
 
--- Desugars a for-loop into nested calls to map and flatMap:
+-- Desugars a for-loop into nested calls to map and flatMap and foreach:
 --
 -- for x <- listA, y <- listB, z <- ListC do
---      -- body of instructions
+--      fun
 -- end
 --
--- into
+-- into listA.flatMap(listB.flatMap(listC.map(fun)))
 --
--- listA.flatMap(listB.flatMap(listC.map(body)))
 -- Credit: kaeluka for the use of foldl1 and zipWith in this manner
-forIntoFlatMapCall = extend forIntoFlatMapCall'
+forDesugared = extend forDesugared'
   where
-    forIntoFlatMapCall' e@For{emeta, sources, body} =
+    forDesugared' :: Expr -> Expr
+    forDesugared' e@For{emeta, sources, body} =
       let
         n = length sources
-        methodCalls = replicate (n-1) (Name "flatMap") ++ [Name "map"]
-        setCalls = zipWith (intoMethodCall emeta) methodCalls sources
+        callNameList = if AST.AST.isCaptured e
+                      then replicate n (Name "foreach")
+                      else replicate (n-1) (Name "flatMap") ++ [Name "map"]
+        revSources = reverse sources
+        elemType = bodyType body
+        forprettyprint = nestCalls emeta callNameList sources body elemType
       in
-        foldl1 (\procCall call -> procCall . call) setCalls $ body
-      where
+        trace (show (ppExpr forprettyprint)) forprettyprint
+    forDesugared' e = e
 
-        intoMethodCall met methodName ForSource{forVar, collection} body =
-          MethodCall {emeta = met,
-                      typeArguments = [],
-                      target = collection,
-                      name = methodName,
-                      args = [Closure {emeta = emeta,
-                                       eparams = [Param {pmeta = Meta.meta (Meta.getPos met),
-                                                         pmut = Val,
-                                                         pname = forVar ,
-                                                         ptype = intType, -- same problem as before, have to get the type. Hardcoded
-                                                         pdefault = Nothing }],
-                                       mty = Nothing,
-                                       body = body}]
-                      }
+nestCalls :: Meta.Meta Expr -> [Name] -> [ForSource] -> Expr -> Type -> Expr -- nested MethodCalls and FunctionCalls
+nestCalls meta (name:_) (fs:[]) body elemType = intoCall meta name fs body elemType
+nestCalls meta (name:restOfNames) (fs:restFS) body elemType =
+  let nestedCall = intoCall meta name fs body elemType
+  in nestCalls meta restOfNames restFS nestedCall elemType
 
--- Variables that might be mutated in for-loops are boxed
---boxMutableVariables = extend boxMutableVariables'
---  extendMutableVariables' e@For{emeta, sources, body} = 0
+intoCall :: Meta.Meta Expr -> Name -> ForSource -> Expr -> Type -> Expr -- MethodCall or FunctionCall
+intoCall met callName ForSource{forVar, forVarType, collection} bodyOrMethodCall elemType =
+  if isRefType (getType collection)
+  then let
+        param = [intoParam met Val forVar forVarType]
+        arguments = [intoClosure met param Nothing bodyOrMethodCall]
+       in
+        intoMethodCall met [elemType] collection callName arguments
+   else let
+        param = [intoParam met Val forVar forVarType]
+        arguments = [intoClosure met param Nothing bodyOrMethodCall] ++ [collection]
+       in
+        intoFunctionCall met [(fromMaybe intType forVarType), elemType] callName arguments
+
+-- helper functions
+bodyType body = getType body
+
+-- Maybe these should be in a kind of Util file, or in AST?
+intoClosure meta parameters mty body =
+  Closure {emeta = meta,
+           eparams = parameters,
+           mty = mty,
+           body = body}
+
+intoParam emetaP mutP nameP maybeTyP =
+  Param {pmeta = Meta.meta (Meta.getPos emetaP),
+         pmut = mutP,
+         pname = nameP,
+         ptype = fromMaybe intType maybeTyP,
+         pdefault = Nothing}
+
+
+intoFunctionCall meta typeArg name arguments =
+  FunctionCall {emeta = meta,
+                typeArguments = typeArg,
+                qname = QName{qnspace = Nothing, qnsource = Nothing, qnlocal = name},
+                args = arguments}
+
+intoMethodCall meta typeArg object nam arguments =
+  MethodCall {emeta = meta,
+              typeArguments = typeArg,
+              target = object,
+              name = nam,
+              args = arguments}
+
+intoAssignment meta left right =
+  Assign {emeta = meta,
+          lhs = left,
+          rhs = right}
+
+intoFieldAccess met object nam =
+  FieldAccess{ emeta = met,
+               target = object,
+               name = nam}
+-- intoInit --??
