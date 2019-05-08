@@ -1458,18 +1458,6 @@ expr = notFollowedBy nl >>
              collection <- expression
              return ForSource {forVar, forVarType, collection}
 
-      {-for = blockedConstruct $ do
-        emeta <- buildMeta
-        reserved "for"
-        name <- Name <$> identifier
-        reservedOp "<-"
-        src <- expression
-        stepMeta <- buildMeta
-        step <- option (IntLiteral stepMeta 1)
-                       (do {reserved "by"; expression})
-        reserved "do"
-        return $ \body -> For{emeta, name, src, step, body}-}
-
       while = blockedConstruct $ do
         emeta <- buildMeta
         reserved "while"
