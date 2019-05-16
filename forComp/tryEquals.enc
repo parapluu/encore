@@ -1,0 +1,36 @@
+active class Equal
+
+  var num : int
+
+  def init() : unit
+    this.num = 3
+  end
+
+  def isEqual(num : int) : bool
+    return (this.num == num)
+  end
+
+end
+
+active class Main
+
+  def main(args : [String]) : unit
+
+    var n = match (args(1)).to_int() with
+              case Just(res) =>
+                res
+              end
+              case Nothing =>
+                0
+              end
+            end
+    var instance = new Equal()
+    var b = instance!isEqual(n)
+    print("They are equal? {}\n", get(b))
+
+    if ([1, 2, 3].isEqual([1, 2, 3])) then
+      print("It does not work!")
+    end
+
+  end
+end

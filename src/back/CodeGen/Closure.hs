@@ -38,7 +38,7 @@ translateClosure :: A.Expr -> [Type] -> ProgramTable -> CCode Toplevel
 translateClosure closure typeVars table
     | A.isClosure closure =
        let arrowType   = A.getType closure
-           resultType  = Ty.getResultType arrowType
+           resultType  = trace "src/CCGen/Closure: 41" Ty.getResultType arrowType
            argTypes    = Ty.getArgTypes arrowType
            params      = A.eparams closure
            body        = A.body closure

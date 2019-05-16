@@ -175,7 +175,7 @@ fun contains_str(arr : [String], to_find : String) : bool
   for x <- arr do
     if x.compare(to_find) == 0 then
       retval = true
-      break
+      --break TODO: Make break work inside for loop Joy
     end
   end
   retval

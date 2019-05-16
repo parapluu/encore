@@ -1,0 +1,25 @@
+--import Collections.Mutable.LinkedList
+active class Main
+
+  def main() : unit
+    ()
+    --print("hello")
+    --var list  = new LinkedList[int]()
+    --list.append(1)
+    --list.append(2)
+    --list.append(3)
+
+    --var list2  = new LinkedList[String]
+    --list2.append("Hund")
+    --list2.append("Katt")
+
+    {-var list3 = for x <- list, y <- list2 do
+                  print("{}\n", x)
+                end-}
+    --for x <- list do
+    --  print("{}\n", x)
+    --end
+
+
+  end
+end

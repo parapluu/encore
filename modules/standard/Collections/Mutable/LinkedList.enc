@@ -18,7 +18,7 @@ local class LinkedNode[t] : Id
   end
 end
 
-local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id + Functor[t](map(), flatMap())
+local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id --+ Functor[t](map(), flatMap())
   var first : Maybe[LinkedNode[t]]
   var last  : Maybe[LinkedNode[t]]
   var size  : int

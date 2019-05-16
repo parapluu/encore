@@ -34,7 +34,6 @@ import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Text.Printf (printf)
-import Debug.Trace
 
 -- | The top-level type checking function
 typecheckProgram :: Map FilePath LookupTable -> Program ->
@@ -1726,39 +1725,36 @@ instance Checkable Expr where
     -- JOY for-comprehension
     -- returnType is unittye, is changed during the second typechecking when it has been desugaraed into a method call
     doTypecheck for@(For {sources, body}) = do
-      sourcesTyped <- typeCheckSources sources
-      forVarList <- getForVarTypeList sources
-      bodyTyped <- typecheckBody forVarList body
+      sourcesTyped <- mapM typeCheckSource sources
+      nameList <- getNameTypeList sources
+      bodyTyped <- typecheckBody nameList body
       return $ setType unitType for{sources = sourcesTyped,
                                       body = bodyTyped}
       where
-        typeCheckSources :: [ForSource] -> TypecheckM [ForSource]
-        typeCheckSources sourceList =  do
-          typedSources <- mapM typeCheckSource sourceList
-          return typedSources
-        typeCheckSource fors@(ForSource{forVarType, collection}) = do
+        typeCheckSource fors@(ForSource{fsTy, collection}) = do
             collectionTyped <- doTypecheck collection
             let collectionType = AST.getType collectionTyped
-            let forVarType = return $ getInnerType collectionType
-            return fors{forVarType = forVarType,
-                        collection = setType collectionType collectionTyped}
+            let mtyType = return $ getInnerType collectionType
+            return fors{fsTy = mtyType
+                       ,collection = setType collectionType collectionTyped}
 
-        getForVarTypeList sourceList = mapM getForVarType sourceList
-        getForVarType ForSource{forVar, collection} = do
+        -- ADD typing TODO:
+        getNameTypeList sourceList = mapM getNameType sourceList
+        getNameType ForSource{fsName, collection} = do
           collectionTyped <- doTypecheck collection
           let collectionType = AST.getType collectionTyped
           unless (isRefType collectionType || isArrayType collectionType || isRangeType collectionType) $
              pushError collection $ NonIterableError collectionType
-          let forVarType = getInnerType collectionType
-          return (forVar, forVarType)
+          let nameType = getInnerType collectionType
+          return (fsName, nameType)
 
         getInnerType collectionType
          | isArrayType collectionType = getResultType collectionType
          | isRangeType collectionType = intType
-         | otherwise = head $ getTypeParameters collectionType
+         | isRefType collectionType = head $ getTypeParameters collectionType
+         | otherwise = undefined--TODO: THrow err0r
 
-        addIteratorVariable forVarList = extendEnvironmentImmutable forVarList
-        typecheckBody forVarList = local (addIteratorVariable forVarList) . typecheck
+        typecheckBody nameList = local (extendEnvironmentImmutable nameList) . typecheck
 
    ---  |- ty
     --  E |- size : int

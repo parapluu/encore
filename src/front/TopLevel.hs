@@ -9,6 +9,8 @@ file I/O.
 
 module Main where
 
+import Debug.Trace
+
 import System.Environment
 import System.Directory
 import System.IO
@@ -343,8 +345,11 @@ main =
 
        -- JOY for-comprehension
        -- Must type check again as desugaring i done in optimization
-       --verbose options "== Typechecking 2 =="
-       --typecheckedTableTwo <- typecheckProgramTable optimizedTable
+       -- verbose options "== Desugaring 2=="
+       -- let desugaredTable2 = fmap desugarProgram optimizedTable
+
+       verbose options "== Typechecking 2 =="
+       typecheckedTableTwo <- typecheckProgramTable optimizedTable
 
        --verbose options "== Capturechecking 2 =="
        --capturecheckedTableTwo <- capturecheckProgramTable typecheckedTableTwo
@@ -353,7 +358,7 @@ main =
        let (mainDir, mainName) = dirAndName sourceName
            mainSource = mainDir </> mainName
        let fullAst = setProgramSource mainSource $
-                     compressProgramTable optimizedTable
+                     compressProgramTable typecheckedTableTwo
 
        unless (TypecheckOnly `elem` options) $
          case checkForMainClass mainSource fullAst of

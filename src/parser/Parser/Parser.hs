@@ -1452,11 +1452,10 @@ expr = notFollowedBy nl >>
         return $ \body -> For{emeta, sources, body}
         where
           getForSource = do
-             forVar <- Name <$> identifier
-             let forVarType = Nothing
+             fsName <- Name <$> identifier
              reservedOp "<-"
              collection <- expression
-             return ForSource {forVar, forVarType, collection}
+             return ForSource {fsName, fsTy = Nothing, collection}
 
       while = blockedConstruct $ do
         emeta <- buildMeta

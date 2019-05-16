@@ -31,8 +31,8 @@ optimizeProgram p@(Program{classes, traits, functions}) =
             c{cmethods = map optimizeMethod cmethods}
         where
           addMainInitCall m@Method{mbody}
-            | isMainMethod cname (methodName m) =
-                let em = emeta mbody
+            | isMainMethod cname (methodName m) = trace (show "should be adding init here") m
+                {-let em = emeta mbody TODO: find out why this adds init in the weird way it does
                     this = setType cname
                            VarAccess{emeta = em, qname = qLocal thisName}
                     initCall = setType unitType
@@ -42,7 +42,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
                                          ,typeArguments = []
                                          ,args = []
                                          }
-                in m{mbody = Seq{emeta = emeta mbody, eseq = [initCall, mbody]}}
+                in m{mbody = Seq{emeta = emeta mbody, eseq = [initCall, mbody]}}-}
             | otherwise = m
 
       optimizeMethod m =
@@ -196,15 +196,18 @@ forDesugared = extend forDesugared'
     forDesugared' e@For{emeta, sources, body} =
       let
         n = length sources
-        callNameList = if AST.AST.isCaptured e
+        callNameList = if (AST.AST.isCaptured e) || (unitType == getType body)
                       then replicate n (Name "foreach")
                       else replicate (n-1) (Name "flatMap") ++ [Name "map"]
         revSources = reverse sources
-        elemType = bodyType body
-        forprettyprint = nestCalls emeta callNameList sources body elemType
+        elemType = getType body
+        forTrace = if isRangeType $ getType (collection (head sources))
+                   then e
+                   else nestCalls emeta callNameList sources body elemType
       in
-        trace (show (ppExpr forprettyprint)) forprettyprint
-    forDesugared' e = e
+       -- trace ("Afterwards                   " ++ (show (ppExpr forTrace))) forTrace
+       forTrace
+    forDesugared' e =  e
 
 nestCalls :: Meta.Meta Expr -> [Name] -> [ForSource] -> Expr -> Type -> Expr -- nested MethodCalls and FunctionCalls
 nestCalls meta (name:_) (fs:[]) body elemType = intoCall meta name fs body elemType
@@ -213,23 +216,64 @@ nestCalls meta (name:restOfNames) (fs:restFS) body elemType =
   in nestCalls meta restOfNames restFS nestedCall elemType
 
 intoCall :: Meta.Meta Expr -> Name -> ForSource -> Expr -> Type -> Expr -- MethodCall or FunctionCall
-intoCall met callName ForSource{forVar, forVarType, collection} bodyOrMethodCall elemType =
+intoCall met callName ForSource{fsName, fsTy, collection} bodyOrMethodCall elemType =
   if isRefType (getType collection)
   then let
-        param = [intoParam met Val forVar forVarType]
-        arguments = [intoClosure met param Nothing bodyOrMethodCall]
+        param = [intoParam met Val fsName fsTy]
+        arguments = [bodyOrMethodCall] --[intoClosure met param Nothing bodyOrMethodCall]
+        elemT = if callName == Name "foreach" -- this feels iffy
+                then []
+                else [elemType]
        in
-        intoMethodCall met [elemType] collection callName arguments
+        intoMethodCall met elemT collection callName arguments
    else let
-        param = [intoParam met Val forVar forVarType]
-        arguments = [intoClosure met param Nothing bodyOrMethodCall] ++ [collection]
+        param = [intoParam met Val fsName fsTy]
+        arguments = [bodyOrMethodCall] -- [intoClosure met param Nothing bodyOrMethodCall] ++ [collection]
+        elemT = if callName == Name "foreach" -- this feels iffy
+                then [fromMaybe intType fsTy]
+                else [(fromMaybe intType fsTy), elemType]
        in
-        intoFunctionCall met [(fromMaybe intType forVarType), elemType] callName arguments
+        intoFunctionCall met elemT callName arguments
 
--- helper functions
-bodyType body = getType body
 
--- Maybe these should be in a kind of Util file, or in AST?
+
+
+
+forBoxed = extends forBoxed'
+  where
+    forBoxed' for@(For {emeta, sources, body}) =
+      let listOfVar = getVar body
+        box = boxVar listOfVar
+        unBox = unBoxFreeVariables box freeVariables
+      in intoSeq emeta [box, for, unBox]
+
+getVar [] list = list
+getVar (b:ody) list
+  | isVarAccess b && isPrimitive (getType b) = trace (show (ppExpr b)) getFreeVariables ody (b:list)
+  | otherwise = getFreeVariables (ody ++ (getChildren b)) list -}
+
+boxVar primVar primType
+  | intType == primType = MutInteger
+  | uintType == primType = MutUinteger
+  | realType == primType = MutReal
+  | boolType == primType = MutBool
+  | stringType == primType = MutString
+  | charType == primType = MutChar
+
+getBoxType primType
+  | intType == primType = MutInteger
+  | uintType == primType = MutUinteger
+  | realType == primType = MutReal
+  | boolType == primType = MutBool
+  | stringType == primType = MutString
+  | charType == primType = MutChar
+
+intoBinop emeta op left right =
+  Binop {emeta = emeta,
+          binop = op,
+          loper = left,
+          roper = right}
+
 intoClosure meta parameters mty body =
   Closure {emeta = meta,
            eparams = parameters,
@@ -266,4 +310,8 @@ intoFieldAccess met object nam =
   FieldAccess{ emeta = met,
                target = object,
                name = nam}
+
+intoSeq meta listOfExpr =
+  Seq {emeta = meta,
+       eseq = listOfExpr}
 -- intoInit --??

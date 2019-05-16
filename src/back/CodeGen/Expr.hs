@@ -103,7 +103,7 @@ unsubstituteVar na = do
   return ()
 
 getRuntimeType :: A.Expr -> CCode Expr
-getRuntimeType = runtimeType . Ty.getResultType . A.getType
+getRuntimeType = trace "src/CCGen/Expr: 106" runtimeType . Ty.getResultType . A.getType
 
 newParty :: A.Expr -> CCode Name
 newParty (A.PartyPar {}) = partyNewParP
@@ -194,7 +194,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate ps@(A.PartySeq {A.par, A.seqfunc}) = do
     (npar, tpar) <- translate par
     (nseqfunc, tseqfunc) <- translate seqfunc
-    let runtimeT = (runtimeType . Ty.getResultType . A.getType) ps
+    let runtimeT = trace "src/CCGen/Expr: 197" (runtimeType . Ty.getResultType . A.getType) ps
     (nResultPar, tResultPar) <- namedTmpVar "par" (A.getType ps) $
                                 Call partySequence [AsExpr encoreCtxVar,
                                                     AsExpr npar,
@@ -207,7 +207,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (npinit, tpinit) <- translate pinit
     (npar, tpar) <- translate par
     let npinit'  = asEncoreArgT (translate $ A.getType pinit) npinit
-        runtimeT = (runtimeType . Ty.getResultType . A.getType) ps
+        runtimeT = trace "src/CCGen/Expr: 210" (runtimeType . Ty.getResultType . A.getType) ps
         reduceFn = partyReduce runassoc
     (nResultPar, tResultPar) <- namedTmpVar "par" (A.getType ps) $
                                 Call reduceFn [AsExpr encoreCtxVar
@@ -259,7 +259,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                   args = zipWith (get argName) argTypes [0..]
               in
                 concat $ zipWith expandPrintfArg argTypes args
-          | Ty.isMaybeType ty =
+          | Ty.isMaybeType ty = trace "src/CCGen/Expr: 262"
               [Ternary (isNothing argName)
                         (String "Nothing") $
                         showJust argName (Ty.getResultType ty)]
@@ -567,7 +567,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       do arrName <- Ctx.genNamedSym "array"
          targs <- mapM translate args
          let len = length args
-             ty  = Ty.getResultType $ A.getType arrLit
+             ty  = trace "src/CCGen/Expr: 570" Ty.getResultType $ A.getType arrLit
          let runtimeT = runtimeType ty
              theArrayDecl =
                 Assign (Decl (array, Var arrName))
@@ -677,6 +677,82 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (_,tbody) <- translate body
     return (unit, While (StatAsExpr ncond tcond) (Statement tbody))
 
+  translate for@(A.For {A.sources, A.body}) = do
+      let
+        getStep A.RangeLiteral{A.start, A.stop, A.step} = step
+        getOldFor A.ForSource{A.fsName, A.fsTy, A.collection} = (fsName, (getStep collection), collection)
+        (name, step, src) = getOldFor $ head sources
+
+      indexVar <- Var <$> Ctx.genNamedSym "index"
+      eltVar   <- Var <$> Ctx.genNamedSym (show name)
+      startVar <- Var <$> Ctx.genNamedSym "start"
+      stopVar  <- Var <$> Ctx.genNamedSym "stop"
+      stepVar  <- Var <$> Ctx.genNamedSym "step"
+      srcStepVar <- Var <$> Ctx.genNamedSym "src_step"
+
+      (srcN, srcT) <- if A.isRangeLiteral src
+                      then return (undefined, Comm "Range not generated")
+                      else translate src
+
+      let srcType = A.getType src
+          eltType = if Ty.isRangeType srcType
+                    then int
+                    else trace "src/CCGen/Expr: 700" translate $ Ty.getResultType (A.getType src)
+          srcStart = if Ty.isRangeType srcType
+                     then Call rangeStart [srcN]
+                     else Int 0 -- Arrays start at 0
+          srcStop  = if Ty.isRangeType srcType
+                     then Call rangeStop [srcN]
+                     else BinOp (translate ID.MINUS)
+                                (Call arraySize [srcN])
+                                (Int 1)
+          srcStep  = if Ty.isRangeType srcType
+                     then Call rangeStep [srcN]
+                     else Int 1
+
+      (srcStartN, srcStartT) <- translateSrc src A.start startVar srcStart
+      (srcStopN,  srcStopT)  <- translateSrc src A.stop stopVar srcStop
+      (srcStepN,  srcStepT)  <- translateSrc src A.step srcStepVar srcStep
+
+      (stepN, stepT) <- translate step
+      substituteVar name eltVar
+      (bodyN, bodyT) <- translate body
+      unsubstituteVar name
+
+      let stepDecl = Assign (Decl (int, stepVar))
+                            (BinOp (translate ID.TIMES) stepN srcStepN)
+          stepAssert = Statement $ Call rangeAssertStep [stepVar]
+          indexDecl = Seq [AsExpr $ Decl (int, indexVar)
+                          ,If (BinOp (translate ID.GT)
+                                     (AsExpr stepVar) (Int 0))
+                              (Assign indexVar srcStartN)
+                              (Assign indexVar srcStopN)]
+          cond = BinOp (translate ID.AND)
+                       (BinOp (translate ID.GTE) indexVar srcStartN)
+                       (BinOp (translate ID.LTE) indexVar srcStopN)
+          eltDecl =
+             Assign (Decl (eltType, eltVar))
+                    (if Ty.isRangeType srcType
+                     then AsExpr indexVar
+                     else AsExpr $ fromEncoreArgT eltType (Call arrayGet [srcN, indexVar]))
+          inc = Assign indexVar (BinOp (translate ID.PLUS) indexVar stepVar)
+          theBody = Seq [eltDecl, Statement bodyT, inc]
+          theLoop = While cond theBody
+
+      return (unit, Seq [srcT
+                          ,srcStartT
+                          ,srcStopT
+                          ,srcStepT
+                          ,stepT
+                          ,stepDecl
+                          ,stepAssert
+                          ,indexDecl
+                          ,theLoop])
+      where
+        translateSrc src selector var rhs
+            | A.isRangeLiteral src = translate (selector src)
+            | otherwise = return (var, Assign (Decl (int, var)) rhs)
+
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.genNamedSym "ite"
          (ncond, tcond) <- translate cond
@@ -715,7 +791,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           optionVar <- Ctx.genNamedSym "optionVal"
           nCheck <- Ctx.genNamedSym "optionCheck"
           let eMaybeVal = AsExpr $ Dot derefedArg (Nam "val")
-              valType = Ty.getResultType argty
+              valType = trace "src/CCGen/Expr: 794" Ty.getResultType argty
               eMaybeField = fromEncoreArgT (translate valType) eMaybeVal
               tVal = Assign (Decl (translate valType, Var optionVar)) eMaybeField
 
@@ -954,13 +1030,13 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate get@(A.Get{A.val})
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val
-           let resultType = translate (Ty.getResultType $ A.getType val)
+           let resultType = trace "src/CCGen/Expr: 1033" translate (Ty.getResultType $ A.getType val)
                theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
            tmp <- Ctx.genSym
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
     | Ty.isStreamType $ A.getType val =
         do (nval, tval) <- translate val
-           let resultType = translate (Ty.getResultType $ A.getType val)
+           let resultType = trace "src/CCGen/Expr: 1039" translate (Ty.getResultType $ A.getType val)
                theGet = fromEncoreArgT resultType (Call streamGet [encoreCtxVar, nval])
            tmp <- Ctx.genSym
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])
@@ -1008,14 +1084,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                ,A.typeArguments
                                                ,A.args}
       tmp <- Ctx.genSym
-      let resultType = translate (Ty.getResultType $ A.getType expr)
+      let resultType = trace "src/CCGen/Expr: 1087" translate (Ty.getResultType $ A.getType expr)
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, sendn])
           result =
             case eCtx of
               Ctx.MethodContext mdecl ->
                 (unit, Seq [sendt, dtraceExit, Return theGet])
               Ctx.ClosureContext clos ->
-                let ty = (Ty.getResultType $ A.getType clos)
+                let ty = trace "src/CCGen/Expr: 1094" (Ty.getResultType $ A.getType clos)
                 in (Var tmp, Seq [sendt, Assign (Decl (resultType, Var tmp)) theGet])
               _ -> error "Expr.hs: No context to forward"
       return result
@@ -1051,7 +1127,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       tmp <- Ctx.genSym
       result <- Ctx.genSym
       let nfchain = Var result
-          resultType = translate (Ty.getResultType $ A.getType fchain)
+          resultType = trace "src/CCGen/Expr: 1130" translate (Ty.getResultType $ A.getType fchain)
           theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nfchain])
       return $ (Var tmp, Seq $
                       [tfuture,
@@ -1096,7 +1172,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                                                 ,asEncoreArgT (translate ty) nval]
                           ,Return Skip]
                     Ctx.ClosureContext clos ->
-                      let ty = (Ty.getResultType $ A.getType clos)
+                      let ty = trace "src/CCGen/Expr: 1175" (Ty.getResultType $ A.getType clos)
                       in [dtraceClosureExit
                           ,Statement $ Call futureFulfil [AsExpr encoreCtxVar, AsExpr futVar
                                                 ,asEncoreArgT (translate ty) nval]
@@ -1109,7 +1185,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                     Ctx.MethodContext mdecl ->
                       [dtraceMethodExit thisVar (A.methodName mdecl), Return nval]
                     Ctx.ClosureContext clos ->
-                      let ty = (Ty.getResultType $ A.getType clos)
+                      let ty = trace "src/CCGen/Expr: 1188" (Ty.getResultType $ A.getType clos)
                       in [dtraceClosureExit,
                          Return $ asEncoreArgT (translate ty) nval]
                     _ -> error "Expr.hs: No context to return from"

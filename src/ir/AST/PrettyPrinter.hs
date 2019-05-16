@@ -375,8 +375,8 @@ ppExpr For {sources, body} =
           indent (ppBody body) $+$
     "end"
     where
-      ppForSource (ForSource {forVar, collection}) =
-        ppName forVar <+> "<-" <+> ppExpr collection
+      ppForSource (ForSource {fsName, collection}) =
+        ppName fsName <+> "<-" <+> ppExpr collection
 ppExpr Match {arg, clauses} =
     "match" <+> ppExpr arg <+> "with" $+$
          ppMatchClauses clauses $+$

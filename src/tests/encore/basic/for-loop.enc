@@ -5,13 +5,16 @@ fun showRange(r : Range) : unit
     println(i)
   end
 end
+
 active class Foo
   def msg(m : String) : unit
     println(m)
   end
 end
+
 active class Main
   var foo : int
+
   def main() : unit
     this.foo = 1
     let

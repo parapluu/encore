@@ -232,6 +232,8 @@ instance CaptureCheckable Expr where
     doCapturecheck e@While{body} =
         e `returns` body
 
+    --doCapturecheck e@For{sources, body} =
+
     doCapturecheck e@Get{val} =
         e `returns` val
 

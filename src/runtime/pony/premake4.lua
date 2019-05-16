@@ -64,6 +64,7 @@ solution "ponyrt"
     buildoptions {
       "-mcx16",
       "-pthread",
+      "-latomic",
       "-std=gnu11",
       "-march=native",
       "-Wunused-parameter",

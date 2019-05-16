@@ -1,0 +1,45 @@
+--These are preliminary for-comprehension tests
+-- The following assumptions have been made:
+--  1. It is possible to loop over empty structures
+--     which either does nothing,
+--     or returns a new struct that is empty.
+--  2. It is possible to loop over different kinds of structures
+--     If using for as a function call, it will return
+--     a similar struct as the first one listed, but perhaps
+--     containing elements of different type.
+--  3. Looping over multiple structures is done in a nested may:
+--        for x <- [1, 2], y <- [3, 4]
+--     would loop over all the y elements for every x element
+--  4. Mutable variables can be changed inside a for-loop
+--  5. To use for over a structure, it must only allow one type of element
+--     i.e. be homogenous, thus for example, it cannot iterate over a tuple
+--  6. The following tests assume there is a simple Container LinkedList which
+--     has support for map and flatMap.
+
+--None of these examples should compile at all
+
+active class Main
+
+  def main() : unit
+
+    -- indentation error
+    for x <- [1, 2, 3] do
+    end
+
+    -- "<- list" missing
+    for x do
+      x + 1
+    end
+
+    -- "<-" missing
+    for x = [1, 2, 3] do
+      x + 1
+    end
+
+    -- [] is not allowed in Encore
+    for x <- [] do
+      x + 1
+    end
+
+  end
+end

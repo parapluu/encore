@@ -1,0 +1,19 @@
+
+module MutUinteger
+
+local class MutUinteger
+  var value : uint
+
+  def init(x : uint) : unit
+    this.value = x
+  end
+
+  def show() : String
+    string_from_uint(this.value)
+  end
+
+  def value() : uint
+    this.value
+  end
+
+end

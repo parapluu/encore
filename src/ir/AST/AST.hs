@@ -602,8 +602,8 @@ data VarDecl =
 
 -- JOY for-comprehension
 data ForSource =
-     ForSource { forVar :: Name,
-                 forVarType :: Maybe Type,
+     ForSource { fsName :: Name,
+                 fsTy :: Maybe Type,
                  collection :: Expr}
      deriving(Eq, Show)
 
@@ -833,6 +833,10 @@ isNull _ = False
 isTask :: Expr -> Bool
 isTask Async {} = True
 isTask _ = False
+
+isBreak :: Expr -> Bool
+isBreak Break{} = True
+isBreak _ = False
 
 isRangeLiteral :: Expr -> Bool
 isRangeLiteral RangeLiteral {} = True
