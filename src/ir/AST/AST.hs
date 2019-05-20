@@ -691,7 +691,6 @@ data Expr = Skip {emeta :: Meta Expr}
                     name :: Name,
                     times :: Expr,
                     body :: Expr}
-          -- JOY for-comprehension
           | For {emeta  :: Meta Expr,
                 sources :: [ForSource],
                   body   :: Expr}
@@ -821,6 +820,10 @@ isIdClosure _ = False
 isForward :: Expr -> Bool
 isForward Forward {} = True
 isForward _ = False
+
+isAssign :: Expr -> Bool
+isAssign Assign {} = True
+isAssign _ = False
 
 isVarAccess :: Expr -> Bool
 isVarAccess VarAccess{} = True

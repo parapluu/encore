@@ -44,6 +44,7 @@ import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
 import Typechecker.Capturechecker(capturecheckProgram)
+import Optimizer.TypedDesugarer
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -340,19 +341,17 @@ main =
        verbose options "== Capturechecking =="
        capturecheckedTable <- capturecheckProgramTable typecheckedTable
 
+       verbose options "== Typed Desugaring ==" -- Forcomp
+       let desugaredTypedTable = fmap desugarTypedProgram capturecheckedTable
+
+       verbose options "== Re-Typechecking ==" -- ForComp
+       typecheckedTableTwo <- typecheckProgramTable desugaredTypedTable
+
+       verbose options "== Re-Capturechecking ==" --ForComp
+       capturecheckedTableTwo <- capturecheckProgramTable typecheckedTableTwo
+
        verbose options "== Optimizing =="
-       let optimizedTable = fmap optimizeProgram capturecheckedTable
-
-       -- JOY for-comprehension
-       -- Must type check again as desugaring i done in optimization
-       -- verbose options "== Desugaring 2=="
-       -- let desugaredTable2 = fmap desugarProgram optimizedTable
-
-       verbose options "== Typechecking 2 =="
-       typecheckedTableTwo <- typecheckProgramTable optimizedTable
-
-       --verbose options "== Capturechecking 2 =="
-       --capturecheckedTableTwo <- capturecheckProgramTable typecheckedTableTwo
+       let optimizedTable = fmap optimizeProgram capturecheckedTableTwo
 
        verbose options "== Generating code =="
        let (mainDir, mainName) = dirAndName sourceName

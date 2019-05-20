@@ -80,6 +80,7 @@ executable encorec
                , Makefile
                , ModuleExpander
                , Optimizer.Optimizer
+               , Optimizer.TypedDesugarer
                , Parser.Parser
                , SystemUtils
                , Typechecker.Capturechecker

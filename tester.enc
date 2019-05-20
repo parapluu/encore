@@ -1,5 +1,0 @@
-active class Main
-       def main(): unit
-       	    print("Hellog")
-       end
-end

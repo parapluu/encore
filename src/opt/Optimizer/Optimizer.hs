@@ -1,16 +1,11 @@
 module Optimizer.Optimizer(optimizeProgram) where
 
-
-import Debug.Trace
-import AST.PrettyPrinter
-
 import Identifiers
 import AST.AST
 import AST.Util
 import qualified AST.Meta as Meta
 import Types
 import Control.Applicative (liftA2)
-import Data.Maybe
 
 optimizeProgram :: Program -> Program
 optimizeProgram p@(Program{classes, traits, functions}) =
@@ -31,8 +26,8 @@ optimizeProgram p@(Program{classes, traits, functions}) =
             c{cmethods = map optimizeMethod cmethods}
         where
           addMainInitCall m@Method{mbody}
-            | isMainMethod cname (methodName m) = trace (show "should be adding init here") m
-                {-let em = emeta mbody TODO: find out why this adds init in the weird way it does
+            | isMainMethod cname (methodName m) =
+                let em = emeta mbody
                     this = setType cname
                            VarAccess{emeta = em, qname = qLocal thisName}
                     initCall = setType unitType
@@ -42,7 +37,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
                                          ,typeArguments = []
                                          ,args = []
                                          }
-                in m{mbody = Seq{emeta = emeta mbody, eseq = [initCall, mbody]}}-}
+                in m{mbody = Seq{emeta = emeta mbody, eseq = [initCall, mbody]}}
             | otherwise = m
 
       optimizeMethod m =
@@ -54,7 +49,7 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
 optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison,
-                   dropBorrowBlocks, forwardGeneral] ++ [forDesugared]
+                   dropBorrowBlocks, forwardGeneral]
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as
@@ -179,139 +174,4 @@ forwardGeneral = extend forwardGeneral'
                         ,ptype=paramType
                         ,pdefault= Nothing}
 
-    forwardGeneral' e = e
-
--- Desugars a for-loop into nested calls to map and flatMap and foreach:
---
--- for x <- listA, y <- listB, z <- ListC do
---      fun
--- end
---
--- into listA.flatMap(listB.flatMap(listC.map(fun)))
---
--- Credit: kaeluka for the use of foldl1 and zipWith in this manner
-forDesugared = extend forDesugared'
-  where
-    forDesugared' :: Expr -> Expr
-    forDesugared' e@For{emeta, sources, body} =
-      let
-        n = length sources
-        callNameList = if (AST.AST.isCaptured e) || (unitType == getType body)
-                      then replicate n (Name "foreach")
-                      else replicate (n-1) (Name "flatMap") ++ [Name "map"]
-        revSources = reverse sources
-        elemType = getType body
-        forTrace = if isRangeType $ getType (collection (head sources))
-                   then e
-                   else nestCalls emeta callNameList sources body elemType
-      in
-       -- trace ("Afterwards                   " ++ (show (ppExpr forTrace))) forTrace
-       forTrace
-    forDesugared' e =  e
-
-nestCalls :: Meta.Meta Expr -> [Name] -> [ForSource] -> Expr -> Type -> Expr -- nested MethodCalls and FunctionCalls
-nestCalls meta (name:_) (fs:[]) body elemType = intoCall meta name fs body elemType
-nestCalls meta (name:restOfNames) (fs:restFS) body elemType =
-  let nestedCall = intoCall meta name fs body elemType
-  in nestCalls meta restOfNames restFS nestedCall elemType
-
-intoCall :: Meta.Meta Expr -> Name -> ForSource -> Expr -> Type -> Expr -- MethodCall or FunctionCall
-intoCall met callName ForSource{fsName, fsTy, collection} bodyOrMethodCall elemType =
-  if isRefType (getType collection)
-  then let
-        param = [intoParam met Val fsName fsTy]
-        arguments = [bodyOrMethodCall] --[intoClosure met param Nothing bodyOrMethodCall]
-        elemT = if callName == Name "foreach" -- this feels iffy
-                then []
-                else [elemType]
-       in
-        intoMethodCall met elemT collection callName arguments
-   else let
-        param = [intoParam met Val fsName fsTy]
-        arguments = [bodyOrMethodCall] -- [intoClosure met param Nothing bodyOrMethodCall] ++ [collection]
-        elemT = if callName == Name "foreach" -- this feels iffy
-                then [fromMaybe intType fsTy]
-                else [(fromMaybe intType fsTy), elemType]
-       in
-        intoFunctionCall met elemT callName arguments
-
-
-
-
-
-forBoxed = extends forBoxed'
-  where
-    forBoxed' for@(For {emeta, sources, body}) =
-      let listOfVar = getVar body
-        box = boxVar listOfVar
-        unBox = unBoxFreeVariables box freeVariables
-      in intoSeq emeta [box, for, unBox]
-
-getVar [] list = list
-getVar (b:ody) list
-  | isVarAccess b && isPrimitive (getType b) = trace (show (ppExpr b)) getFreeVariables ody (b:list)
-  | otherwise = getFreeVariables (ody ++ (getChildren b)) list -}
-
-boxVar primVar primType
-  | intType == primType = MutInteger
-  | uintType == primType = MutUinteger
-  | realType == primType = MutReal
-  | boolType == primType = MutBool
-  | stringType == primType = MutString
-  | charType == primType = MutChar
-
-getBoxType primType
-  | intType == primType = MutInteger
-  | uintType == primType = MutUinteger
-  | realType == primType = MutReal
-  | boolType == primType = MutBool
-  | stringType == primType = MutString
-  | charType == primType = MutChar
-
-intoBinop emeta op left right =
-  Binop {emeta = emeta,
-          binop = op,
-          loper = left,
-          roper = right}
-
-intoClosure meta parameters mty body =
-  Closure {emeta = meta,
-           eparams = parameters,
-           mty = mty,
-           body = body}
-
-intoParam emetaP mutP nameP maybeTyP =
-  Param {pmeta = Meta.meta (Meta.getPos emetaP),
-         pmut = mutP,
-         pname = nameP,
-         ptype = fromMaybe intType maybeTyP,
-         pdefault = Nothing}
-
-
-intoFunctionCall meta typeArg name arguments =
-  FunctionCall {emeta = meta,
-                typeArguments = typeArg,
-                qname = QName{qnspace = Nothing, qnsource = Nothing, qnlocal = name},
-                args = arguments}
-
-intoMethodCall meta typeArg object nam arguments =
-  MethodCall {emeta = meta,
-              typeArguments = typeArg,
-              target = object,
-              name = nam,
-              args = arguments}
-
-intoAssignment meta left right =
-  Assign {emeta = meta,
-          lhs = left,
-          rhs = right}
-
-intoFieldAccess met object nam =
-  FieldAccess{ emeta = met,
-               target = object,
-               name = nam}
-
-intoSeq meta listOfExpr =
-  Seq {emeta = meta,
-       eseq = listOfExpr}
--- intoInit --??
+forwardGeneral' e = e

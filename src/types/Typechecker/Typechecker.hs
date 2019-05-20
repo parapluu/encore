@@ -1721,9 +1721,16 @@ instance Checkable Expr where
                                         ,stop = eStop
                                         ,step = eStep}
 
+    --  E |- rng : Range
+    --  E, x : int |- e : ty
+    -- --------------------------
+    --  E |- for x <- rng e : ty
 
-    -- JOY for-comprehension
-    -- returnType is unittye, is changed during the second typechecking when it has been desugaraed into a method call
+    --  E |- arr : [ty]
+    --  E, x : int |- e : ty
+    -- --------------------------
+    --  E |- for x <- arr e : ty TODO:  Fox thisis old typing comment
+    -- TODO: Mke sure all collections are the same collectiontype findFormalRefType, Use subtypeOf to ensure refType collections implements Functor.
     doTypecheck for@(For {sources, body}) = do
       sourcesTyped <- mapM typeCheckSource sources
       nameList <- getNameTypeList sources
@@ -1738,7 +1745,6 @@ instance Checkable Expr where
             return fors{fsTy = mtyType
                        ,collection = setType collectionType collectionTyped}
 
-        -- ADD typing TODO:
         getNameTypeList sourceList = mapM getNameType sourceList
         getNameType ForSource{fsName, collection} = do
           collectionTyped <- doTypecheck collection
@@ -1755,6 +1761,7 @@ instance Checkable Expr where
          | otherwise = undefined--TODO: THrow err0r
 
         typecheckBody nameList = local (extendEnvironmentImmutable nameList) . typecheck
+
 
    ---  |- ty
     --  E |- size : int

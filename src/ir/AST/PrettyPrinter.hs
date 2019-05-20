@@ -369,7 +369,6 @@ ppExpr Repeat {name, times, body} =
     "repeat" <+> ppName name <+> "<-" <+> ppExpr times <+> "do" $+$
          indent (ppBody body) $+$
     "end"
--- JOY for-comprehension
 ppExpr For {sources, body} =
     "for" <+> commaSep (map ppForSource sources) <+> "do" $+$
           indent (ppBody body) $+$

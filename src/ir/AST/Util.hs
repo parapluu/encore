@@ -93,11 +93,9 @@ getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren DoWhile {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
--- JOY for-comprehension
 getChildren For {sources, body} = body : concatMap getChildrenFor' sources
  where
     getChildrenFor' ForSource {collection} = [collection]
--- getChildren For {name, step, src, body} = [step, src, body]
 getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
   where
     getChildrenClauses = concatMap getChildrenClause
@@ -450,13 +448,10 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           fvDecls (vars, expr) (free, bound) =
             let xs = map (qLocal . varName) vars
             in (freeVariables' bound expr ++ free, xs ++ bound)
-    -- JOY for-comprehension not sure what to do here
     freeVariables' bound e@For{sources, body} =
       freeVariables' (getName++bound) =<< getChildren e
       where
         getName = map (\ForSource{fsName, collection} -> qLocal fsName) sources
-    {-freeVariables' bound e@For{name, step, src, body} =
-      freeVariables' (qLocal name:bound) =<< getChildren e -}
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
 
 markStatsInBody ty e

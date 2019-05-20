@@ -1,7 +1,0 @@
-import Collections.Mutable.LinkedList
-
-active class Main
-  def main() : unit
-    var list = new LinkedList()
-  end
-end

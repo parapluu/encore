@@ -1443,7 +1443,7 @@ expr = notFollowedBy nl >>
         cond <- expression
         reserved "then"
         return $ \thn -> Unless{emeta, cond, thn}
-      -- JOY for-comprehension
+        
       for = blockedConstruct $  do
         emeta <- buildMeta
         reserved "for"
