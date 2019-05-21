@@ -1,13 +1,6 @@
 # This file support line comments.
-# Note that the # must appear first on the line
+# Note that the comment character # must appear in the first position on a line
 
-#Pedsim util modules should not be considered tests
-stress/pedsim/Ped_util/Agent_passive
-stress/pedsim/Ped_util/Global_funs
-stress/pedsim/Ped_util/IO
-stress/pedsim/Ped_util/Quad_tree
-stress/pedsim/Ped_util/Regions
-stress/pedsim/Ped_util/XML
 #
 # Modules used by 'modules' tests
 # Should not be considered as tests
@@ -58,7 +51,26 @@ encore/stream/StreamIO
 # Module used by 'stress' tests
 # Should not be considered as a test
 #
+stress/savina/4.fjthrput/ThroughputActor
+stress/savina/4.fjthrput/ThroughputConfig
+
+stress/savina/5.fjcreate/ForkJoinActor
+stress/savina/5.fjcreate/ForkJoinConfig
+
 stress/savina/7.Chameneos/List
+
+stress/savina/9.concdict/ArrayList
+stress/savina/9.concdict/Hashmap
+stress/savina/9.concdict/More
+
+stress/savina/11.BndBuffer/Consumer
+stress/savina/11.BndBuffer/HackyQueue
+stress/savina/11.BndBuffer/Manager
+stress/savina/11.BndBuffer/Producer
+stress/savina/11.BndBuffer/RandomNewSyntax
+stress/savina/11.BndBuffer/Util
+
+stress/savina/12.DiningPhilosophers/Philosophers
 
 stress/savina/13.SleepingBarber/Barber
 stress/savina/13.SleepingBarber/MainTestBoundedFifo
@@ -68,6 +80,20 @@ stress/savina/13.SleepingBarber/FiFoBoundedList
 stress/savina/13.SleepingBarber/FiFoList
 
 stress/savina/14.CigaretteSmokers/CigaretteSmokers
+
+stress/savina/21.ParallelQuickSort/ArrayList
+
+stress/savina/29.PiPrecision/BigDecimal
+stress/savina/29.PiPrecision/PiPrecisionConfig
+
+# Pedsim util modules should not be considered tests
+#
+stress/pedsim/Ped_util/Agent_passive
+stress/pedsim/Ped_util/Global_funs
+stress/pedsim/Ped_util/IO
+stress/pedsim/Ped_util/Quad_tree
+stress/pedsim/Ped_util/Regions
+stress/pedsim/Ped_util/XML
 
 # Module used by 'big' tests are not tests
 #
