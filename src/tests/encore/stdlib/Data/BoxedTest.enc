@@ -1,8 +1,8 @@
-import Boxed.Immutable.Integer
-import Boxed.Immutable.Char
-import Boxed.Immutable.Real
-import Boxed.Immutable.Bool
-import Boxed.Immutable.Unit
+import Boxed.Integer
+import Boxed.Char
+import Boxed.Real
+import Boxed.Bool
+import Boxed.Unit
 
 active class Main
   def main() : unit

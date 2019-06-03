@@ -7,6 +7,9 @@ import qualified AST.Meta as Meta
 import Types
 import Control.Applicative (liftA2)
 
+import Debug.Trace
+import AST.PrettyPrinter
+
 optimizeProgram :: Program -> Program
 optimizeProgram p@(Program{classes, traits, functions}) =
     p{classes = map optimizeClass classes
@@ -49,7 +52,12 @@ optimizeProgram p@(Program{classes, traits, functions}) =
 -- | The functions in this list will be performed in order during optimization
 optimizerPasses :: [Expr -> Expr]
 optimizerPasses = [constantFolding, sugarPrintedStrings, tupleMaybeIdComparison,
-                   dropBorrowBlocks, forwardGeneral]
+                   dropBorrowBlocks, forwardGeneral, abortArgsRemoved]
+
+abortArgsRemoved :: Expr -> Expr
+abortArgsRemoved = extend abortArgsRemoved'
+  where abortArgsRemoved' a@Abort{args} = trace (show (ppExpr a{args = [] :: [Expr]})) a{args = [] :: [Expr]}
+        abortArgsRemoved' a = a
 
 -- Note that this is not intended as a serious optimization, but
 -- as an example to how an optimization could be made. As soon as

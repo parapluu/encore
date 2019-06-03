@@ -25,7 +25,6 @@ import Types as Ty
 
 import Control.Monad.State hiding (void)
 import Control.Arrow(first)
-import Debug.Trace
 
 varSubFromTypeVars :: [Type] -> [(ID.Name, CCode Lval)]
 varSubFromTypeVars = map each
@@ -38,7 +37,7 @@ translateClosure :: A.Expr -> [Type] -> ProgramTable -> CCode Toplevel
 translateClosure closure typeVars table
     | A.isClosure closure =
        let arrowType   = A.getType closure
-           resultType  = trace "src/CCGen/Closure: 41" Ty.getResultType arrowType
+           resultType  = Ty.getResultType arrowType
            argTypes    = Ty.getArgTypes arrowType
            params      = A.eparams closure
            body        = A.body closure

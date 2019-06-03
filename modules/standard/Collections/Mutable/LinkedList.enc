@@ -18,7 +18,7 @@ local class LinkedNode[t] : Id
   end
 end
 
-local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id --+ Functor[t](map(), flatMap())
+local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id + Functor[t](first, map(), flatMap(), foreach())
   var first : Maybe[LinkedNode[t]]
   var last  : Maybe[LinkedNode[t]]
   var size  : int
@@ -360,7 +360,8 @@ local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id --+ Fu
     return result
   end
 
-  def flatMap[u](f : t -> LinkedList[u]) : LinkedList[u]
+
+  def flatMap[u](f : t -> Functor[u]) : LinkedList[u]
     val result = new LinkedList[u]()
 
     var cursor = this.first

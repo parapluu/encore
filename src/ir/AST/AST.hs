@@ -19,6 +19,8 @@ import Identifiers
 import Types
 import AST.Meta as Meta hiding(Closure, Async)
 
+import Debug.Trace
+
 data FileDescriptor = Stdout | Stderr
   deriving (Show, Eq)
 
@@ -885,9 +887,14 @@ isValidPattern MaybeValue{mdt = NothingData} = True
 isValidPattern Tuple{args} = all isValidPattern args
 isValidPattern VarAccess{} = True
 isValidPattern Null{} = True
+isValidPattern ExtractorPattern{} = True
 isValidPattern e
     | isPrimitiveLiteral e = True
-    | otherwise = False
+    | otherwise = trace (show (e)) False
+
+isExtractorPattern :: Expr -> Bool
+isExtractorPattern ExtractorPattern{} = True
+isExtractorPattern _ = False
 
 isImpure :: Expr -> Bool
 isImpure MethodCall {} = True

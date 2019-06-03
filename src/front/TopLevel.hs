@@ -341,13 +341,13 @@ main =
        verbose options "== Capturechecking =="
        capturecheckedTable <- capturecheckProgramTable typecheckedTable
 
-       verbose options "== Typed Desugaring ==" -- Forcomp
+       verbose options "== Typed Desugaring =="
        let desugaredTypedTable = fmap desugarTypedProgram capturecheckedTable
 
-       verbose options "== Re-Typechecking ==" -- ForComp
+       verbose options "== Re-Typechecking =="
        typecheckedTableTwo <- typecheckProgramTable desugaredTypedTable
 
-       verbose options "== Re-Capturechecking ==" --ForComp
+       verbose options "== Re-Capturechecking =="
        capturecheckedTableTwo <- capturecheckProgramTable typecheckedTableTwo
 
        verbose options "== Optimizing =="

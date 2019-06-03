@@ -482,13 +482,10 @@ mark asParent s@Let{body, decls} =
   where
     markDecl (n, e) = (n, markAsExpr e)
 mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsStat body}
--- JOY for-comprehension
 mark asParent s@For{sources, body} =
-  asParent s{sources = map markAsForSource sources, body=markAsStat body}
+  asParent s{sources = map markAsForSource sources, body=markAsExpr body}
   where
     markAsForSource ForSource{fsName, fsTy, collection} = ForSource {fsName, fsTy, collection = markAsExpr collection}
-{-mark asParent s@For{step, src, body} =
-  asParent s{step=markAsExpr step, src=markAsExpr src, body=markAsStat body}-}
 mark asParent s =
   let
     children = AST.Util.getChildren s

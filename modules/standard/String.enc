@@ -395,6 +395,7 @@ read class String : Id + Hashable + Eq[String](compare(),length,cstring)
     end
   end
 
+
   def at(i : int) : char
     val s = this.cstring
     if (i >= 0) && (i < this.length()) then
@@ -504,5 +505,36 @@ read class String : Id + Hashable + Eq[String](compare(),length,cstring)
     else
       Nothing
     end
+  end
+end
+
+-- TODO: put this class in a seperate file
+read class RRange
+  val start : int
+  val stop : int
+  val step : int
+
+  def init(start : int, stop : int, step : int) : unit
+    this.start = start
+    this.stop = stop
+    this.step = step
+  end
+
+  def foreach(f : local ((int) -> unit)) : unit
+    var current = this.start
+    while (current <= this.stop) do
+      f(current)
+      current += this.step
+    end
+  end
+end
+
+-- TODO: put this class in a seperate file
+local class MutBox[t]
+
+  var value : t
+
+  def init( v : t) : unit
+    this.value = v
   end
 end

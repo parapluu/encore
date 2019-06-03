@@ -72,8 +72,8 @@ end
 -- count(pred, arr) counts the number of elements of arr satisfying predicate pred
 fun count[a](pred : a -> bool, arr : [a]) : int
   var count = 0
-  for a <- arr do
-    if pred(a) then
+  for x <- arr do
+    if pred(x) then
       count += 1
     end
   end
@@ -85,8 +85,10 @@ end
 -- elements of arr
 fun map[a,b](f : a -> b, arr : [a]) : [b]
   val ret = new [b](|arr|)
-  for i <- [0 .. |arr|-1] do
+  var i = 0
+  while (i < |arr|-1) do
     ret(i) = f((arr)(i))
+    i += 1
   end
   ret
 end
@@ -99,11 +101,12 @@ end
 fun flatMap[a, b](f : a -> [b], arr : [a]) : [b]
   val size = |arr|
   var ret = new [b](0)
-  repeat i <- size do
+  var i = 0
+  while (i < |arr|-1) do
     var result = f(arr(i-1))
     ret = concat(ret, result)
+    i += 1
   end
-
   return ret
 end
 
@@ -111,7 +114,7 @@ end
 -- forach(f, arr) applied f to all elements of an array, without expecting a result.
 -- This function is necessary for for-loops to work. Do not change without testing!
 -- TODO: write tests for these!!
-fun foreach[a](f : a -> unit, arr : [a]) : unit
+fun foreach[a](f : local ((a) -> unit), arr : [a]) : unit
   val size = |arr|
   repeat i <- size do
     f(arr(i-1))
@@ -161,7 +164,7 @@ fun contains[t](arr : [t], to_find : t) : bool
   for x <- arr do
     if x == to_find then
       retval = true
-      break
+      -- break TODO: fix break!
     end
   end
   retval

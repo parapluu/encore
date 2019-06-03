@@ -2,11 +2,11 @@ module Maybe
 
 import qualified Data.Array as A
 
--- This package implements common functions for operating on 
+-- This package implements common functions for operating on
 -- Maybe types. It is inspired heavily by Data.Maybe in Haskell.
 
--- unjust :: Maybe[a] -> a 
--- unjust(mval) eliminates the Just constructor, assuming that the 
+-- unjust :: Maybe[a] -> a
+-- unjust(mval) eliminates the Just constructor, assuming that the
 -- mval is Just(x). Results in an error otherwise
 fun unjust[a](mval : Maybe[a]) : a
   match mval with
@@ -18,8 +18,8 @@ fun unjust[a](mval : Maybe[a]) : a
   end
 end
 
--- unjust_with_default :: (a, Maybe[a]) -> a 
--- unjust_with_default(default, mval) eliminates the Just constructor from mval, 
+-- unjust_with_default :: (a, Maybe[a]) -> a
+-- unjust_with_default(default, mval) eliminates the Just constructor from mval,
 -- assuming that the input value is Just(x). Results in an default, otherwise
 fun unjust_with_default[a](default : a, mval : Maybe[a]) : a
   maybe(default, id[a], mval)
@@ -54,7 +54,7 @@ fun is_just[a](mval : Maybe[a]) : bool
     case Nothing => false
   end
 end
-  
+
 -- is_nothing :: Maybe[a] -> bool
 -- is_nothing(mval) is true whenever mval is Nothing
 fun is_nothing[a](mval : Maybe[a]) : bool
@@ -91,9 +91,9 @@ end
 fun cat_maybes[a](marr : [Maybe[a]]) : [a]
   val arr = new [a](A.count(is_just[a], marr))  -- why do I need [a]?
   var count = 0
-  for a <- marr do
-    if is_just(a) then
-      arr(count) = unjust(a)
+  for b <- marr do
+    if is_just(b) then
+      arr(count) = unjust(b)
       count += 1
     end
   end
@@ -101,9 +101,8 @@ fun cat_maybes[a](marr : [Maybe[a]]) : [a]
 end
 
 -- map_maybe :: (a -> Maybe[a], [a]) -> [b]
--- map_maybe(f, arr) maps the function f on the array producing a new array, 
+-- map_maybe(f, arr) maps the function f on the array producing a new array,
 -- filtering out elements that result in Nothing
 fun map_maybe[a,b](f : a -> Maybe[b], arr : [a]) : [b]
   cat_maybes[b](A.map[a, Maybe[b]](f, arr))
 end
-

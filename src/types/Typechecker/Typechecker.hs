@@ -583,6 +583,7 @@ instance Checkable Expr where
     --  E |- () : unit
     doTypecheck skip@(Skip {}) = return $ setType unitType skip
 
+    doTypecheck e@(ExtractorPattern{}) = return e
     --
     -- ----------------
     --  E |- break : unit
@@ -1265,19 +1266,23 @@ instance Checkable Expr where
             | isValidPattern pattern = hasType pattern argty
             | otherwise = tcError $ InvalidPatternError pattern
 
-        checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
-          vars <- getPatternVars pt mcpattern
-          let duplicates = vars \\ nub vars
-          unless (null duplicates) $
-                 tcError $
-                 DuplicatePatternVarError (fst (head duplicates)) mcpattern
-          let withLocalEnv = local (extendEnvironmentImmutable vars)
-          ePattern <- withLocalEnv $ checkPattern mcpattern pt
-          eHandler <- withLocalEnv $ typecheck mchandler
-          eGuard <- withLocalEnv $ hasType mcguard boolType
-          return $ clause {mcpattern = extend makePattern ePattern
-                          ,mchandler = eHandler
-                          ,mcguard = eGuard}
+        checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} =
+          if isExtractorPattern mcpattern
+          then return clause
+          else
+            do
+            vars <- getPatternVars pt mcpattern
+            let duplicates = vars \\ nub vars
+            unless (null duplicates) $
+                   tcError $
+                   DuplicatePatternVarError (fst (head duplicates)) mcpattern
+            let withLocalEnv = local (extendEnvironmentImmutable vars)
+            ePattern <- withLocalEnv $ checkPattern mcpattern pt
+            eHandler <- withLocalEnv $ typecheck mchandler
+            eGuard <- withLocalEnv $ hasType mcguard boolType
+            return $ clause {mcpattern = extend makePattern ePattern
+                            ,mchandler = eHandler
+                            ,mcguard = eGuard}
 
     doTypecheck borrow@(Borrow{target, name, body}) = do
       eTarget <- typecheck target
@@ -1735,8 +1740,9 @@ instance Checkable Expr where
       sourcesTyped <- mapM typeCheckSource sources
       nameList <- getNameTypeList sources
       bodyTyped <- typecheckBody nameList body
-      return $ setType unitType for{sources = sourcesTyped,
-                                      body = bodyTyped}
+      let returnType = getRetType bodyTyped $ head sourcesTyped
+      return $ setType returnType for{sources = sourcesTyped
+                                      ,body = bodyTyped}
       where
         typeCheckSource fors@(ForSource{fsTy, collection}) = do
             collectionTyped <- doTypecheck collection
@@ -1749,18 +1755,28 @@ instance Checkable Expr where
         getNameType ForSource{fsName, collection} = do
           collectionTyped <- doTypecheck collection
           let collectionType = AST.getType collectionTyped
-          unless (isRefType collectionType || isArrayType collectionType || isRangeType collectionType) $
+          unless (isRefType collectionType || isArrayType collectionType) $
              pushError collection $ NonIterableError collectionType
           let nameType = getInnerType collectionType
           return (fsName, nameType)
 
         getInnerType collectionType
          | isArrayType collectionType = getResultType collectionType
-         | isRangeType collectionType = intType
+         | isRangeObjectType collectionType = intType
          | isRefType collectionType = head $ getTypeParameters collectionType
          | otherwise = undefined--TODO: THrow err0r
 
-        typecheckBody nameList = local (extendEnvironmentImmutable nameList) . typecheck
+        typecheckBody nameList = local (extendEnvironmentImmutable nameList) . doTypecheck
+
+        getRetType body ForSource{collection} =
+          let paraType = AST.getType body
+              collectionType = AST.getType collection
+              rettype
+                | isArrayType collectionType = setResultType collectionType paraType
+                | isRangeObjectType collectionType = collectionType
+                | isRefType collectionType = setTypeParameters collectionType [paraType]
+          in rettype
+
 
 
    ---  |- ty
@@ -1860,7 +1876,7 @@ instance Checkable Expr where
                   (length expectedTypes) (length args)
       eArgs <- mapM typecheck args
       matchArguments args expectedTypes
-      return $ setType bottomType abort{args=([]::[Expr])}
+      return $ setType bottomType abort{args = eArgs} --args=([]::[Expr])} TODO: is this allowed?
 
     doTypecheck stringLit@(StringLiteral {}) = do
       when (Util.isStatement stringLit) $
@@ -2240,7 +2256,7 @@ matchTypes expected ty
         bindings <- matchArgs (getTypeParameters expected) (getTypeParameters ty)
           `catchError` (\case
                          TCError (TypeMismatchError _ _) _ ->
-                             tcError $ TypeMismatchError ty expected
+                             tcError $ TypeMismatchError $ trace "2259" $ ty expected
                          TCError err _ -> tcError err
                        )
         let expected' = replaceTypeVars bindings expected

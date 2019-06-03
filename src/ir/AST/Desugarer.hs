@@ -496,6 +496,13 @@ desugar Unless{emeta, cond = originalCond, thn} =
               ,thn
               ,els = Skip (cloneMeta emeta)
               }
+-- Desugars
+--  [e1 .. e2] by e3
+-- into
+-- new RRange(e1, e2, e3)
+desugar RangeLiteral{emeta, start, stop, step} =
+  NewWithInit{emeta, ty, args = [start, stop, step]}
+  where ty = rangeObjectType
 
 -- Desugars
 --   repeat id <- e1 e2

@@ -45,7 +45,7 @@ shortenPrelude preludePaths source =
     then basename source
     else source
 
-stdLib source = [lib "String", lib "Std"]
+stdLib source = [lib "String", lib "Std", lib "Data/Array"]
     where
       lib s = Import{imeta = meta $ newPos (initialPos source)
                     ,itarget = explicitNamespace [Name s]

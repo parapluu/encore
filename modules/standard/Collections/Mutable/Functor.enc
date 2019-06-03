@@ -1,10 +1,7 @@
--- JOY for-comprehension
 module Functor
 
-import Collections.Mutable.Collection
-
 local trait Functor[t]
-  require def map[u](f : t -> u) : Collection[u]
-  require def flatMap[u](f : t -> Functor[u]) : Collection[u]
-  require def foreach[u](f : t -> unit) : unit
+  require def map[u](f : t -> u) : Functor[u]
+  require def flatMap[u](f : t -> Functor[u]) : Functor[u]
+  require def foreach(f : local ((t) -> unit)) : unit
 end
