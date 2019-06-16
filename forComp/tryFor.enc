@@ -1,6 +1,16 @@
 import Collections.Mutable.LinkedList
-active class Main
 
+fun accum(mun : int) : int
+  mun + 1
+end
+
+fun useList(list : LinkedList[(int, String)]) : unit
+  for elem <- list do
+    print("{}", elem)
+  end
+end
+
+active class Main
   def main() : unit
 
     var list  = new LinkedList[int]()
@@ -8,17 +18,16 @@ active class Main
     list.append(2)
     list.append(3)
 
+    var list2  = new LinkedList[String]()
+    list2.append("katt")
+    list2.append("katt")
+    list2.append("katt")
+
     var acc = 0
-    var returnArray = for elem <- list do
-                        acc += elem
-                        acc
-                      end
+    useList(for elem <- list, el <- list2 do
+                    (elem, el)
+            end)
 
-    print("{}\n", acc)
-
-    for elem <- returnArray do
-      print("{}\n", elem)
-    end
 
     {-var list  = new LinkedList[int]()
     list.append(1)
