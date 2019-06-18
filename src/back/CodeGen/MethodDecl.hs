@@ -104,7 +104,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
       argNames = map (AsLval . argName) encArgNames
       argTypes = map translate encArgTypes
       subst = [(ID.thisName, thisVar)] ++
-        varSubFromTypeVars typeVars ++
+        varSubFromTypeVars (typeVars ++ mTypeVars) ++
         zip encArgNames argNames
       ctx = Ctx.setMtdCtx (Ctx.new subst newTable) mdecl
       forwardingCtx = Ctx.setMtdCtx(Ctx.newWithForwarding subst newTable) mdecl
@@ -125,7 +125,7 @@ translateGeneral mdecl@(A.Method {A.mbody, A.mlocals})
         (Deref $ Cast (Ptr . AsType $ classTypeName cname) thisVar)
         `Dot`
         name
-      closures = map (\clos -> translateClosure clos typeVars newTable)
+      closures = map (\clos -> translateClosure clos (typeVars ++ mTypeVars) newTable)
                      (reverse (Util.filter A.isClosure mbody))
 
       localize cls prefix fun =
