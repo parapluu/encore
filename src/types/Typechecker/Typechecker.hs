@@ -26,7 +26,7 @@ import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
 import qualified AST.Util as Util (freeVariables, filter, markStatsInBody,
-                                  isStatement, isForwardInExpr)
+                                  isStatement, isForwardInExpr, filter)
 import AST.PrettyPrinter
 import AST.Util(extend)
 import Types as Ty
@@ -1737,24 +1737,35 @@ instance Checkable Expr where
     --  E |- for x <- arr e : ty TODO:  Fox thisis old typing comment
     -- TODO: Mke sure all collections are the same collectiontype findFormalRefType, Use subtypeOf to ensure refType collections implements Functor.
     doTypecheck for@(For {sources, body}) = do
-      sourcesTyped <- mapM typeCheckSource sources
-      nameList <- getNameTypeList sources
+      sourceType <- firstSourceType $ head sources
+      sourcesTyped <- mapM (typeCheckSource sourceType) sources
+      nameList <- getNameTypeList sourcesTyped
       bodyTyped <- typecheckBody nameList body
       let returnType = getRetType bodyTyped $ head sourcesTyped
       return $ setType returnType for{sources = sourcesTyped
                                       ,body = bodyTyped}
       where
-        typeCheckSource fors@(ForSource{fsTy, collection}) = do
+        typeCheckSource sourceType fors@(ForSource{fsTy, collection}) = do
             collectionTyped <- doTypecheck collection
             let collectionType = AST.getType collectionTyped
+            formalType <- firstSourceType fors
             let mtyType = return $ getInnerType collectionType
+            unless (formalType == sourceType) $
+              pushError collection $ TypeMismatchError formalType sourceType
             return fors{fsTy = mtyType
                        ,collection = setType collectionType collectionTyped}
 
+        firstSourceType ForSource{fsTy, collection} = do
+            collectionTyped <- doTypecheck collection
+            let collectionType = AST.getType collectionTyped
+            formal <- if isRefType collectionType
+                      then findFormalRefType collectionType
+                      else return collectionType
+            return formal
+
         getNameTypeList sourceList = mapM getNameType sourceList
         getNameType ForSource{fsName, collection} = do
-          collectionTyped <- doTypecheck collection
-          let collectionType = AST.getType collectionTyped
+          let collectionType = AST.getType collection
           unless (isRefType collectionType || isArrayType collectionType) $
              pushError collection $ NonIterableError collectionType
           let nameType = getInnerType collectionType
@@ -1771,9 +1782,12 @@ instance Checkable Expr where
         getRetType body ForSource{collection} =
           let paraType = AST.getType body
               collectionType = AST.getType collection
+              containsBreak exp = not $ null $ Util.filter isBreak exp
               rettype
+                | containsBreak body = maybeType unitType
+                | AST.getType body == unitType = unitType
                 | isArrayType collectionType = setResultType collectionType paraType
-                | isRangeObjectType collectionType = collectionType
+                | isRangeObjectType collectionType = unitType
                 | isRefType collectionType = setTypeParameters collectionType [paraType]
           in rettype
 
@@ -2256,7 +2270,7 @@ matchTypes expected ty
         bindings <- matchArgs (getTypeParameters expected) (getTypeParameters ty)
           `catchError` (\case
                          TCError (TypeMismatchError _ _) _ ->
-                             tcError $ TypeMismatchError $ trace "2259" $ ty expected
+                             tcError $ TypeMismatchError ty expected
                          TCError err _ -> tcError err
                        )
         let expected' = replaceTypeVars bindings expected

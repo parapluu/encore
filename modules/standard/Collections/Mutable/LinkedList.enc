@@ -3,8 +3,7 @@ module LinkedList
 import Data.Either
 import Data.Maybe
 import Collections.Mutable.Collection
--- import Collections.Mutable.Iterable
--- JOY for-comprehension
+
 import Collections.Mutable.Functor
 
 local class LinkedNode[t] : Id
@@ -327,7 +326,7 @@ local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id + Func
     end
   end
 
-  def map[u](f : t -> u) : LinkedList[u]
+  def map[u](f : local ((t) -> u)) : LinkedList[u]
     val result = new LinkedList[u]()
 
     -- Iterate over list, perform f() on each value, put result in new list.
@@ -361,7 +360,7 @@ local class LinkedList[t] : Collection[t](drop(), first, last, size) + Id + Func
   end
 
 
-  def flatMap[u](f : t -> Functor[u]) : LinkedList[u]
+  def flatMap[u](f : local ((t) -> Functor[u])) : LinkedList[u]
     val result = new LinkedList[u]()
 
     var cursor = this.first

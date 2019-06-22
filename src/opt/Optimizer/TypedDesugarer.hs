@@ -11,6 +11,7 @@ import Data.List
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import SystemUtils
+import Typechecker.TypeError
 
 -- Modular dependancies
 import Identifiers
@@ -46,90 +47,115 @@ desugarTypedProgram p@(Program{classes, traits, functions}) =
 
 -- | The functions in this list will be performed in order during desugaring
 desugarPasses :: [Expr -> Expr]
-desugarPasses = [desugarAndBoxForInSeq, desugarAndBoxForNotInSeq]
+desugarPasses = [boxRemainingFor]
 
-desugarAndBoxForInSeq = extend desugarAndBoxForInSeq'
-  where desugarAndBoxForInSeq' e@Seq{} = boxed e
-        desugarAndBoxForInSeq' e = e
-        boxed e = boxForInSeq e
+boxRemainingFor = extend boxRemainingFor'
+  where
+    boxRemainingFor' e
+      | isFor e = desugarAndBoxForR' e
+      | otherwise = e
 
-desugarAndBoxForNotInSeq = extend desugarAndBoxForNotInSeq'
-  where desugarAndBoxForNotInSeq' for@For{} = forBoxed for []
-        desugarAndBoxForNotInSeq' e = e
-
-
-
--- Desugars a for-loop into nested calls to map and flatMap and foreach:
---
--- for x <- listA, y <- listB, z <- ListC do
---      fun
--- end
---
 -- into listA.flatMap(listB.flatMap(listC.map(fun)))
 forDesugared :: Expr -> Expr
 forDesugared e@For{emeta, sources, body} =
-  let n = length sources
+  let closureRetType = getType e
       collectionType = getType $ collection $ head sources
-      callNameList = if (not (AST.AST.isCaptured e)) || (unitType == getType body) || (isRangeObjectType collectionType)
-                     then replicate n (Name "foreach")
-                     else replicate (n-1) (Name "flatMap") ++ [Name "map"]
+      callNameList = getCallName e collectionType $ length sources
       revSources = reverse sources
       elemType = getType body
-      desugaredFor = nestCalls emeta callNameList sources body elemType
+      noBreakBody = changeBreak e
+      desugaredFor = nestCalls emeta callNameList revSources noBreakBody elemType closureRetType
   in  desugaredFor
+  where
+    nestCalls :: Meta.Meta Expr -> [Name] -> [ForSource] -> Expr -> Type -> Type -> Expr
+    nestCalls meta (name:_) (fs:[]) body elemType closureRetType  = intoCall meta name fs body elemType closureRetType
+    nestCalls meta (name:restOfNames) (fs:restFS) body elemType closureRetType =
+      let nestedCall = intoCall meta name fs body elemType closureRetType
+      in nestCalls meta restOfNames restFS nestedCall elemType closureRetType
+
+    intoCall :: Meta.Meta Expr -> Name -> ForSource -> Expr -> Type -> Type ->Expr
+    intoCall met callName ForSource{fsName, fsTy, collection} bodyOrMethodCall elemType closureRetType =
+      if isRefType (getType collection)
+      then let param = [intoParam met Val fsName fsTy]
+               retType = getRetType callName elemType closureRetType
+               elemT= if callName == Name "foreach" || callName == Name "maybeForeach"
+                      then []
+                      else [elemType]
+               arguments = [intoClosure met param retType bodyOrMethodCall]
+           in  intoMethodCall met elemT collection callName arguments
+       else let param = [intoParam met Val fsName fsTy]
+                retType = getRetType callName elemType closureRetType
+                elemT=  if callName == Name "foreach" || callName == Name "maybeForeach"
+                        then [fromMaybe intType fsTy]
+                        else [(fromMaybe intType fsTy), elemType]
+                arguments = [intoClosure met param retType bodyOrMethodCall] ++ [collection]
+                name = intoQName callName
+            in  intoFunctionCall met elemT name arguments
+
+    getCallName For{body} collectionType leng
+      | containsBreak body = replicate leng (Name "maybeForeach")
+      | (unitType == getType body) || (isRangeObjectType collectionType) = replicate leng (Name "foreach")
+      | otherwise = [Name "map"] ++ replicate (leng-1) (Name "flatMap")
+
+    containsBreak exp = not $ null $ AST.Util.filter isBreak exp
+    changeBreak For{emeta, body}
+      | not (containsBreak body) = body
+      | otherwise = let newBody = extend changeBreak' body
+                        retUnit = JustData{ e = intoSkip emeta}
+                        maybeRetUnit = intoMaybeValue emeta retUnit
+                        retMaybeRetUnit = intoReturn emeta maybeRetUnit
+                    in intoSeq emeta [newBody, retMaybeRetUnit]
+                      where
+                        changeBreak' Break{emeta} =
+                          let maybeData = intoMaybeValue emeta NothingData
+                          in intoReturn emeta maybeData
+                        changeBreak' m = m
+
+    getRetType callName elemType closureRetType
+      | callName == Name "foreach" = Nothing
+      | callName == Name "maybeForeach" = Just $ maybeType unitType
+      | callName == Name "map" = Just elemType
+      | callName == Name "flatMap" = Just closureRetType
 forDesugared m = m
 
-nestCalls :: Meta.Meta Expr -> [Name] -> [ForSource] -> Expr -> Type -> Expr
-nestCalls meta (name:_) (fs:[]) body elemType = intoCall meta name fs body elemType
-nestCalls meta (name:restOfNames) (fs:restFS) body elemType =
-  let nestedCall = intoCall meta name fs body elemType
-  in nestCalls meta restOfNames restFS nestedCall elemType
+desugarAndBoxFor' :: Expr -> Expr
+desugarAndBoxFor' for@For{emeta} =
+  let listOfVar = getVariables for
+      newExpr
+        | null listOfVar = forDesugared for
+        | otherwise =
+          let listOfVarNames = map (\VarAccess{qname} -> qnlocal qname) listOfVar
+              unBoxing = unBox listOfVar
+              desugaredForWithFieldAccBody = forDesugared $ varBodyToFieldBody for [] listOfVarNames
+              letBod = intoSeq emeta (desugaredForWithFieldAccBody:unBoxing)
+          in boxVar emeta listOfVar letBod
+  in newExpr
 
-intoCall :: Meta.Meta Expr -> Name -> ForSource -> Expr -> Type -> Expr
-intoCall met callName ForSource{fsName, fsTy, collection} bodyOrMethodCall elemType =
-  if isRefType (getType collection)
-  then let param = [intoParam met Val fsName fsTy]
-           arguments = [intoClosure met param Nothing bodyOrMethodCall]
-           elemT = if callName == Name "foreach" -- this feels iffy
-                   then []
-                   else [elemType]
-       in  intoMethodCall met elemT collection callName arguments
-   else let param = [intoParam met Val fsName fsTy]
-            arguments = [intoClosure met param Nothing bodyOrMethodCall] ++ [collection]
-            elemT =  if callName == Name "foreach" -- this feels iffy
-                     then [fromMaybe intType fsTy]
-                     else [(fromMaybe intType fsTy), elemType]
-            name = intoQName callName
-       in   intoFunctionCall met elemT name arguments
-
-boxForInSeq :: Expr -> Expr
-boxForInSeq e@Seq{emeta, eseq} =
-  let newEseq = boxFor eseq []
-  in  e{eseq = newEseq}
-  where
-    boxFor :: [Expr] -> [Expr] -> [Expr]
-    boxFor [] newEseq =  newEseq
-    boxFor (ex:expr) newEseq
-      | isFor ex = newEseq ++ [forBoxed ex (boxFor expr [])]
-      | otherwise = boxFor expr (newEseq ++ [ex])
-    isFor For{} = True
-    isFor _ = False
-
-
-forBoxed :: Expr -> [Expr] -> Expr
-forBoxed for@For{emeta, sources, body} postForExpr =
-  let listOfVar = getVariables body
-      listOfVarNames = map getVarName listOfVar
-      getVarName VarAccess{qname} = qnlocal qname
-      unBoxed = unBox listOfVar
-      desugaredForWithFieldAccBody = forDesugared $ varBodyToFieldBody for [] listOfVarNames
-      bodyforLetBoxes = intoSeq emeta (desugaredForWithFieldAccBody:unBoxed ++ postForExpr)
-      boxLet = boxVar emeta listOfVar bodyforLetBoxes
-      newSeq = intoSeq emeta [boxLet]
-  in  newSeq
+desugarAndBoxForR' :: Expr -> Expr
+desugarAndBoxForR' for@For{emeta} =
+  let retVarDecl = [([intoVarDecl (Name "__for_return_variable")], intoTypedExpr emeta Null{emeta = Meta.meta (Meta.getPos emeta)} (getType for))]
+      retVarAcc = intoVarAccess emeta $ intoQName $ Name "__for_return_variable"
+      outerLet = intoLet emeta Var retVarDecl $ intoSeq emeta [newExpr, retVarAcc]
+      listOfVar = getVariables for
+      newExpr
+        | null listOfVar = if unitType == (getType for) || (unitType == getType (body for)) || isMaybeType (getType (body for))
+                           then forDesugared for
+                           else intoAssignment emeta retVarAcc $ forDesugared for
+        | otherwise =
+          let listOfVarNames = map (\VarAccess{qname} -> qnlocal qname) listOfVar
+              unBoxing = unBox listOfVar
+              desugaredFor = if unitType == (getType for) || (unitType == getType (body for)) || isMaybeType (getType (body for))
+                             then forDesugared $ varBodyToFieldBody for [] listOfVarNames
+                             else intoAssignment emeta retVarAcc (forDesugared $ varBodyToFieldBody for [] listOfVarNames)
+              letBod = intoSeq emeta (desugaredFor:unBoxing)
+          in boxVar emeta listOfVar letBod
+      output
+        | unitType == (getType for) || (unitType == getType (body for)) || isMaybeType (getType (body for)) = newExpr
+        | otherwise = outerLet
+  in output
 
 getVariables :: Expr -> [Expr]
-getVariables body = removeDuplicates (fst (filterVar body)) [] []
+getVariables For{body} = removeDuplicates (fst (filterVar body)) [] []
   where
     removeDuplicates :: [Expr] -> [Name] -> [Expr] -> [Expr]
     removeDuplicates [] _ finalList = finalList
@@ -138,22 +164,22 @@ getVariables body = removeDuplicates (fst (filterVar body)) [] []
       | otherwise = removeDuplicates expr ((qnlocal qname):listOfNames) (e:finalList)
     removeDuplicates (_:expr) listOfNames finalList = undefined
 
-filterVar :: Expr -> ([Expr], [Name])
-filterVar = foldrExp (\e (acc, declAcc) -> if isNotLocalVar e declAcc
-                                           then ((getVar e):acc, declAcc)
-                                           else if isLet e
-                                                then (acc, (getDecls e) ++ declAcc)
-                                                else (acc, declAcc)) ([], [])
-                 where
-                   isNotLocalVar Assign{lhs = VarAccess{qname}} decl = not $ (Name (show (qnlocal qname))) `elem` decl
-                   isNotLocalVar _ decl = False
-                   isLet Let{} = True
-                   isLet _ = False
-                   getVar Assign{lhs} = lhs
-                   getDecls Let{decls} = concatMap getDecls' $ fst $ unzip decls
-                   getDecls' declList = map getDecl declList
-                   getDecl VarNoType{varName} = varName
-                   getDecl VarType{varName}= varName
+    filterVar :: Expr -> ([Expr], [Name])
+    filterVar = foldrExp (\e (acc, declAcc) -> if isNotLocalVar e declAcc
+                                               then ((getVar e):acc, declAcc)
+                                               else if isLet e
+                                                    then (acc, (getDecls e) ++ declAcc)
+                                                    else (acc, declAcc)) ([], [])
+                     where
+                       isNotLocalVar Assign{lhs = VarAccess{qname}} decl = not $ (Name (show (qnlocal qname))) `elem` decl
+                       isNotLocalVar _ decl = False
+                       isLet Let{} = True
+                       isLet _ = False
+                       getVar Assign{lhs} = lhs
+                       getDecls Let{decls} = concatMap getDecls' $ fst $ unzip decls
+                       getDecls' declList = map getDecl declList
+                       getDecl VarNoType{varName} = varName
+                       getDecl VarType{varName}= varName
 
 
 varBodyToFieldBody body declList boxedVarList = extend (varBodyToFieldBody' declList boxedVarList) body
@@ -170,9 +196,14 @@ varBodyToFieldBody body declList boxedVarList = extend (varBodyToFieldBody' decl
     getDecl VarNoType{varName} = varName
     getDecl VarType{varName}= varName
 
+    varAccToFieldAcc VarAccess{emeta, qname} =
+      let boxQname = intoQName (Name ("__box_mutable__" ++ show (qnlocal qname)))
+          boxVarAcc = intoVarAccess emeta boxQname
+      in intoFieldAccess emeta boxVarAcc (Name "value")
+
 
 boxVar meta listOfVar body =
-  intoLet meta (makeDecls meta listOfVar) body
+  intoLet meta Var (makeDecls meta listOfVar) body
   where
     makeDecls meta varAccess = map (makeDecl meta) varAccess
     makeDecl emeta v@VarAccess{qname} =
@@ -180,49 +211,53 @@ boxVar meta listOfVar body =
           variableDecl = intoVarDecl $ Name ("__box_mutable__" ++ show (qnlocal qname))
       in  ([variableDecl], box)
 
-
-varAccToFieldAcc VarAccess{emeta, qname} =
-  let boxQname = intoQName (Name ("__box_mutable__" ++ show (qnlocal qname)))
-      boxVarAcc = intoVarAccess emeta boxQname
-  in intoFieldAccess emeta boxVarAcc (Name "value")
-
 unBox varAccList = map (unBoxVar) varAccList
   where unBoxVar VarAccess{emeta, qname} = intoAssignment emeta (intoVarAccess emeta qname) (fieldAccessRhs emeta qname)
         boxQname qname = intoQName (Name ("__box_mutable__" ++ show (qnlocal qname)))
         boxVarAcc emeta qname = intoVarAccess emeta (boxQname qname)
         fieldAccessRhs emeta qname = intoFieldAccess emeta (boxVarAcc emeta qname) (Name "value")
 
+intoSkip meta =
+  Skip{emeta = Meta.meta (Meta.getPos meta)}
+
+intoReturn meta value =
+  Return{emeta = Meta.meta (Meta.getPos meta)
+        ,val = value}
+
+intoMaybeValue meta mValue =
+  MaybeValue{emeta = Meta.meta (Meta.getPos meta)
+            ,mdt = mValue}
+
 intoVarAccess meta name =
-  VarAccess{emeta = Meta.meta (Meta.getPos meta),
-            qname = name}
+  VarAccess{emeta = Meta.meta (Meta.getPos meta)
+           ,qname = name}
 
 intoClosure meta parameters mty body =
-  Closure {emeta = Meta.meta (Meta.getPos meta),
-           eparams = parameters,
-           mty = mty,
-           body = body}
+  Closure {emeta = Meta.meta (Meta.getPos meta)
+          ,eparams = parameters
+          ,mty = mty
+          ,body = body}
 
 intoParam emetaP mutP nameP maybeTyP =
-  Param {pmeta = Meta.meta (Meta.getPos emetaP),
-         pmut = mutP,
-         pname = nameP,
-         ptype = fromMaybe intType maybeTyP,
-         pdefault = Nothing}
-
+  Param {pmeta = Meta.meta (Meta.getPos emetaP)
+        ,pmut = mutP
+        ,pname = nameP
+        ,ptype = fromMaybe intType maybeTyP
+        ,pdefault = Nothing}
 
 intoFunctionCall meta typeArg name arguments =
-  FunctionCall {emeta = Meta.meta (Meta.getPos meta),
-                typeArguments = typeArg,
-                qname = name,
-                args = arguments}
+  FunctionCall {emeta = meta
+               ,typeArguments = typeArg
+               ,qname = name
+               ,args = arguments}
 
 intoQName name =
-  QName{qnspace = Nothing,
-        qnsource = Nothing,
-        qnlocal = name}
+  QName{qnspace = Nothing
+       ,qnsource = Nothing
+       ,qnlocal = name}
 
 intoMethodCall meta typeArg object nam arguments =
-  MethodCall {emeta = Meta.meta (Meta.getPos meta),
+  MethodCall {emeta = meta,
               typeArguments = typeArg,
               target = object,
               name = nam,
@@ -239,7 +274,7 @@ intoFieldAccess meta object nam =
                name = nam}
 
 intoSeq meta listOfExpr =
-  Seq {emeta = Meta.meta (Meta.getPos meta),
+  Seq {emeta = meta,
        eseq = listOfExpr}
 
 boxNewWithInit meta parameters arguments =
@@ -250,8 +285,16 @@ boxNewWithInit meta parameters arguments =
 intoVarDecl name =
   VarNoType{varName = name}
 
-intoLet meta varDecls body =
-  Let {emeta = Meta.meta (Meta.getPos meta),
-      mutability = Val,
+intoVarDeclType name ty =
+  VarType{varName = name, varType = ty}
+
+intoLet meta mut varDecls body =
+  Let {emeta = meta,
+      mutability = mut,
       decls = varDecls,
       body = body}
+
+intoTypedExpr meta body ty =
+  TypedExpr {emeta = Meta.meta (Meta.getPos meta),
+             body = body,
+             ty   = ty}

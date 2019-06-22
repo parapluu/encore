@@ -86,7 +86,7 @@ end
 fun map[a,b](f : a -> b, arr : [a]) : [b]
   val ret = new [b](|arr|)
   var i = 0
-  while (i < |arr|-1) do
+  while (i <= |arr|-1) do
     ret(i) = f((arr)(i))
     i += 1
   end
@@ -94,10 +94,8 @@ fun map[a,b](f : a -> b, arr : [a]) : [b]
 end
 
 -- flatMap :: (a -> [b], [a]) -> [b]
--- flatMap(f, arr) produces a new array containeing the results of applying f to
+-- flatMap(f, arr) produces a new array containeing the flatened results of applying f to
 -- the elements of arr
--- This function is necessary for for-loops to work. Do not change without testing!
--- TODO: write tests for these!!
 fun flatMap[a, b](f : a -> [b], arr : [a]) : [b]
   val size = |arr|
   var ret = new [b](0)
@@ -111,20 +109,33 @@ fun flatMap[a, b](f : a -> [b], arr : [a]) : [b]
 end
 
 -- foreach(a -> unit, [a]) -> unit
--- forach(f, arr) applied f to all elements of an array, without expecting a result.
--- This function is necessary for for-loops to work. Do not change without testing!
--- TODO: write tests for these!!
+-- forach(f, arr) applied f to all elements of an array, resulting in unit.
 fun foreach[a](f : local ((a) -> unit), arr : [a]) : unit
   val size = |arr|
-  repeat i <- size do
-    f(arr(i-1))
+  var i = 0
+  while i < size do
+    f(arr(i))
+    i += 1
   end
+end
+
+
+fun maybeForeach[a](f : local ((a) -> Maybe[unit]), arr : [a]) : Maybe[unit]
+  val size = |arr|
+  var i = 0
+  while i < size do
+    var res = f(arr(i))
+    if res == Nothing then
+      return Nothing
+    end
+    i += 1
+  end
+  return Just(())
 end
 
 -- concat :: ([a], [a]) -> [a]
 -- concat(firstArr, secondArr) produces a new array that is the concatination of
 -- the two input arrays.
--- TODO: write tests for these!
 fun concat[a](firstArr : [a], secondArr : [a]) : [a]
   val firstSize = |firstArr|
   val secondSize = |secondArr|
@@ -164,7 +175,7 @@ fun contains[t](arr : [t], to_find : t) : bool
   for x <- arr do
     if x == to_find then
       retval = true
-      -- break TODO: fix break!
+      break
     end
   end
   retval
@@ -178,7 +189,7 @@ fun contains_str(arr : [String], to_find : String) : bool
   for x <- arr do
     if x.compare(to_find) == 0 then
       retval = true
-      --break TODO: Make break work inside for loop Joy
+      break
     end
   end
   retval

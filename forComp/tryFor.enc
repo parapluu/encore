@@ -4,32 +4,65 @@ fun accum(mun : int) : int
   mun + 1
 end
 
-fun useList(list : LinkedList[(int, String)]) : unit
+fun useList(list : LinkedList[(String, String)]) : unit
   for elem <- list do
     print("{}", elem)
   end
+  print("\n")
+end
+
+fun printer(str : String) : unit
+  print("{} ", str)
 end
 
 active class Main
   def main() : unit
 
-    var list  = new LinkedList[int]()
-    list.append(1)
-    list.append(2)
-    list.append(3)
+    for x <- [18 .. 21] do
+        print("{}", x)
+        if x == 20 then
+          break
+        else
+          Just(())
+        end
+    end
+
+    var list  = new LinkedList[String]()
+    list.append("Katt")
+    list.append("Hund")
+    list.append("Ko")
+
 
     var list2  = new LinkedList[String]()
-    list2.append("katt")
-    list2.append("katt")
-    list2.append("katt")
+    for xars <-["Katt", "Hund", "Ko"] do
+      list2.append(xars)
+      print(" {}", xars)
+    end
 
-    var acc = 0
+
+
+    var mut = new LinkedList[LinkedList[String]]()
+    for x <- ["1", "2", "3"], y <- ["Katt", "Hund", "Ko"] do
+        var li = new LinkedList[String]()
+        li.append(x)
+        li.append(y)
+        print(" {}{} ", x, y)
+        mut.append(li)
+    end
+
+
+    print("Matrix: \n")
+    for ll <- mut do
+      for l <- ll do
+        print("{} \n", l)
+      end
+    end
+
     useList(for elem <- list, el <- list2 do
-                    (elem, el)
+                      (elem, el)
             end)
 
-
-    {-var list  = new LinkedList[int]()
+    var list  = new LinkedList[int]()
     list.append(1)
     list.append(2)
     list.append(3)
@@ -48,7 +81,7 @@ active class Main
 
     for e <- list3 do
       print("{}", e)
-    end-}
+    end
 
 
   end

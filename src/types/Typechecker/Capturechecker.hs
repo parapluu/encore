@@ -148,6 +148,9 @@ instance CaptureCheckable Expr where
     doCapturecheck e@Consume{} =
         free e
 
+    doCapturecheck e@For{body} =
+        return $ makeCaptured e
+
     doCapturecheck e@Assign{lhs, rhs} =
         do let lType = getType lhs
                rType = getType rhs

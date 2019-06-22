@@ -527,6 +527,18 @@ read class RRange
       current += this.step
     end
   end
+
+  def maybeForeach(f : local ((int) -> Maybe[unit])) : Maybe[unit]
+    var current = this.start
+    while (current <= this.stop) do
+      var ret = f(current)
+      if ret == Nothing then
+        return Nothing
+      end
+      current += this.step
+    end
+    return Just(())
+  end
 end
 
 -- TODO: put this class in a seperate file

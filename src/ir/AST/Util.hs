@@ -300,6 +300,11 @@ foldrExp f l e =
     let childResult = List.foldr (\expr acc -> foldrExp f acc expr) l (getChildren e)
     in f e childResult
 
+exContains :: (Expr -> Bool) -> Expr -> Bool
+exContains f e =
+  let children = List.filter f (getChildren e)
+  in not $ null children
+
 -- | Like a map, but where the function has access to the
 -- substructure of each node, not only the element. For lists,
 -- extend f [1,2,3,4] = [f [1,2,3,4], f [2,3,4], f [3,4], f [4]].
@@ -481,11 +486,11 @@ mark asParent s@Let{body, decls} =
   asParent s{body=mark asParent body, decls=map markDecl decls}
   where
     markDecl (n, e) = (n, markAsExpr e)
-mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsStat body}
+mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsExpr body}
 mark asParent s@For{sources, body} =
-  asParent s{sources = map markAsForSource sources, body=markAsExpr body}
+  asParent s{sources = map markAsForSource sources, body=markAsStat body} --todo: Need to chnage to markAsExpr body
   where
-    markAsForSource ForSource{fsName, fsTy, collection} = ForSource {fsName, fsTy, collection = markAsExpr collection}
+    markAsForSource ForSource{fsName, fsTy, collection} = ForSource {fsName, fsTy, collection = markAsStat collection}
 mark asParent s =
   let
     children = AST.Util.getChildren s
