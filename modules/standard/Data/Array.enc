@@ -83,7 +83,7 @@ end
 -- map :: (a -> b, [a]) -> [b]
 -- map(f, arr) produces a new array containing the results of applying f to the
 -- elements of arr
-fun map[a,b](f : a -> b, arr : [a]) : [b]
+fun map[a,b](f : local ((a) -> b), arr : [a]) : [b]
   val ret = new [b](|arr|)
   var i = 0
   while (i <= |arr|-1) do
@@ -96,16 +96,16 @@ end
 -- flatMap :: (a -> [b], [a]) -> [b]
 -- flatMap(f, arr) produces a new array containeing the flatened results of applying f to
 -- the elements of arr
-fun flatMap[a, b](f : a -> [b], arr : [a]) : [b]
+fun flatMap[a, b](f : local ((a) -> [b]), arr : [a]) : [b]
   val size = |arr|
-  var ret = new [b](0)
+  var result = new [b](0)
   var i = 0
-  while (i < |arr|-1) do
-    var result = f(arr(i-1))
-    ret = concat(ret, result)
+  while (i < size) do
+    var ret = f(arr(i))
+    result = concat[b](result, ret)
     i += 1
   end
-  return ret
+  return result
 end
 
 -- foreach(a -> unit, [a]) -> unit
@@ -139,16 +139,19 @@ end
 fun concat[a](firstArr : [a], secondArr : [a]) : [a]
   val firstSize = |firstArr|
   val secondSize = |secondArr|
-  val ret = new [a](firstSize + secondSize)
-  repeat i <- firstSize do
-    ret(i-1) = firstArr(i-1)
+  val result = new [a](firstSize + secondSize)
+  var i = 0
+  while i < firstSize do
+    result(i) = firstArr(i)
+    i += 1
   end
-  repeat i <- secondSize do
-    ret(i-1+firstSize) = secondArr(i-1)
+  var j = 0
+  while j < secondSize do
+    result(j+firstSize) = secondArr(j)
+    j += 1
   end
-  return ret
+  return result
 end
-
 
 -- show :: (a -> unit, [a]) -> unit
 -- show(showEl, arr) prints out array arr using function showEl to print the elements

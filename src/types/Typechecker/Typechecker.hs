@@ -14,7 +14,6 @@ import Data.List
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
-import Debug.Trace
 import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
@@ -588,8 +587,8 @@ instance Checkable Expr where
     -- ----------------
     --  E |- break : unit
     doTypecheck break@(Break {emeta}) = do
-      unless (Util.isStatement break) $
-        tcError BreakUsedAsExpressionError
+      --unless (Util.isStatement break) $
+        --tcError BreakUsedAsExpressionError
       unlessM (asks checkValidUseOfBreak) $
         tcError BreakOutsideOfLoopError
       return $ setType unitType break
@@ -1267,9 +1266,9 @@ instance Checkable Expr where
             | otherwise = tcError $ InvalidPatternError pattern
 
         checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} =
-          if isExtractorPattern mcpattern
-          then return clause
-          else
+            if isExtractorPattern mcpattern
+            then return clause
+            else
             do
             vars <- getPatternVars pt mcpattern
             let duplicates = vars \\ nub vars

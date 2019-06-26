@@ -1,8 +1,6 @@
 module Optimizer.TypedDesugarer(desugarTypedProgram) where
 
 
-import Debug.Trace
-
 import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.State
@@ -118,19 +116,6 @@ forDesugared e@For{emeta, sources, body} =
       | callName == Name "flatMap" = Just closureRetType
 forDesugared m = m
 
-desugarAndBoxFor' :: Expr -> Expr
-desugarAndBoxFor' for@For{emeta} =
-  let listOfVar = getVariables for
-      newExpr
-        | null listOfVar = forDesugared for
-        | otherwise =
-          let listOfVarNames = map (\VarAccess{qname} -> qnlocal qname) listOfVar
-              unBoxing = unBox listOfVar
-              desugaredForWithFieldAccBody = forDesugared $ varBodyToFieldBody for [] listOfVarNames
-              letBod = intoSeq emeta (desugaredForWithFieldAccBody:unBoxing)
-          in boxVar emeta listOfVar letBod
-  in newExpr
-
 desugarAndBoxForR' :: Expr -> Expr
 desugarAndBoxForR' for@For{emeta} =
   let retVarDecl = [([intoVarDecl (Name "__for_return_variable")], intoTypedExpr emeta Null{emeta = Meta.meta (Meta.getPos emeta)} (getType for))]
@@ -187,7 +172,7 @@ varBodyToFieldBody body declList boxedVarList = extend (varBodyToFieldBody' decl
     varBodyToFieldBody' declList boxedVarList v@VarAccess{qname}
       | isLocalVar v declList && isBoxedVar v boxedVarList = varAccToFieldAcc v
       | otherwise = v
-    varBodyToFieldBody' declList boxedVarList l@Let{decls}  = varBodyToFieldBody l (getDecls l ++ declList) boxedVarList
+    varBodyToFieldBody' declList boxedVarList l@Let{decls, body}  = l{decls, body = (varBodyToFieldBody body (getDecls l ++ declList) boxedVarList)}
     varBodyToFieldBody' declList boxedVarList m  = m
     isLocalVar VarAccess{qname} decl = not $ (Name (show (qnlocal qname))) `elem` decl
     isBoxedVar VarAccess{qname} boxedNameList = (qnlocal qname) `elem` boxedNameList
@@ -212,7 +197,7 @@ boxVar meta listOfVar body =
       in  ([variableDecl], box)
 
 unBox varAccList = map (unBoxVar) varAccList
-  where unBoxVar VarAccess{emeta, qname} = intoAssignment emeta (intoVarAccess emeta qname) (fieldAccessRhs emeta qname)
+  where unBoxVar v@VarAccess{emeta, qname} = intoAssignment emeta (intoVarAccess emeta qname) (fieldAccessRhs emeta qname)
         boxQname qname = intoQName (Name ("__box_mutable__" ++ show (qnlocal qname)))
         boxVarAcc emeta qname = intoVarAccess emeta (boxQname qname)
         fieldAccessRhs emeta qname = intoFieldAccess emeta (boxVarAcc emeta qname) (Name "value")
@@ -229,7 +214,7 @@ intoMaybeValue meta mValue =
             ,mdt = mValue}
 
 intoVarAccess meta name =
-  VarAccess{emeta = Meta.meta (Meta.getPos meta)
+  VarAccess{emeta = meta
            ,qname = name}
 
 intoClosure meta parameters mty body =

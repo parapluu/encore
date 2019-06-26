@@ -486,9 +486,9 @@ mark asParent s@Let{body, decls} =
   asParent s{body=mark asParent body, decls=map markDecl decls}
   where
     markDecl (n, e) = (n, markAsExpr e)
-mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsExpr body}
+mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsStat body}
 mark asParent s@For{sources, body} =
-  asParent s{sources = map markAsForSource sources, body=markAsStat body} --todo: Need to chnage to markAsExpr body
+  asParent s{sources = map markAsForSource sources, body=markAsExpr body}
   where
     markAsForSource ForSource{fsName, fsTy, collection} = ForSource {fsName, fsTy, collection = markAsStat collection}
 mark asParent s =

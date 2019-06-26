@@ -19,7 +19,6 @@ import Identifiers
 import Types
 import AST.Meta as Meta hiding(Closure, Async)
 
-import Debug.Trace
 
 data FileDescriptor = Stdout | Stderr
   deriving (Show, Eq)
@@ -884,16 +883,17 @@ isPrimitiveLiteral _ = False
 
 isValidPattern :: Expr -> Bool
 isValidPattern TypedExpr{body} = isValidPattern body
-isValidPattern FunctionCall{} = True
-isValidPattern MaybeValue{mdt = JustData{e}} = isValidPattern e
-isValidPattern MaybeValue{mdt = NothingData} = True
-isValidPattern Tuple{args} = all isValidPattern args
-isValidPattern VarAccess{} = True
-isValidPattern Null{} = True
-isValidPattern ExtractorPattern{} = True
+isValidPattern FunctionCall{} =  True
+isValidPattern MaybeValue{mdt = JustData{e}} =   isValidPattern e
+isValidPattern MaybeValue{mdt = NothingData} =    True
+isValidPattern Tuple{args} =  all isValidPattern args
+isValidPattern VarAccess{} =  True
+isValidPattern Null{} =  True
+isValidPattern ExtractorPattern{} =  True
+isValidPattern AdtExtractorPattern{} =  True
 isValidPattern e
-    | isPrimitiveLiteral e = True
-    | otherwise = trace (show (e)) False
+    | isPrimitiveLiteral e =  True
+    | otherwise = False
 
 isExtractorPattern :: Expr -> Bool
 isExtractorPattern ExtractorPattern{} = True

@@ -1,53 +1,97 @@
--- This file was automatically converted by encorec
+import Collections.Mutable.LinkedList
 
-fun showRange(r : Range) : unit
-  for i <- r do
-    println(i)
+fun useList(list : LinkedList[String]) : unit
+  for elem <- list do
+    print("{}", elem)
   end
-end
-
-active class Foo
-  def msg(m : String) : unit
-    println(m)
-  end
+  print("\n")
 end
 
 active class Main
-  var foo : int
-
   def main() : unit
-    this.foo = 1
-    let
-      fs = [new Foo, null, new Foo, null]
-      a = [false, false, true, false, true]
-      nums = [1, 2, 3, 4, 7, 8, 9, 1, 12]
-      r = [1..10]
-    in
-      for b <- a do
-        println(b)
-      end
-      println("--------------")
-      for n <- nums by 2 do
-        println(n)
-      end
-      println("--------------")
-      showRange(r)
-      println("--------------")
-      for i <- [1..3] by 2 do
-        println(i)
-      end
-      println("--------------")
-      for i <- [0..100 by 10] by - 3 do
-        println(i)
-      end
-      println("--------------")
-      for i <- [this.foo..1] do
-        println(i)
-      end
-      println("--------------")
-      for f <- fs by 2 do
-        f!msg("Foo")
+
+    var linklistInt = new LinkedList[int]()
+    var linklistString = new LinkedList[String]()
+
+    var range = [0 .. 10]
+    var range2 = [0 .. 5]
+
+    var array = ["a", "b", "c", "d", "e"]
+    var array2 = ["1", "2", "3", "4", "5"]
+
+    for x <- range do
+      linklistInt.append(x)
+    end
+    for x <- array do
+      linklistString.append(x)
+    end
+
+    -- result in: 0 1 2 3 4 5 6 7 8 9 10
+    for x <- range do
+      var k = 0
+      print("{} ", x)
+      print(k )
+    end
+
+    print("\n")
+
+    -- result in: 0 1 2 3 4 5 6 7 8 9 10
+    for x <- linklistInt do
+      print("{} ", x)
+    end
+
+    print("\n")
+
+    -- result in: a b c d e
+    for x <- array do
+      print("{} ", x)
+    end
+
+    print("\n")
+
+    -- result in: a b c d e
+    for x <- linklistString do
+      print("{} ", x)
+    end
+
+    var acc = ""
+
+    print("\n")
+    -- result in: a1 a2 a3 a4 a5 b1 b2 b3 b4 b5 c1 c2 c3 c4 c5 d1 d2 d3 d4 d5 e1 e2 e3 e4 e5
+    var retList = for x <- array, y <- array2 do
+                    acc = x.concatenate(y)
+                    print("{} ", acc)
+                    acc
+                  end
+
+    -- result in: e5
+    print("\n{}\n", acc)
+
+    -- result in: a1 a2 a3 a4 a5 b1 b2 b3 b4 b5 c1 c2 c3 c4 c5 d1 d2 d3 d4 d5 e1 e2 e3 e4 e5
+    for x <- retList do
+        print("{} ", x)
+    end
+
+    print("\n")
+
+    for i <- range do
+      for j <- ["y", "x"] do
+        print("{}{} ", i, j)
       end
     end
+
+    print("\n")
+
+    var acc2 = 0
+    for i <- range, j <- range2 do
+        acc2 += (i + j)
+    end
+    print("{}", acc2)
+    print("\n")
+    -- result in: abcde
+    useList(for x <- linklistString do
+                x
+            end)
+
   end
 end

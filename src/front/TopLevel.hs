@@ -344,7 +344,7 @@ main =
        verbose options "== Typed Desugaring =="
        let desugaredTypedTable = fmap desugarTypedProgram capturecheckedTable
 
-       verbose options "== Re-Typechecking =="
+       verbose options "== Re - Typechecking =="
        typecheckedTableTwo <- typecheckProgramTable desugaredTypedTable
 
        verbose options "== Re-Capturechecking =="
