@@ -1,88 +1,94 @@
 import Collections.Mutable.LinkedList
 
-fun accum(mun : int) : int
-  mun + 1
-end
-
-fun useList(list : LinkedList[(String, String)]) : unit
+fun useList(list : LinkedList[String]) : unit
   for elem <- list do
     print("{}", elem)
   end
   print("\n")
 end
 
-fun printer(str : String) : unit
-  print("{} ", str)
-end
-
 active class Main
   def main() : unit
 
-    for x <- [18 .. 21] do
-        print("{}", x)
-        if x == 20 then
+    var linklistInt = new LinkedList[int]()
+    var linklistString = new LinkedList[String]()
+
+    var range = [0 .. 10]
+    var range2 = [0 .. 5]
+
+    var array = ["a", "b", "c", "d", "e"]
+    var array2 = ["1", "2", "3", "4", "5"]
+
+    for x <- range do
+      linklistInt.append(x)
+    end
+    for x <- array do
+      linklistString.append(x)
+    end
+
+    -- result in: 1 2 3 4 5 6 7 8 9 10
+    for x <- range do
+      print("{} ", x)
+    end
+
+    print("\n")
+
+    -- result in: 1 2 3 4 5 6 7 8 9 10
+    for x <- linklistInt do
+      print("{} ", x)
+    end
+
+    print("\n")
+
+    -- result in: a b c d e
+    for x <- array do
+      print("{} ", x)
+    end
+
+    print("\n")
+
+    -- result in: a b c d e
+    for x <- linklistString do
+      print("{} ", x)
+    end
+
+
+    var acc = "0"
+
+    -- result in: a1 a2 a3 a4 a5 b1 b2 b3 b4 b5 c1 c2 c3 c4 c5 d1 d2 d3 d4 d5 e1 e2 e3 e4 e5
+    var retList = for x <- array, y <- array2 do
+                    acc = y.concatenate(x)
+                    print("{} ", acc)
+                    y
+                    acc
+                  end
+
+    -- result in: e5
+    print("{} ", acc)
+    -- result in: a1 a2 a3 a4 a5 b1 b2 b3 b4 b5 c1 c2 c3 c4 c5 d1 d2 d3 d4 d5 e1 e2 e3 e4 e5
+    for x <- retList do
+        print("{} ", x)
+    end
+
+    print("\n")
+
+    var acc2 = 0
+    for i <- range do
+      for j <- range do
+        acc2 += (i +j)
+        if (i == 2) then
           break
-        else
-          Just(())
         end
-    end
-
-    var list  = new LinkedList[String]()
-    list.append("Katt")
-    list.append("Hund")
-    list.append("Ko")
-
-
-    var list2  = new LinkedList[String]()
-    for xars <-["Katt", "Hund", "Ko"] do
-      list2.append(xars)
-      print(" {}", xars)
-    end
-
-
-
-    var mut = new LinkedList[LinkedList[String]]()
-    for x <- ["1", "2", "3"], y <- ["Katt", "Hund", "Ko"] do
-        var li = new LinkedList[String]()
-        li.append(x)
-        li.append(y)
-        print(" {}{} ", x, y)
-        mut.append(li)
-    end
-
-
-    print("Matrix: \n")
-    for ll <- mut do
-      for l <- ll do
-        print("{} \n", l)
       end
     end
 
-    useList(for elem <- list, el <- list2 do
-                      (elem, el)
+    -- result in: 18
+    print("{} ", acc2)
+
+    -- result in: a b c d e
+    useList(for x <- linklistString do
+                x
             end)
-
-    var list  = new LinkedList[int]()
-    list.append(1)
-    list.append(2)
-    list.append(3)
-
-    var list2  = new LinkedList[int]
-    list2.append(5)
-    list2.append(6)
-
-    var list3 = for x <- list, y <- list2 do
-                  x + y
-                end
-
-    for x <- list do
-      print("{}\n", x)
-    end
-
-    for e <- list3 do
-      print("{}", e)
-    end
-
 
   end
 end
