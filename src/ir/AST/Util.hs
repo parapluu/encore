@@ -175,10 +175,8 @@ putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [cond, body] e@(DoWhile {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
--- JOY for-comprehension
 putChildren (body:collectionList) e@(For {sources}) =
   e{body = body, sources = zipWith (\collec s -> s{collection = collec}) collectionList sources}
---putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
 putChildren (arg:clauseList) e@(Match {clauses}) =
     e{arg = arg, clauses=putClausesChildren clauseList clauses}
     where putClausesChildren [] [] = []
