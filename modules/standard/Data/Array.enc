@@ -4,7 +4,7 @@ module Array
 
 -- new_with_default :: (int, a) -> [a]
 -- new_with_default(size, default) creates an array of size default
--- with each element 
+-- with each element
 fun new_with_default[a](size : int, default : a) : [a]
   val arr = new [a](size)
   for i <- [0 .. size - 1] do
