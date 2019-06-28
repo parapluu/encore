@@ -395,7 +395,6 @@ read class String : Id + Hashable + Eq[String](compare(),length,cstring)
     end
   end
 
-
   def at(i : int) : char
     val s = this.cstring
     if (i >= 0) && (i < this.length()) then
