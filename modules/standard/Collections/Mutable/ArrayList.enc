@@ -305,7 +305,7 @@ local class ArrayList[t] : Collection[t](next_empty, int_arr, foreach(), shift_r
 
     return result
   end
-
+  
   def underlying() : [t]
     cat_maybes(this.int_arr)
   end
