@@ -4,7 +4,7 @@ module Array
 
 -- new_with_default :: (int, a) -> [a]
 -- new_with_default(size, default) creates an array of size default
--- with each element 
+-- with each element
 fun new_with_default[a](size : int, default : a) : [a]
   val arr = new [a](size)
   for i <- [0 .. size - 1] do
@@ -72,8 +72,8 @@ end
 -- count(pred, arr) counts the number of elements of arr satisfying predicate pred
 fun count[a](pred : a -> bool, arr : [a]) : int
   var count = 0
-  for a <- arr do
-    if pred(a) then
+  for x <- arr do
+    if pred(x) then
       count += 1
     end
   end
@@ -83,12 +83,74 @@ end
 -- map :: (a -> b, [a]) -> [b]
 -- map(f, arr) produces a new array containing the results of applying f to the
 -- elements of arr
-fun map[a,b](f : a -> b, arr : [a]) : [b]
+fun map[a,b](f : local ((a) -> b), arr : [a]) : [b]
   val ret = new [b](|arr|)
-  for i <- [0 .. |arr|-1] do
+  var i = 0
+  while (i <= |arr|-1) do
     ret(i) = f((arr)(i))
+    i += 1
   end
   ret
+end
+
+-- flatMap :: (a -> [b], [a]) -> [b]
+-- flatMap(f, arr) produces a new array containeing the flatened results of applying f to
+-- the elements of arr
+fun flatMap[a, b](f : local ((a) -> [b]), arr : [a]) : [b]
+  val size = |arr|
+  var result = new [b](0)
+  var i = 0
+  while (i < size) do
+    var ret = f(arr(i))
+    result = concat[b](result, ret)
+    i += 1
+  end
+  return result
+end
+
+-- foreach(a -> unit, [a]) -> unit
+-- forach(f, arr) applied f to all elements of an array, resulting in unit.
+fun foreach[a](f : local ((a) -> unit), arr : [a]) : unit
+  val size = |arr|
+  var i = 0
+  while i < size do
+    f(arr(i))
+    i += 1
+  end
+end
+
+
+fun maybeForeach[a](f : local ((a) -> Maybe[unit]), arr : [a]) : Maybe[unit]
+  val size = |arr|
+  var i = 0
+  while i < size do
+    var res = f(arr(i))
+    if res == Nothing then
+      return Nothing
+    end
+    i += 1
+  end
+  return Just(())
+end
+
+-- concat :: ([a], [a]) -> [a]
+-- concat(firstArr, secondArr) produces a new array that is the concatination of
+-- the two input arrays.
+fun concat[a](firstArr : [a], secondArr : [a]) : [a]
+  val firstSize = |firstArr|
+  val secondSize = |secondArr|
+  val result = new [a](firstSize + secondSize)
+  var i = 0
+  while i < firstSize do
+    result(i) = firstArr(i)
+    i += 1
+  end
+  var j = 0
+  while j < secondSize do
+    result(j+firstSize) = secondArr(j)
+    j += 1
+  end
+  return result
 end
 
 -- show :: (a -> unit, [a]) -> unit
@@ -123,7 +185,7 @@ fun contains[t](arr : [t], to_find : t) : bool
 end
 
 -- contains_str :: ([String], String) -> bool
--- contains_str(arr, elem) is true if and only if elem appears in arr 
+-- contains_str(arr, elem) is true if and only if elem appears in arr
 -- tested using String.compare
 fun contains_str(arr : [String], to_find : String) : bool
   var retval = false
@@ -147,7 +209,7 @@ fun clone[t](src : [t]) : [t]
 end
 
 -- nclone :: ([t], int) -> Maybe[[t]]
--- nclone(arr,n) results in Just(arr') where arr' is a new array containing 
+-- nclone(arr,n) results in Just(arr') where arr' is a new array containing
 -- the first n elements of arr, in the case where n < |arr|, otherwise Nothing
 -- a new array containing the same contents as arr
 fun nclone[t](src : [t], n : uint) : Maybe[[t]]
@@ -161,4 +223,3 @@ fun nclone[t](src : [t], n : uint) : Maybe[[t]]
     Just(new_arr)
   end
 end
-

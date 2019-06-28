@@ -1444,17 +1444,18 @@ expr = notFollowedBy nl >>
         reserved "then"
         return $ \thn -> Unless{emeta, cond, thn}
 
-      for = blockedConstruct $ do
+      for = blockedConstruct $  do
         emeta <- buildMeta
         reserved "for"
-        name <- Name <$> identifier
-        reservedOp "<-"
-        src <- expression
-        stepMeta <- buildMeta
-        step <- option (IntLiteral stepMeta 1)
-                       (do {reserved "by"; expression})
+        sources <- option [] $ (commaSep getForSource)
         reserved "do"
-        return $ \body -> For{emeta, name, src, step, body}
+        return $ \body -> For{emeta, sources, body}
+        where
+          getForSource = do
+             fsName <- Name <$> identifier
+             reservedOp "<-"
+             collection <- expression
+             return ForSource {fsName, fsTy = Nothing, collection}
 
       while = blockedConstruct $ do
         emeta <- buildMeta

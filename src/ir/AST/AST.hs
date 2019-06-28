@@ -19,6 +19,7 @@ import Identifiers
 import Types
 import AST.Meta as Meta hiding(Closure, Async)
 
+
 data FileDescriptor = Stdout | Stderr
   deriving (Show, Eq)
 
@@ -600,6 +601,12 @@ data VarDecl =
              varType :: Type}
   deriving(Eq, Show)
 
+data ForSource =
+     ForSource { fsName :: Name,
+                 fsTy :: Maybe Type,
+                 collection :: Expr}
+     deriving(Eq, Show)
+
 data Expr = Skip {emeta :: Meta Expr}
           | Break {emeta :: Meta Expr}
           | Continue {emeta :: Meta Expr}
@@ -685,10 +692,8 @@ data Expr = Skip {emeta :: Meta Expr}
                     times :: Expr,
                     body :: Expr}
           | For {emeta  :: Meta Expr,
-                 name   :: Name,
-                 step   :: Expr,
-                 src    :: Expr,
-                 body   :: Expr}
+                sources :: [ForSource],
+                  body   :: Expr}
           | Match {emeta :: Meta Expr,
                    arg :: Expr,
                    clauses :: [MatchClause]}
@@ -816,6 +821,10 @@ isForward :: Expr -> Bool
 isForward Forward {} = True
 isForward _ = False
 
+isAssign :: Expr -> Bool
+isAssign Assign {} = True
+isAssign _ = False
+
 isVarAccess :: Expr -> Bool
 isVarAccess VarAccess{} = True
 isVarAccess _ = False
@@ -827,6 +836,14 @@ isNull _ = False
 isTask :: Expr -> Bool
 isTask Async {} = True
 isTask _ = False
+
+isBreak :: Expr -> Bool
+isBreak Break{} = True
+isBreak _ = False
+
+isFor :: Expr -> Bool
+isFor For{} = True
+isFor _ = False
 
 isRangeLiteral :: Expr -> Bool
 isRangeLiteral RangeLiteral {} = True
@@ -866,15 +883,21 @@ isPrimitiveLiteral _ = False
 
 isValidPattern :: Expr -> Bool
 isValidPattern TypedExpr{body} = isValidPattern body
-isValidPattern FunctionCall{} = True
-isValidPattern MaybeValue{mdt = JustData{e}} = isValidPattern e
-isValidPattern MaybeValue{mdt = NothingData} = True
-isValidPattern Tuple{args} = all isValidPattern args
-isValidPattern VarAccess{} = True
-isValidPattern Null{} = True
+isValidPattern FunctionCall{} =  True
+isValidPattern MaybeValue{mdt = JustData{e}} =   isValidPattern e
+isValidPattern MaybeValue{mdt = NothingData} =    True
+isValidPattern Tuple{args} =  all isValidPattern args
+isValidPattern VarAccess{} =  True
+isValidPattern Null{} =  True
+isValidPattern ExtractorPattern{} =  True
+isValidPattern AdtExtractorPattern{} =  True
 isValidPattern e
-    | isPrimitiveLiteral e = True
+    | isPrimitiveLiteral e =  True
     | otherwise = False
+
+isExtractorPattern :: Expr -> Bool
+isExtractorPattern ExtractorPattern{} = True
+isExtractorPattern _ = False
 
 isImpure :: Expr -> Bool
 isImpure MethodCall {} = True

@@ -25,7 +25,6 @@ import Types as Ty
 
 import Control.Monad.State hiding (void)
 import Control.Arrow(first)
-import Debug.Trace
 
 varSubFromTypeVars :: [Type] -> [(ID.Name, CCode Lval)]
 varSubFromTypeVars = map each

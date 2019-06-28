@@ -1,0 +1,33 @@
+module RRange
+
+read class RRange
+  val start : int
+  val stop : int
+  val step : int
+
+  def init(start : int, stop : int, step : int) : unit
+    this.start = start
+    this.stop = stop
+    this.step = step
+  end
+
+  def foreach(f : local ((int) -> unit)) : unit
+    var current = this.start
+    while (current <= this.stop) do
+      f(current)
+      current += this.step
+    end
+  end
+
+  def maybeForeach(f : local ((int) -> Maybe[unit])) : Maybe[unit]
+    var current = this.start
+    while (current <= this.stop) do
+      var ret = f(current)
+      if ret == Nothing then
+        return Nothing
+      end
+      current += this.step
+    end
+    return Just(())
+  end
+end
