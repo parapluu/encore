@@ -9,7 +9,6 @@ file I/O.
 
 module Main where
 
-import Debug.Trace
 
 import System.Environment
 import System.Directory
@@ -357,7 +356,7 @@ main =
        let (mainDir, mainName) = dirAndName sourceName
            mainSource = mainDir </> mainName
        let fullAst = setProgramSource mainSource $
-                     compressProgramTable typecheckedTableTwo
+                     compressProgramTable optimizedTable
 
        unless (TypecheckOnly `elem` options) $
          case checkForMainClass mainSource fullAst of

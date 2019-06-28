@@ -1,0 +1,10 @@
+module MutBox
+
+local class MutBox[t]
+
+  var value : t
+
+  def init( v : t) : unit
+    this.value = v
+  end
+end

@@ -490,7 +490,7 @@ mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAs
 mark asParent s@For{sources, body} =
   asParent s{sources = map markAsForSource sources, body=markAsExpr body}
   where
-    markAsForSource ForSource{fsName, fsTy, collection} = ForSource {fsName, fsTy, collection = markAsStat collection}
+    markAsForSource ForSource{fsName, fsTy, collection} = ForSource {fsName, fsTy, collection = markAsExpr collection}
 mark asParent s =
   let
     children = AST.Util.getChildren s

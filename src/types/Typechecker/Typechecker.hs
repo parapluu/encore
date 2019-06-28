@@ -1730,11 +1730,15 @@ instance Checkable Expr where
     -- --------------------------
     --  E |- for x <- rng e : ty
 
-    --  E |- arr : [ty]
-    --  E, x : int |- e : ty
+    --  E |- arr : [ty1]
+    --  E, x : ty1 |- e : ty
     -- --------------------------
-    --  E |- for x <- arr e : ty TODO:  Fox thisis old typing comment
-    -- TODO: Mke sure all collections are the same collectiontype findFormalRefType, Use subtypeOf to ensure refType collections implements Functor.
+    --  E |- for x <- arr e : ty
+
+    --  E |- col : isRefType, inner : ty1
+    --  E, x : ty1 |- e : ty
+    -- --------------------------
+    --  E |- for x <- col e : ty
     doTypecheck for@(For {sources, body}) = do
       sourceType <- firstSourceType $ head sources
       sourcesTyped <- mapM (typeCheckSource sourceType) sources
@@ -1748,15 +1752,17 @@ instance Checkable Expr where
             collectionTyped <- doTypecheck collection
             let collectionType = AST.getType collectionTyped
             formalType <- firstSourceType fors
-            let mtyType = return $ getInnerType collectionType
             unless (formalType == sourceType) $
               pushError collection $ TypeMismatchError formalType sourceType
+            let mtyType = return $ getInnerType collectionType
             return fors{fsTy = mtyType
                        ,collection = setType collectionType collectionTyped}
 
         firstSourceType ForSource{fsTy, collection} = do
             collectionTyped <- doTypecheck collection
             let collectionType = AST.getType collectionTyped
+            unless (isRefType collectionType || isArrayType collectionType) $
+               pushError collection $ NonIterableError collectionType
             formal <- if isRefType collectionType
                       then findFormalRefType collectionType
                       else return collectionType
@@ -1765,16 +1771,13 @@ instance Checkable Expr where
         getNameTypeList sourceList = mapM getNameType sourceList
         getNameType ForSource{fsName, collection} = do
           let collectionType = AST.getType collection
-          unless (isRefType collectionType || isArrayType collectionType) $
-             pushError collection $ NonIterableError collectionType
           let nameType = getInnerType collectionType
           return (fsName, nameType)
 
         getInnerType collectionType
          | isArrayType collectionType = getResultType collectionType
          | isRangeObjectType collectionType = intType
-         | isRefType collectionType = head $ getTypeParameters collectionType
-         | otherwise = undefined--TODO: THrow err0r
+         | otherwise = head $ getTypeParameters collectionType
 
         typecheckBody nameList = local (extendEnvironmentImmutable nameList) . doTypecheck
 
@@ -1787,7 +1790,7 @@ instance Checkable Expr where
                 | AST.getType body == unitType = unitType
                 | isArrayType collectionType = setResultType collectionType paraType
                 | isRangeObjectType collectionType = unitType
-                | isRefType collectionType = setTypeParameters collectionType [paraType]
+                | otherwise = setTypeParameters collectionType [paraType]
           in rettype
 
 
@@ -1889,7 +1892,7 @@ instance Checkable Expr where
                   (length expectedTypes) (length args)
       eArgs <- mapM typecheck args
       matchArguments args expectedTypes
-      return $ setType bottomType abort{args = eArgs} --args=([]::[Expr])} TODO: is this allowed?
+      return $ setType bottomType abort{args = eArgs}
 
     doTypecheck stringLit@(StringLiteral {}) = do
       when (Util.isStatement stringLit) $

@@ -4,7 +4,6 @@ import Data.Maybe(cat_maybes)
 import Data.Either
 import Data.Array
 import Collections.Mutable.Collection
--- JOY for-comprehension
 import Collections.Mutable.Functor
 
 local class ArrayList[t] : Collection[t](next_empty, int_arr, foreach(), shift_right(), shift_left(), ensure_can_accomodate(), resize()) + Functor[t](map(), flatMap())

@@ -282,7 +282,6 @@ active class Test
       end
       for v <- arr_passive_join do
         if v.tag.eq("pass") then
-          print("{}\n", v)
           assertTrue(v.life == expIntJoin1, "ERROR in 'test_liftf_passive'")
         else
           assertTrue(v.life == 1, "ERROR in 'test_liftf_passive'")
