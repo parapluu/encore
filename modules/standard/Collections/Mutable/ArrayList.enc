@@ -152,7 +152,7 @@ local class ArrayList[t] : Collection[t](next_empty, int_arr, foreach(), shift_r
     val clone = new ArrayList[t]()
 
     for x <- this.int_arr do
-      match x with 
+      match x with
         case Just(ice) => clone.append(ice)
         case Nothing => { break; () }
       end
@@ -305,7 +305,7 @@ local class ArrayList[t] : Collection[t](next_empty, int_arr, foreach(), shift_r
 
     return result
   end
-
+  
   def underlying() : [t]
     cat_maybes(this.int_arr)
   end
