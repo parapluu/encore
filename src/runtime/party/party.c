@@ -9,6 +9,7 @@
 #include "structure.h"
 #include "list.c"
 #include "set.h"
+#include "option.h"
 
 typedef struct fmap_s fmap_s;
 typedef par_t* (*fmapfn)(par_t*, fmap_s*);
@@ -553,6 +554,7 @@ static inline size_t party_get_final_size(pony_ctx_t **ctx, par_t const * p)
         array_t* ar_p = party_get_array(p);
         size_t size_p = array_size(ar_p);
         i += size_p;
+        // TODO: shouldn't we pop now?
         break;
       }
       default: exit(-1);
@@ -1062,4 +1064,158 @@ par_t* party_zip_with(pony_ctx_t **ctx,
   list_t *lr = party_leaves_to_list(ctx, pr);
   par_t *result = party_zip_list(ctx, ll, lr, fn, type);
   return result;
+}
+
+struct env_stream_from_party {
+  future_t *promise;
+  par_t *par;
+  int counter;
+};
+
+static void trace_collect_from_stream_party(pony_ctx_t *_ctx, void *p)
+{
+  pony_ctx_t ** ctx = &_ctx;
+  struct env_stream_from_party *this = p;
+  encore_trace_object(*ctx, this->promise, future_trace);
+  encore_trace_object(*ctx, this->par, party_trace);
+}
+
+// TODO:
+static inline void selective_prune_party(__attribute__ ((unused)) pony_ctx_t **ctx,
+                                         __attribute__ ((unused)) par_t *p)
+{
+  (void)0;
+}
+
+// (noreturn) closure signature does not allow a not return
+static value_t
+stream_value_from_party(pony_ctx_t** ctx,
+                        pony_type_t** runtimeType,
+                        value_t args[],
+                        void* env) {
+  future_t *promise = ((struct env_stream_from_party*) env)->promise;
+
+  int prev_counter =
+      __atomic_fetch_sub(&((struct env_stream_from_party*) env)->counter,
+                         1,
+                         __ATOMIC_RELAXED);
+
+  if (prev_counter == 1) {
+    par_t *par = ((struct env_stream_from_party*) env)->par;
+
+    option_t *option = option_mk(ctx, JUST, args[0], *runtimeType);
+    future_fulfil(ctx,
+                  promise,
+                  (value_t) { .p = option});
+    selective_prune_party(ctx, par);
+  }
+  return (value_t) {.p = NULL};
+}
+
+//
+//  STREAM_ITEMS_FROM_PRUNE
+//
+// defines the number of streaming items that should be set in the future
+// gotten by prune, i.e. how many items does the future contains. prune
+// always fetches a single item from the Par[t] given as second argument.
+//
+//   (Fut[Maybe[t]] -> Par[t']) -> Par[t] -> Par[t']
+//
+//
+#define STREAM_ITEMS_FROM_PRUNE 1
+
+static inline void party_promise_prune(pony_ctx_t **ctx,
+                                       future_t *promise,
+                                       par_t *par,
+                                       pony_type_t *parType)
+{
+  // 1. Start iterating through ParT and attaching fulfilment of future
+  //    if an element of the ParT is fulfilled. only the first fulfilled item
+  //    in the ParT fulfils the promise.
+  //
+  //    basically:
+  //      1.1 attach a function call that fulfils the promise
+  //
+  // 2. if promise has been fulfilled, send pruning to original ParT
+  //
+
+  struct env_stream_from_party *env = encore_alloc(*ctx, sizeof(struct env_stream_from_party));
+  env->counter = STREAM_ITEMS_FROM_PRUNE;
+  env->promise = promise;
+  env->par = par;
+
+  closure_t *c = closure_mk(ctx, stream_value_from_party,
+                            env, trace_collect_from_stream_party, (pony_type_t* []) {parType});
+
+  // Iterate through items in the ParT.
+  // If future is found, then attach closure.
+  // If parT is found, traverse left and right until future or value is found.
+  // If value is found, make direct function call (no need for closure indirection)
+  //   and call on prune method on parT.
+  list_t *tmp_lst = NULL;
+  par_t *p = par;
+  while(p){
+    switch(p->tag){
+    case EMPTY_PAR: {
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      break;
+    }
+    case VALUE_PAR: {
+      // the value needs to be wraped in an option type
+      closure_call(ctx, c, (value_t[]){ party_get_v(p) });
+      p = NULL; // break from while loop
+      break;
+    }
+    case FUTURE_PAR: {
+      // the value needs to be wrapper in an option type
+      future_register_callback(ctx, party_get_fut(p), c);
+      tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      break;
+    }
+    case PAR_PAR: {
+      par_t *left = party_get_parleft(p);
+      par_t *right = party_get_parright(p);
+      tmp_lst = list_push(tmp_lst, (value_t) { .p = right });
+      p = left;
+      break;
+    }
+    case FUTUREPAR_PAR: {
+      // TODO: this should not be an await, but a new closure attach to the ParT
+      //       which repeats the process when the Fut[Par[t]] is fulfilled.
+      future_t *futpar = party_get_futpar(p);
+      future_await(ctx, futpar);
+      p = future_get_actor(ctx, futpar).p;
+      break;
+    }
+    case ARRAY_PAR: {
+      array_t* arr = party_get_array(p);
+      if (array_size(arr) > 0) {
+        closure_call(ctx, c, (value_t[]) { array_get(arr, 0) } );
+        p = NULL; // break from while loop
+      } else {
+        tmp_lst = list_pop(tmp_lst, (value_t*)&p);
+      }
+      break;
+    }
+    default: exit(-1);
+    }
+  }
+}
+
+par_t* party_prune(pony_ctx_t **ctx,
+                   closure_t *fn,
+                   par_t *par,
+                   pony_type_t *parType,
+                   __attribute__ ((unused)) pony_type_t *returnedType)
+{
+  // this future is a promise, i.e. fulfilled by a function, not an actor.
+  // INFO: make sure the promise is fulfilled with an Maybe[t]
+  future_t *promise = future_mk(ctx, &option_type);
+
+  // this function needs to be asynchronous, non-blocking
+  // although iteration over things is ok as long as it doesn't block, i.e.
+  // await for a ParT item to finish.
+  party_promise_prune(ctx, promise, par, parType);
+
+  return closure_call(ctx, fn, (value_t[]) {[0] = {.p = promise }}).p;
 }
