@@ -14,6 +14,8 @@ import System.Directory
 import System.IO
 import System.Exit
 import System.Process
+import qualified Data.ByteString.Lazy as B (readFile)
+import System.Pager (sendToPager)
 import System.Posix.Directory
 import Data.List
 import Data.List.Utils(split)
@@ -25,6 +27,7 @@ import qualified Data.Map.Strict as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
+import qualified Text.PrettyPrint.Annotated as Pretty
 import qualified Text.PrettyPrint.Boxes as Box
 import System.FilePath (splitPath, joinPath)
 import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
@@ -41,6 +44,7 @@ import ModuleExpander
 import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
+import Typechecker.Errorprinter
 import Typechecker.Capturechecker(capturecheckProgram)
 import Optimizer.Optimizer
 import CodeGen.Main
@@ -72,6 +76,7 @@ data Option =
             | Verbose
             | Literate
             | NoGC
+            | Explain String
             | Help
             | Undefined String
             | Malformed String
@@ -122,6 +127,8 @@ optionMappings =
         "Compile and run the program, but do not produce executable file."),
        (NoArg NoGC, "", "--no-gc", "",
         "DEBUG: disable GC and use C-malloc for allocation."),
+       (Arg Explain, "-e", "--explain", "[error]",
+        "Display information for error code"),
        (NoArg Help, "", "--help", "",
         "Display this information.")
       ]
@@ -293,6 +300,9 @@ main =
        checkForUndefined options
        when (Help `elem` options)
            (exit helpMessage)
+       case find isExplain options of
+           Just (Explain errCode) -> explainError errCode
+           Nothing -> return ()
        when (null programs)
            (abort ("No program specified! Aborting.\n\n" <>
                     usage <> "\n" <>
@@ -349,7 +359,7 @@ main =
 
        unless (TypecheckOnly `elem` options) $
          case checkForMainClass mainSource fullAst of
-           Just error -> abort $ show error
+           Just error -> errorAbort error
            Nothing    -> return ()
 
        exeName <- compileProgram fullAst sourceName options
@@ -372,7 +382,7 @@ main =
                   (Right ast, warnings)  -> return (ast, warnings)
                   (Left error, warnings) -> do
                     showWarnings warnings
-                    abort $ show error
+                    errorAbort error
             showWarnings precheckingWarnings
             return precheckedAST
 
@@ -387,7 +397,7 @@ main =
                   (Right (newEnv, ast), warnings) -> return (ast, warnings)
                   (Left error, warnings) -> do
                     showWarnings warnings
-                    abort $ show error
+                    errorAbort error
             showWarnings typecheckingWarnings
             return typecheckedAST
 
@@ -402,14 +412,14 @@ main =
                 (Right (newEnv, ast), warnings) -> return (ast, warnings)
                 (Left error, warnings) -> do
                     showWarnings warnings
-                    abort $ show error
+                    errorAbort error
             showWarnings capturecheckingWarnings
             return capturecheckedAST
       usage = "Usage: encorec [flags] file"
       verbose options str = when (Verbose `elem` options)
                                   (putStrLn str)
 
-      showWarnings = mapM print
+      
       helpMessage =
         "Welcome to the Encore compiler!\n" <>
         usage <> "\n\n" <>
@@ -429,3 +439,29 @@ main =
           flags = intercalate "\n" $
                   map (("  " ++) . strip) . lines $
                   Box.render optionBox
+
+      errorAbort e = do
+        printf "*** Error during typechecking *** \n\n"
+        printError e
+        abort $ "Aborting due to previous error"
+
+      showWarnings = mapM printWarning . reverse
+
+
+      isExplain (Explain _) = True
+      isExplain _ = False
+
+      explainError errCode = do
+        isHash <- isExplanationHash errCode
+        case isHash of
+          False -> do
+            noExplanation errCode
+            exitSuccess
+          True -> do
+            let fnom = standardLibLocation ++ "/explanations/" ++ errCode ++ ".txt"
+            B.readFile fnom >>= sendToPager
+            exitSuccess
+
+      isExplanationHash :: String -> IO Bool
+      isExplanationHash str@('E':_:_:_:_:[]) = doesFileExist $ standardLibLocation ++ "/explanations/" ++ str ++ ".txt"
+      isExplanationHash _ = return False

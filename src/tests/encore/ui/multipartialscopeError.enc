@@ -1,0 +1,17 @@
+
+
+active class Main
+
+    def bar(x : int, num : int) : int
+        num*2
+
+    end
+
+    def main(args : [String]) : unit
+
+        var x = this.bar("i",
+                         2)
+        ()
+    end
+end
+

@@ -24,6 +24,7 @@ instance Show Position where
   -- TODO: If we ever want to print ranges, this should be updated
   show = showSourcePos . startPos
 
+
 newPos :: SourcePos -> Position
 newPos = SingletonPos
 
@@ -54,13 +55,25 @@ showSourcePos pos =
   let line = unPos (sourceLine pos)
       col = unPos (sourceColumn pos)
       file = sourceName pos
-  in printf "%s (line %d, column %d)" (show file) line col
+  in printf "%s (Line:%d, Column:%d)" (show file) line col
 
 showPos :: Meta a -> String
 showPos = showSourcePos . startPos . position
 
 getPos :: Meta a -> Position
 getPos = position
+
+getPositions :: Position -> ((Int, Int), (Int, Int))
+getPositions pos =
+  case pos of
+    SingletonPos start -> ((line start, column start), (line start, column start+1))
+    RangePos start end -> ((line start, column start), (line end, column end))
+    where
+      line p   = fromIntegral $ unPos (sourceLine p)
+      column p = fromIntegral $ unPos (sourceColumn p)
+
+getPositionFile :: Position -> String
+getPositionFile = sourceName . startPos
 
 setType :: Type -> Meta a -> Meta a
 setType newType m = m {metaType = Just newType}
