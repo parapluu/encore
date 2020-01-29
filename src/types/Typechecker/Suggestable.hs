@@ -4,6 +4,7 @@ module Typechecker.Suggestable (
                                 Suggestable
                                 ,smallSuggest
                                 ,longSuggest
+                                ,pipe -- from AST.PrettyPrinter
                                 )where
 
 -- Library dependencies
@@ -19,9 +20,6 @@ import Typechecker.Environment
 import Typechecker.Util
 import Identifiers
 import Types
-
-
-pipe = char '|'
 
 
 makeNotation :: Doc TCStyle

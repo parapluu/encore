@@ -9,6 +9,8 @@ import System.Console.ANSI
 import Text.Printf (printf)
 import Data.Ix(range)
 import Data.Map.Strict (keys)
+import Data.List.Utils (replace)
+import Text.Megaparsec.Pos (defaultTabWidth, unPos)
 
 -- Module dependencies
 import AST.Meta(Position, getPositionFile, getPositions)
@@ -88,9 +90,6 @@ prettyError (TCError err Env{bt = []}) _ =
     declareError err <+> description err
 prettyError tcErr@(TCError err _) code =
     declareError err <+> description err $+$ codeViewer tcErr code
--- Possible extensions:
---  Duplicate Class -> print positions (File + line) of the two classes
---  Type error in func call -> print a version of codeViewer that also shows the function head
 
 prettyWarning :: TCWarning -> [String] -> Doc TCStyle
 -- Default warnings
@@ -99,21 +98,18 @@ prettyWarning (TCWarning w Env{bt = []}) _ =
 prettyWarning tcWarn@(TCWarning w _) code =
         declareWarning w <+> description w $+$ codeViewer tcWarn code
 
-pipe = char '|'
-
 declareError :: Error -> Doc TCStyle
-declareError = styleDeclaration "[E%04d]" "Error" . explain
+declareError = formatDeclaration "[E%04d]" "Error" . explain
 
 declareWarning :: Warning -> Doc TCStyle
-declareWarning = styleDeclaration "[W%04d]" "Warning" . explain
+declareWarning = formatDeclaration "[W%04d]" "Warning" . explain
 
-styleDeclaration format msg explanation =
-    let
-        hash = case explanation of
-            Nothing -> empty
+-- Formats the declaration based on if there exists a explanation or not
+formatDeclaration :: String -> String -> Maybe Int -> Doc TCStyle
+formatDeclaration format msg explanation = styleClassify $ text msg <> hash <> char ':'
+    where hash = case explanation of
+            Nothing  -> empty
             Just num -> text $ printf format num
-    in
-        styleClassify $ text msg <> hash <> char ':'
 
 description :: Show a => a -> Doc TCStyle
 description ty = styleDesc $ text $ show ty
@@ -135,8 +131,11 @@ codeViewer err (cHead:cTail) =
     where
         pos = currentBTPos err
         ((sL, sC), (eL, eC)) = getPositions pos
-        digitLen = 1 + (length $ show eL) --One additional for the space between line-number and pipe
+        digitLen = 1 + (length $ show eL) -- One additional for the space between line-number and pipe
         tailCode = zipWith (codeLine " |") cTail [(sL+1)..eL]
+        secondLineMergable
+            | not $ null cTail = let (secondLine:_) = cTail in emptyBeforePosition secondLine sC
+            | otherwise = False
 
         showCodeHead :: Doc TCStyle -> Doc TCStyle
         showCodeHead tail
@@ -144,7 +143,8 @@ codeViewer err (cHead:cTail) =
                 codeLine "  " cHead sL $+$
                 styleLogistic pipe <>
                 styleHighlight (singleLineHighlighter sC eC '^') <+> tail
-            | errorIsWholeLine cHead sC = codeLine " /" cHead sL $+$ tail
+            | secondLineMergable =
+                codeLine "  " cHead sL $+$ tail
             | otherwise =
                 codeLine "  " cHead sL $+$
                 styleLogistic pipe <>
@@ -153,20 +153,21 @@ codeViewer err (cHead:cTail) =
         showTailCode :: Doc TCStyle
         showTailCode
             | null tailCode = empty
+            | secondLineMergable =
+                codeLineWithFirstLineHighlight (head cTail) (sL+1) sC $+$
+                vcat (tail tailCode) $+$
+                styleLogistic pipe <>
+                styleHighlight (multilineHighlighter eC LastLine '^')
             | otherwise =
                 vcat tailCode $+$
                 styleLogistic pipe <>
                 styleHighlight (multilineHighlighter eC LastLine '^')
 
-        errorIsWholeLine _ 0 = True
-        errorIsWholeLine _ 1 = True
-        errorIsWholeLine (x:xs) n
-            | x == ' '  = errorIsWholeLine xs (n-1)
-            | otherwise = False
+emptyBeforePosition _ 0 = True
+emptyBeforePosition (x:xs) n
+    | x == ' '  = emptyBeforePosition xs (n-1)
+    | otherwise = False
 
-
-
--- Remove if version 1 is not to be used
 singleLineHighlighter :: Int -> Int -> Char -> Doc ann
 singleLineHighlighter s e c = space <+> text (replicate (s-1) ' ' ++ replicate (e-s) c)
 
@@ -185,6 +186,16 @@ codeLine insertStr code lineNo =
         styleHighlight (text insertStr) <>
         styleCode (text code)
 
+codeLineWithFirstLineHighlight code lineNo charbuff =
+    let
+        pad = (length $ show lineNo) + 1 --One additional for the space between line-number and pipe
+    in
+        nest (-pad) $
+        styleLogistic ((int lineNo) <+> pipe) <>
+        styleHighlight (multilineHighlighter charbuff FirstLine '^') <>
+        styleCode (text $ drop charbuff code)
+
+
 getCodeLines :: Position -> IO [String]
 getCodeLines pos = do
     let ((sL, _), (eL, _)) = getPositions pos
@@ -193,7 +204,10 @@ getCodeLines pos = do
     contents <- readFile $ getPositionFile pos
     case take end $ drop start $ lines contents of
         []  -> error "\nFile has been edited between parsing and type checking"
-        l   -> return l
+        l   -> return $ map (replace "\t" spaces) l
+    where
+        -- Ugly workaround since the tab-width of MegaParsec and a users terminal can be inconsistent.
+        spaces = replicate (fromIntegral $ unPos defaultTabWidth) ' '
 
 noExplanation :: String -> IO ()
 noExplanation errCode =

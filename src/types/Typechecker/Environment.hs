@@ -512,12 +512,12 @@ varLookup qname@QName{qnspace, qnlocal = x}
 visibleFunctions :: Environment -> [(Name, Type)]
 visibleFunctions Env{locals, lookupTables} =
   let
-    fTable = extractTables filterFunctionTable lookupTables
-    -- Ability to filter lobal functions included by default
-    --selfMadeFunc = filter (not . (`elem` ["Std", "String"]) . show . fst) fTable
+    funcTable = extractTables filterFunctionTable lookupTables
+    -- Std only contains internal functions that are not ment to be operated by the user.
+    exposedTable = filter ((/= "Std")  . show . fst) funcTable
     localFunc = map (\(x,(_,z)) -> (x,z)) $ filter (isArrowType . snd . snd) locals
   in
-    localFunc ++ concatMap (Map.assocs . snd) fTable
+    localFunc ++ concatMap (Map.assocs . snd) exposedTable
 
   where
     filterFunctionTable LookupTable{functionTable

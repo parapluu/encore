@@ -27,7 +27,6 @@ import qualified Data.Map.Strict as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
-import System.Console.ANSI
 import qualified Text.PrettyPrint.Annotated as Pretty
 import qualified Text.PrettyPrint.Boxes as Box
 import System.FilePath (splitPath, joinPath)
@@ -462,10 +461,6 @@ main =
             let fnom = standardLibLocation ++ "/explanations/" ++ errCode ++ ".txt"
             B.readFile fnom >>= sendToPager
             exitSuccess
-
-          where
-            resetScreen :: IO ()
-            resetScreen = setSGR [Reset] >> clearScreen >> setCursorPosition 0 0
 
       isExplanationHash :: String -> IO Bool
       isExplanationHash str@('E':_:_:_:_:[]) = doesFileExist $ standardLibLocation ++ "/explanations/" ++ str ++ ".txt"

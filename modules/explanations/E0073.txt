@@ -7,11 +7,11 @@ variable.
 For example:
 
 ```
-let x: i32 = \"I am not a number!\";
-//     ~~~   ~~~~~~~~~~~~~~~~~~~~
-//      |             |
-//      |    initializing expression;
-//      |    compiler infers type `&str`
-//      |
-//    type `i32` assigned to variable `x`
+let x: int = "I am not a number!"
+--     ~~~   ~~~~~~~~~~~~~~~~~~~~
+--      |             |
+--      |    initializing expression;
+--      |    compiler infers type `String.String`
+--      |
+--    type `int` assigned to variable `x`
 ```

@@ -16,6 +16,7 @@ module AST.PrettyPrinter (ppExpr
                          ,indent
                          ,ppSugared
                          ,ppFunctionHeader
+                         ,pipe
                          ) where
 
 -- Library dependencies
@@ -27,6 +28,8 @@ import Types
 import AST.AST
 
 indent = nest 2
+
+pipe = char '|'
 
 commaSep l = hcat $ punctuate ", " l
 brackets s = hcat ["[", s, "]"]
