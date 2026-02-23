@@ -1,3 +1,5 @@
+# The Encore project is officially deprecated. You can read our post-mortem [here](https://link.springer.com/chapter/10.1007/978-3-031-51060-1_3). These pages are kept around for posterity.
+
 ```
 ||:encorec:||
 ```
