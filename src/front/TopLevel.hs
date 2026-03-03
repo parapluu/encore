@@ -25,6 +25,7 @@ import qualified Data.Map.Strict as Map
 import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
+import Text.Read
 import qualified Text.PrettyPrint.Boxes as Box
 import System.FilePath (splitPath, joinPath)
 import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
@@ -50,6 +51,8 @@ import CodeGen.Header
 import CCode.PrettyCCode
 import Identifiers
 
+import LSP.Service
+
 
 -- the following line of code resolves the standard path at compile time using Template Haskell
 standardLibLocation = $(stringE . init =<< runIO (System.Environment.getEnv "ENCORE_MODULES" ))
@@ -72,6 +75,9 @@ data Option =
             | Verbose
             | Literate
             | NoGC
+            | Server String
+            | Host String
+            | Port String
             | Help
             | Undefined String
             | Malformed String
@@ -93,7 +99,7 @@ optionMappings =
   map makeMapping
       [
        (Arg (Imports . split ":"), "-I", "--import", "[dirs]",
-       "colon separated list of directories in which to look for modules."),
+        "colon separated list of directories in which to look for modules."),
        (Arg Output, "-o", "--out-file", "[file]",
         "Specify output file."),
        (Arg CustomFlags, "-F", "--custom-flags", "[flags]",
@@ -122,6 +128,12 @@ optionMappings =
         "Compile and run the program, but do not produce executable file."),
        (NoArg NoGC, "", "--no-gc", "",
         "DEBUG: disable GC and use C-malloc for allocation."),
+       (Arg Server, "-s", "--server", "[server-mode]",
+        "Start the compiler as a language server. Valid server modes are \"stdio\", \"tcp-client\" and \"tcp-server\"."),
+       (Arg Host, "-h", "--host", "[host]",
+        "Specify what host to connect to when running as a language server in \"tcp-client\" mode."),
+       (Arg Port, "-p", "--port", "[port]",
+        "Specify what port to use when running as a language server in \"tcp-client\" or \"tcp-server\" mode."),
        (NoArg Help, "", "--help", "",
         "Display this information.")
       ]
@@ -287,12 +299,51 @@ compileProgram prog sourcePath options =
       getDefine NoGC = "NO_GC"
       getDefine _ = ""
 
+isServerOption :: Option -> Bool
+isServerOption (Server _) = True
+isServerOption _          = False
+
+getPortOption :: [Option] -> IO Integer
+getPortOption [] = exit "Port number must be specified using --port."
+getPortOption ((Port port):bs)
+    = case readMaybe port of
+          Just port -> return port
+          Nothing   -> exit "Port specified using --port must be a number."
+getPortOption (a:bs) = getPortOption bs
+
+getHostOption :: [Option] -> IO String
+getHostOption [] = exit "Host must be specified using --host."
+getHostOption ((Host host):_) = return host
+getHostOption (a:bs) = getHostOption bs
+
+serverParams :: String -> [Option] -> IO ConnectionParams
+serverParams "stdio"      options = return STDIO
+serverParams "tcp-server" options = do
+    port <- getPortOption options
+    return $ TCPServer port
+serverParams "tcp-client" options = do
+    port <- getPortOption options
+    host <- getHostOption options
+    return $ TCPClient host port
+serverParams _ _ = fail "Language server mode must be one of \"stdio\", \"tcp-server\" or \"tcp-client\"."
+
 main =
-    do args <- getArgs
+    do
+       -- Parse arguments
+       args <- getArgs
        (programs, importDirs, options) <- parseArguments args
        checkForUndefined options
        when (Help `elem` options)
            (exit helpMessage)
+
+       -- Run language server if mode is specified
+       case find isServerOption options of
+           Just (Server mode) -> do params <- serverParams mode options
+                                    startServer params
+                                    exitSuccess
+           Nothing            -> return ()
+
+       -- Check that files were specified
        when (null programs)
            (abort ("No program specified! Aborting.\n\n" <>
                     usage <> "\n" <>

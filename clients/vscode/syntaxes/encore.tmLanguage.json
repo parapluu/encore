@@ -1,0 +1,152 @@
+{
+    "name": "encore",
+    "scopeName": "source.enc",
+    "patterns": [
+        {
+            "include": "#comment"
+        },
+        {
+            "include": "#keyword"
+        },
+        {
+            "include": "#name"
+        },
+        {
+            "include": "#type"
+        },
+        {
+            "include": "#constant"
+        }
+    ],
+    "repository": {
+        "keyword": {
+            "patterns": [
+                {
+                    "match": "\\b(active|class|val|var|def|fun|if|while|do|if|else|then|let|in|match|with|case|where|new|end)\\b",
+                    "captures": {
+                        "0": {
+                            "name": "keyword.other.enc"
+                        }
+                    }
+                }
+            ]
+        },
+        "name": {
+            "patterns": [
+                {
+                    "match": "(?x)(?<=class|def|fun)\\s+([_$a-zA-Z][_$a-zA-Z0-9]*)",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.function.enc"
+                        }
+                    }
+                }
+            ]
+        },
+        "type": {
+            "patterns": [
+                {
+                    "match": "(?x)(?<=:)\\s*([_$a-zA-Z][_$a-zA-Z0-9]*)",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.type.enc"
+                        }
+                    }
+                }
+            ]
+        },
+        "constant": {
+            "patterns": [
+                {
+                    "include": "#string"
+                },
+                {
+                    "match": "\\b(true|false)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "constant.language.enc"
+                        }
+                    }
+                },
+                {
+                    "match": "\\b([0-9]+)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "constant.numeric.enc"
+                        }
+                    }
+                }
+            ]
+        },
+        "string": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.enc",
+                    "begin": "\"",
+                    "end": "\"",
+                    "captures": "string.quoted.double.enc",
+                    "patterns": [
+                        {
+                            "match": "\\\\\""
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.enc",
+                    "begin": "'",
+                    "end": "'",
+                    "captures": "string.quoted.single.enc",
+                    "patterns": [
+                        {
+                            "match": "\\\\'"
+                        }
+                    ]
+                }
+            ]
+        },
+        "comment": {
+            "patterns": [
+                {
+                    "name": "comment.block.enc",
+                    "begin": "{-",
+                    "end": "-}",
+                    "captures": {
+                        "0": {
+                            "name": "punctuation.definition.comment.enc"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "match": "(?:TODO|FIXME|XXX):?",
+                            "captures": {
+                                "0": {
+                                    "name": "keyword.other.todo"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "comment.line.enc",
+                    "begin": "--",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.comment.enc"
+                        }
+                    },
+                    "end": "$",
+                    "patterns": [
+                        {
+                            "match": "(?:TODO|FIXME|XXX):?",
+                            "captures": {
+                                "0": {
+                                    "name": "keyword.other.todo"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

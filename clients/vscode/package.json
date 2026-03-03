@@ -1,0 +1,64 @@
+{
+    "name": "vscode-encore-lsp",
+    "displayName": "Encore LSP Client",
+    "description": "Encore support for VSCode via LSP.",
+    "publisher": "Andreas Olofsson",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.19.0"
+    },
+    "categories": [
+        "Programming Languages",
+        "Linters",
+        "Other"
+    ],
+    "keywords": [
+        "Encore"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://bitbucket.org/AndreasOlofsson/vscode-encore-lsp/"
+    },
+    "bugs": {
+        "url": "https://bitbucket.org/AndreasOlofsson/vscode-encore-lsp/issues"
+    },
+    "activationEvents": [
+        "onLanguage:encore"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "encore",
+                "extensions": [
+                    ".enc"
+                ]
+            }
+        ],
+        "grammars": [
+            {
+                "language": "encore",
+                "scopeName": "source.enc",
+                "path": "./syntaxes/encore.tmLanguage.json"
+            }
+        ]
+    },
+    "main": "./out/src/extension",
+    "scripts": {
+        "vscode:prepublish": "tsc -p ./",
+        "compile": "tsc -watch -p ./",
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "test": "node ./node_modules/vscode/bin/test"
+    },
+    "devDependencies": {
+        "@types/mocha": "^2.2.32",
+        "@types/node": "^8.0.31",
+        "typescript": "^2.6.1",
+        "vscode": "^1.1.10",
+        "tslint": "^5.9.1"
+    },
+    "dependencies": {
+        "path": "^0.12.7",
+        "child_process": "^1.0.2",
+        "vscode-languageclient": "^3.5.0"
+    }
+}

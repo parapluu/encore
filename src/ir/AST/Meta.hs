@@ -21,8 +21,12 @@ data Position = SingletonPos {startPos :: SourcePos}
                 deriving (Eq)
 
 instance Show Position where
-  -- TODO: If we ever want to print ranges, this should be updated
-  show = showSourcePos . startPos
+  show (SingletonPos s) = showSourcePos s 
+  show (RangePos s e) = 
+    sourceName s ++ " " ++
+    show (unPos $ sourceLine s, unPos $ sourceColumn s) ++ " to " ++
+    show (unPos $ sourceLine e, unPos $ sourceColumn e)
+    --(showSourcePos s) ++ " to " ++ (showSourcePos e)
 
 newPos :: SourcePos -> Position
 newPos = SingletonPos
