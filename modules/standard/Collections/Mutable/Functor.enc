@@ -1,0 +1,8 @@
+module Functor
+import Collections.Mutable.Collection
+
+local trait Functor[t]
+  require def map[u](f : local ((t) -> u)) : Functor[u]
+  require def flatMap[u](f : local ((t) -> Functor[u])) : Collection[u]
+  require def foreach(f : local ((t) -> unit)) : unit
+end

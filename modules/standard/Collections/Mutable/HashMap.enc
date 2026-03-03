@@ -44,11 +44,11 @@ local class HashMapIterator[k : Hashable + Eq[k], v]
     this.current_index = this.current_index + 1
 
     while this.current_index < this.map.size do
-      val l = (this.map.internal_map)(this.current_index) 
+      val l = (this.map.internal_map)(this.current_index)
       if l.size > 0 then
         return l.first
       end
-     
+
       this.current_index = this.current_index + 1
     end
 
@@ -107,7 +107,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
   def init() : unit
     this.items = 0
     this.size = 32
-    this.internal_map = Array.new_with_generator(this.size, 
+    this.internal_map = Array.new_with_generator(this.size,
                                                  fun (x: int) => new LinkedList[Entry[k,v]]())
   end
 
@@ -277,7 +277,7 @@ local class HashMap[k : Hashable + Eq[k], v] : Map[k, v](size, internal_map, ite
     end
     result
   end
-  
+
   def populate(pairs : [(k, v)]) : unit
     for kv <- pairs do
       this.set(kv.0, kv.1)

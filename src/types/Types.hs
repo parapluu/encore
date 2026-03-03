@@ -31,6 +31,9 @@ module Types(
             ,isPassiveClassType
             ,isMainType
             ,stringObjectType
+            ,rangeObjectType
+            ,boxObjectType
+            ,isRangeObjectType
             ,isStringObjectType
             ,conjunctiveType
             ,isConjunctiveType
@@ -1036,8 +1039,16 @@ isMainType _ = False
 stringObjectType = setRefSourceFile "String.enc" $
                     makeRead $ classType "String" []
 
+boxObjectType param = classType "MutBox" param
+
+rangeObjectType = classType "RRange" []
+
+
 isStringObjectType ty = isClassType ty &&
                         getId ty == "String"
+
+isRangeObjectType ty = isClassType ty && getId ty == "RRange"
+
 
 replaceTypeVars :: [(Type, Type)] -> Type -> Type
 replaceTypeVars bindings = typeMap replace

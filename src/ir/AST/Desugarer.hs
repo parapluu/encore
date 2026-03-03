@@ -389,7 +389,8 @@ desugar FunctionCall{emeta, qname = QName{qnlocal = Name "exit"}
     Exit emeta args
 
 -- Abort
-desugar FunctionCall{emeta, qname=QName{qnlocal=Name "abort"} , args=[msg]} =
+desugar FunctionCall{emeta, qname = QName{qnlocal = Name "abort"}
+                    ,args=[msg]} =
   Seq{emeta, eseq=[Print emeta Stderr [StringLiteral emeta "{}\n", msg]
                   ,Print emeta Stderr [StringLiteral emeta $ Meta.showPos emeta ++ "\n"]
                   ,Abort{emeta, args=[msg]}]}
@@ -495,6 +496,13 @@ desugar Unless{emeta, cond = originalCond, thn} =
               ,thn
               ,els = Skip (cloneMeta emeta)
               }
+-- Desugars
+--  [e1 .. e2] by e3
+-- into
+-- new RRange(e1, e2, e3)
+desugar RangeLiteral{emeta, start, stop, step} =
+  NewWithInit{emeta, ty, args = [start, stop, step]}
+  where ty = rangeObjectType
 
 -- Desugars
 --   repeat id <- e1 e2

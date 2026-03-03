@@ -14,7 +14,6 @@ import Data.List
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
-import Debug.Trace
 import qualified Data.Text as T
 import Control.Monad.Reader
 import Control.Monad.Except
@@ -26,7 +25,7 @@ import Identifiers
 import AST.AST hiding (hasType, getType)
 import qualified AST.AST as AST (getType)
 import qualified AST.Util as Util (freeVariables, filter, markStatsInBody,
-                                  isStatement, isForwardInExpr)
+                                  isStatement, isForwardInExpr, filter)
 import AST.PrettyPrinter
 import AST.Util(extend)
 import Types as Ty
@@ -34,7 +33,6 @@ import Typechecker.Environment
 import Typechecker.TypeError
 import Typechecker.Util
 import Text.Printf (printf)
-import Debug.Trace
 
 -- | The top-level type checking function
 typecheckProgram :: Map FilePath LookupTable -> Program ->
@@ -584,12 +582,13 @@ instance Checkable Expr where
     --  E |- () : unit
     doTypecheck skip@(Skip {}) = return $ setType unitType skip
 
+    doTypecheck e@(ExtractorPattern{}) = return e
     --
     -- ----------------
     --  E |- break : unit
     doTypecheck break@(Break {emeta}) = do
-      unless (Util.isStatement break) $
-        tcError BreakUsedAsExpressionError
+      --unless (Util.isStatement break) $
+        --tcError BreakUsedAsExpressionError
       unlessM (asks checkValidUseOfBreak) $
         tcError BreakOutsideOfLoopError
       return $ setType unitType break
@@ -1266,19 +1265,23 @@ instance Checkable Expr where
             | isValidPattern pattern = hasType pattern argty
             | otherwise = tcError $ InvalidPatternError pattern
 
-        checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} = do
-          vars <- getPatternVars pt mcpattern
-          let duplicates = vars \\ nub vars
-          unless (null duplicates) $
-                 tcError $
-                 DuplicatePatternVarError (fst (head duplicates)) mcpattern
-          let withLocalEnv = local (extendEnvironmentImmutable vars)
-          ePattern <- withLocalEnv $ checkPattern mcpattern pt
-          eHandler <- withLocalEnv $ typecheck mchandler
-          eGuard <- withLocalEnv $ hasType mcguard boolType
-          return $ clause {mcpattern = extend makePattern ePattern
-                          ,mchandler = eHandler
-                          ,mcguard = eGuard}
+        checkClause pt clause@MatchClause{mcpattern, mchandler, mcguard} =
+            if isExtractorPattern mcpattern
+            then return clause
+            else
+            do
+            vars <- getPatternVars pt mcpattern
+            let duplicates = vars \\ nub vars
+            unless (null duplicates) $
+                   tcError $
+                   DuplicatePatternVarError (fst (head duplicates)) mcpattern
+            let withLocalEnv = local (extendEnvironmentImmutable vars)
+            ePattern <- withLocalEnv $ checkPattern mcpattern pt
+            eHandler <- withLocalEnv $ typecheck mchandler
+            eGuard <- withLocalEnv $ hasType mcguard boolType
+            return $ clause {mcpattern = extend makePattern ePattern
+                            ,mchandler = eHandler
+                            ,mcguard = eGuard}
 
     doTypecheck borrow@(Borrow{target, name, body}) = do
       eTarget <- typecheck target
@@ -1727,28 +1730,70 @@ instance Checkable Expr where
     -- --------------------------
     --  E |- for x <- rng e : ty
 
-    --  E |- arr : [ty]
-    --  E, x : int |- e : ty
+    --  E |- arr : [ty1]
+    --  E, x : ty1 |- e : ty
     -- --------------------------
     --  E |- for x <- arr e : ty
-    doTypecheck for@(For {name, step, src, body}) =
-        do stepTyped <- doTypecheck step
-           srcTyped  <- doTypecheck src
-           let srcType = AST.getType srcTyped
 
-           unless (isArrayType srcType || isRangeType srcType) $
-             pushError src $ NonIterableError srcType
+    --  E |- col : isRefType, inner : ty1
+    --  E, x : ty1 |- e : ty
+    -- --------------------------
+    --  E |- for x <- col e : ty
+    doTypecheck for@(For {sources, body}) = do
+      sourceType <- firstSourceType $ head sources
+      sourcesTyped <- mapM (typeCheckSource sourceType) sources
+      nameList <- getNameTypeList sourcesTyped
+      bodyTyped <- typecheckBody nameList body
+      let returnType = getRetType bodyTyped $ head sourcesTyped
+      return $ setType returnType for{sources = sourcesTyped
+                                      ,body = bodyTyped}
+      where
+        typeCheckSource sourceType fors@(ForSource{fsTy, collection}) = do
+            collectionTyped <- doTypecheck collection
+            let collectionType = AST.getType collectionTyped
+            formalType <- firstSourceType fors
+            unless (formalType == sourceType) $
+              pushError collection $ TypeMismatchError formalType sourceType
+            let mtyType = return $ getInnerType collectionType
+            return fors{fsTy = mtyType
+                       ,collection = setType collectionType collectionTyped}
 
-           let elementType = if isRangeType srcType
-                             then intType
-                             else getResultType srcType
-           bodyTyped <- typecheckBody elementType body
-           return $ setType unitType for{step = stepTyped
-                                        ,src  = srcTyped
-                                        ,body = bodyTyped}
-        where
-          addIteratorVariable ty = extendEnvironmentImmutable [(name, ty)]
-          typecheckBody ty = local (addIteratorVariable ty) . typecheck
+        firstSourceType ForSource{fsTy, collection} = do
+            collectionTyped <- doTypecheck collection
+            let collectionType = AST.getType collectionTyped
+            unless (isRefType collectionType || isArrayType collectionType) $
+               pushError collection $ NonIterableError collectionType
+            formal <- if isRefType collectionType
+                      then findFormalRefType collectionType
+                      else return collectionType
+            return formal
+
+        getNameTypeList sourceList = mapM getNameType sourceList
+        getNameType ForSource{fsName, collection} = do
+          let collectionType = AST.getType collection
+          let nameType = getInnerType collectionType
+          return (fsName, nameType)
+
+        getInnerType collectionType
+         | isArrayType collectionType = getResultType collectionType
+         | isRangeObjectType collectionType = intType
+         | otherwise = head $ getTypeParameters collectionType
+
+        typecheckBody nameList = local (extendEnvironmentImmutable nameList) . doTypecheck
+
+        getRetType body ForSource{collection} =
+          let paraType = AST.getType body
+              collectionType = AST.getType collection
+              containsBreak exp = not $ null $ Util.filter isBreak exp
+              rettype
+                | containsBreak body = maybeType unitType
+                | AST.getType body == unitType = unitType
+                | isArrayType collectionType = setResultType collectionType paraType
+                | isRangeObjectType collectionType = unitType
+                | otherwise = setTypeParameters collectionType [paraType]
+          in rettype
+
+
 
    ---  |- ty
     --  E |- size : int
@@ -1847,7 +1892,7 @@ instance Checkable Expr where
                   (length expectedTypes) (length args)
       eArgs <- mapM typecheck args
       matchArguments args expectedTypes
-      return $ setType bottomType abort{args=([]::[Expr])}
+      return $ setType bottomType abort{args = eArgs}
 
     doTypecheck stringLit@(StringLiteral {}) = do
       when (Util.isStatement stringLit) $

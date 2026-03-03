@@ -26,7 +26,6 @@ import Data.List
 import Data.List.Utils(split)
 import qualified Data.Set as Set
 import Data.Maybe
-import Debug.Trace
 
 instance Translatable ID.BinaryOp (CCode Name) where
   translate op = Nam $ case op of
@@ -314,7 +313,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
       let exitCall = Call (Nam "exit") [narg]
       return (unit, Seq [Statement targ, Statement exitCall])
 
-  translate abort@(A.Abort {A.args = []}) = do
+  translate abort@(A.Abort {A.args}) = do
       let abortCall = Call (Nam "abort") ([]::[CCode Lval])
       return (unit, Statement abortCall)
 
@@ -677,77 +676,6 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
     (_,tbody) <- translate body
     return (unit, While (StatAsExpr ncond tcond) (Statement tbody))
 
-  translate for@(A.For {A.name, A.step, A.src, A.body}) = do
-    indexVar <- Var <$> Ctx.genNamedSym "index"
-    eltVar   <- Var <$> Ctx.genNamedSym (show name)
-    startVar <- Var <$> Ctx.genNamedSym "start"
-    stopVar  <- Var <$> Ctx.genNamedSym "stop"
-    stepVar  <- Var <$> Ctx.genNamedSym "step"
-    srcStepVar <- Var <$> Ctx.genNamedSym "src_step"
-
-    (srcN, srcT) <- if A.isRangeLiteral src
-                    then return (undefined, Comm "Range not generated")
-                    else translate src
-
-    let srcType = A.getType src
-        eltType = if Ty.isRangeType srcType
-                  then int
-                  else translate $ Ty.getResultType (A.getType src)
-        srcStart = if Ty.isRangeType srcType
-                   then Call rangeStart [srcN]
-                   else Int 0 -- Arrays start at 0
-        srcStop  = if Ty.isRangeType srcType
-                   then Call rangeStop [srcN]
-                   else BinOp (translate ID.MINUS)
-                              (Call arraySize [srcN])
-                              (Int 1)
-        srcStep  = if Ty.isRangeType srcType
-                   then Call rangeStep [srcN]
-                   else Int 1
-
-    (srcStartN, srcStartT) <- translateSrc src A.start startVar srcStart
-    (srcStopN,  srcStopT)  <- translateSrc src A.stop stopVar srcStop
-    (srcStepN,  srcStepT)  <- translateSrc src A.step srcStepVar srcStep
-
-    (stepN, stepT) <- translate step
-    substituteVar name eltVar
-    (bodyN, bodyT) <- translate body
-    unsubstituteVar name
-
-    let stepDecl = Assign (Decl (int, stepVar))
-                          (BinOp (translate ID.TIMES) stepN srcStepN)
-        stepAssert = Statement $ Call rangeAssertStep [stepVar]
-        indexDecl = Seq [AsExpr $ Decl (int, indexVar)
-                        ,If (BinOp (translate ID.GT)
-                                   (AsExpr stepVar) (Int 0))
-                            (Assign indexVar srcStartN)
-                            (Assign indexVar srcStopN)]
-        cond = BinOp (translate ID.AND)
-                     (BinOp (translate ID.GTE) indexVar srcStartN)
-                     (BinOp (translate ID.LTE) indexVar srcStopN)
-        eltDecl =
-           Assign (Decl (eltType, eltVar))
-                  (if Ty.isRangeType srcType
-                   then AsExpr indexVar
-                   else AsExpr $ fromEncoreArgT eltType (Call arrayGet [srcN, indexVar]))
-        inc = Assign indexVar (BinOp (translate ID.PLUS) indexVar stepVar)
-        theBody = Seq [eltDecl, Statement bodyT, inc]
-        theLoop = While cond theBody
-
-    return (unit, Seq [srcT
-                        ,srcStartT
-                        ,srcStopT
-                        ,srcStepT
-                        ,stepT
-                        ,stepDecl
-                        ,stepAssert
-                        ,indexDecl
-                        ,theLoop])
-    where
-      translateSrc src selector var rhs
-          | A.isRangeLiteral src = translate (selector src)
-          | otherwise = return (var, Assign (Decl (int, var)) rhs)
-
   translate ite@(A.IfThenElse { A.cond, A.thn, A.els }) =
       do tmp <- Ctx.genNamedSym "ite"
          (ncond, tcond) <- translate cond
@@ -1025,7 +953,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
   translate get@(A.Get{A.val})
     | Ty.isFutureType $ A.getType val =
         do (nval, tval) <- translate val
-           let resultType = translate (Ty.getResultType $ A.getType val)
+           let resultType =  translate (Ty.getResultType $ A.getType val)
                theGet = fromEncoreArgT resultType (Call futureGetActor [encoreCtxVar, nval])
            tmp <- Ctx.genSym
            return (Var tmp, Seq [tval, Assign (Decl (resultType, Var tmp)) theGet])

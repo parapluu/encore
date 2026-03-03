@@ -9,6 +9,7 @@ file I/O.
 
 module Main where
 
+
 import System.Environment
 import System.Directory
 import System.IO
@@ -42,6 +43,7 @@ import Typechecker.Environment(buildLookupTable)
 import Typechecker.Prechecker(precheckProgram)
 import Typechecker.Typechecker(typecheckProgram, checkForMainClass)
 import Typechecker.Capturechecker(capturecheckProgram)
+import Optimizer.TypedDesugarer
 import Optimizer.Optimizer
 import CodeGen.Main
 import CodeGen.ClassDecl
@@ -243,7 +245,7 @@ compileProgram prog sourcePath options =
            customFlags = case find isCustomFlags options of
                            Just (CustomFlags str) -> str
                            Nothing                -> ""
-           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value" <+> customFlags <+> "-lpthread -ldl -lm -Wno-attributes"
+           flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -latomic -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value" <+> customFlags <+> "-lpthread -ldl -lm -Wno-attributes"
            oFlag = "-o" <+> execName
            defines = getDefines options
            incs  = "-I" <+> incPath <+> "-I ."
@@ -338,8 +340,17 @@ main =
        verbose options "== Capturechecking =="
        capturecheckedTable <- capturecheckProgramTable typecheckedTable
 
+       verbose options "== Typed Desugaring =="
+       let desugaredTypedTable = fmap desugarTypedProgram capturecheckedTable
+
+       verbose options "== Re - Typechecking =="
+       typecheckedTableTwo <- typecheckProgramTable desugaredTypedTable
+
+       verbose options "== Re-Capturechecking =="
+       capturecheckedTableTwo <- capturecheckProgramTable typecheckedTableTwo
+
        verbose options "== Optimizing =="
-       let optimizedTable = fmap optimizeProgram capturecheckedTable
+       let optimizedTable = fmap optimizeProgram capturecheckedTableTwo
 
        verbose options "== Generating code =="
        let (mainDir, mainName) = dirAndName sourceName

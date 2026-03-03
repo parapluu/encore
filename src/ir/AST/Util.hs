@@ -93,7 +93,9 @@ getChildren Unless {cond, thn} = [cond, thn]
 getChildren While {cond, body} = [cond, body]
 getChildren DoWhile {cond, body} = [cond, body]
 getChildren Repeat {name, times, body} = [times, body]
-getChildren For {name, step, src, body} = [step, src, body]
+getChildren For {sources, body} = body : concatMap getChildrenFor' sources
+ where
+    getChildrenFor' ForSource {collection} = [collection]
 getChildren Match {arg, clauses} = arg:getChildrenClauses clauses
   where
     getChildrenClauses = concatMap getChildrenClause
@@ -173,7 +175,8 @@ putChildren [cond, thn] e@(Unless {}) = e{cond = cond, thn = thn}
 putChildren [cond, body] e@(While {}) = e{cond = cond, body = body}
 putChildren [cond, body] e@(DoWhile {}) = e{cond = cond, body = body}
 putChildren [times, body] e@(Repeat {}) = e{times = times, body = body}
-putChildren [step, src, body] e@(For {}) = e{step = step, src = src, body = body}
+putChildren (body:collectionList) e@(For {sources}) =
+  e{body = body, sources = zipWith (\collec s -> s{collection = collec}) collectionList sources}
 putChildren (arg:clauseList) e@(Match {clauses}) =
     e{arg = arg, clauses=putClausesChildren clauseList clauses}
     where putClausesChildren [] [] = []
@@ -294,6 +297,11 @@ foldrExp :: (Expr -> a -> a) -> a -> Expr -> a
 foldrExp f l e =
     let childResult = List.foldr (\expr acc -> foldrExp f acc expr) l (getChildren e)
     in f e childResult
+
+exContains :: (Expr -> Bool) -> Expr -> Bool
+exContains f e =
+  let children = List.filter f (getChildren e)
+  in not $ null children
 
 -- | Like a map, but where the function has access to the
 -- substructure of each node, not only the element. For lists,
@@ -443,8 +451,10 @@ freeVariables bound expr = List.nub $ freeVariables' bound expr
           fvDecls (vars, expr) (free, bound) =
             let xs = map (qLocal . varName) vars
             in (freeVariables' bound expr ++ free, xs ++ bound)
-    freeVariables' bound e@For{name, step, src, body} =
-      freeVariables' (qLocal name:bound) =<< getChildren e
+    freeVariables' bound e@For{sources, body} =
+      freeVariables' (getName++bound) =<< getChildren e
+      where
+        getName = map (\ForSource{fsName, collection} -> qLocal fsName) sources
     freeVariables' bound e = concatMap (freeVariables' bound) (getChildren e)
 
 markStatsInBody ty e
@@ -475,8 +485,10 @@ mark asParent s@Let{body, decls} =
   where
     markDecl (n, e) = (n, markAsExpr e)
 mark asParent s@While{cond, body} = asParent s{cond=markAsExpr cond, body=markAsStat body}
-mark asParent s@For{step, src, body} =
-  asParent s{step=markAsExpr step, src=markAsExpr src, body=markAsStat body}
+mark asParent s@For{sources, body} =
+  asParent s{sources = map markAsForSource sources, body=markAsExpr body}
+  where
+    markAsForSource ForSource{fsName, fsTy, collection} = ForSource {fsName, fsTy, collection = markAsExpr collection}
 mark asParent s =
   let
     children = AST.Util.getChildren s

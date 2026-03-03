@@ -206,7 +206,7 @@ fun prepend_three_and_remove_middle() : bool
   list.prepend(420)
 
   list.remove(1)
-  
+
 
   match list.first with
     case Just(first) =>
@@ -214,7 +214,7 @@ fun prepend_three_and_remove_middle() : bool
       match first.next with
         case Just(second) => is_nothing(second.next) && second.value == 42
         case _ => false
-      end 
+      end
     end
     case _ =>
       false
@@ -866,5 +866,3 @@ active class Main
     tests.run()
   end
 end
-
-

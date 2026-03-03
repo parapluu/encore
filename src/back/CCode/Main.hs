@@ -30,6 +30,7 @@ class UsableAs a b where
 instance UsableAs Name Lval where
 instance UsableAs Lval Expr where
 instance UsableAs Name Expr where
+  
 instance UsableAs a a where
 
 instance UsableAs Stat Expr where
