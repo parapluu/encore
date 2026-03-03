@@ -1,0 +1,18 @@
+read class Bar[t]
+  def bar() : unit
+    println("In Bar")
+  end
+end
+
+read class Foo
+  def foo[ty]() : () -> unit
+    fun() => (new Bar[ty]()).bar()
+  end
+end
+
+active class Main
+  def main() : unit
+    val f = (new Foo()).foo[int]()
+    f()
+  end
+end
