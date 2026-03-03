@@ -26,6 +26,7 @@ import Types as Ty
 import Identifiers
 import Typechecker.Environment
 import Typechecker.TypeError
+import Typechecker.Backtrace
 import Typechecker.Util
 import Data.Map.Strict(Map)
 import qualified Data.Map.Strict as Map

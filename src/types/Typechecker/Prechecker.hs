@@ -31,6 +31,7 @@ import Identifiers
 import Types
 import Typechecker.Environment
 import Typechecker.TypeError
+import Typechecker.Backtrace
 import Typechecker.Util
 
 -- | The top-level type checking function

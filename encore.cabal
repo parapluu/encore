@@ -47,6 +47,9 @@ executable encorec
                , unordered-containers
                , boxes
                , filepath
+               , ansi-terminal
+               , pager
+               , bytestring
   hs-source-dirs:      src/back src/front src/ir src/opt src/parser src/types
   ghc-options: -Werror -fmax-pmcheck-iterations=10000000
   default-language:    Haskell2010
@@ -82,9 +85,13 @@ executable encorec
                , Optimizer.Optimizer
                , Parser.Parser
                , SystemUtils
+               , Typechecker.Backtrace
                , Typechecker.Capturechecker
                , Typechecker.Environment
+               , Typechecker.Errorprinter
+               , Typechecker.ExplainTable
                , Typechecker.Prechecker
+               , Typechecker.Suggestable
                , Typechecker.TypeError
                , Typechecker.Typechecker
                , Typechecker.Util

@@ -1,0 +1,19 @@
+Welcome to the Encore Compiler!
+Here you will meet many wonderful methods and functions and whatnot!
+
+To be able to compile an Encore program you will need to have a Main-class
+with a main-method inside.
+Lets try a simple "Hello World"!
+
+For example:
+
+
+```
+active class Main
+
+    def main() : unit
+        println("hello world")
+    end
+
+end
+```

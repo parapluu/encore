@@ -1,0 +1,4 @@
+4 | /    def foo(i1 : int, i2 : int, i3 : int = 5.3) : unit
+5 | |        ()
+6 | |    end
+  | |______^

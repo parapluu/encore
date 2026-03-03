@@ -25,7 +25,7 @@ import Debug.Trace
 import Identifiers
 import AST.AST hiding(showWithKind)
 import Types
-import Typechecker.TypeError
+import Typechecker.Backtrace
 
 data LookupTable = LookupTable {
    sourceFile       :: FilePath
@@ -508,6 +508,27 @@ varLookup qname@QName{qnspace, qnlocal = x}
                                    ,selectiveExports = Just names
                                    } =
       Map.filterWithKey (\f _ -> f `elem` names) functionTable
+
+visibleFunctions :: Environment -> [(Name, Type)]
+visibleFunctions Env{locals, lookupTables} =
+  let
+    funcTable = extractTables filterFunctionTable lookupTables
+    -- Std only contains internal functions that are not ment to be operated by the user.
+    exposedTable = filter ((/= "Std")  . show . fst) funcTable
+    localFunc = map (\(x,(_,z)) -> (x,z)) $ filter (isArrowType . snd . snd) locals
+  in
+    localFunc ++ concatMap (Map.assocs . snd) exposedTable
+
+  where
+    filterFunctionTable LookupTable{functionTable
+                                   ,selectiveExports = Nothing
+                                   } =
+      functionTable
+    filterFunctionTable LookupTable{functionTable
+                                   ,selectiveExports = Just names
+                                   } =
+      Map.filterWithKey (\f _ -> f `elem` names) functionTable
+
 
 isLocal :: QualifiedName -> Environment -> Bool
 isLocal QName{qnspace = Nothing, qnlocal = x} Env{locals} =

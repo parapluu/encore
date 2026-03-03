@@ -47,6 +47,8 @@ module Typechecker.Util(TypecheckM
                        ,isSharableType
                        ,checkConjunction
                        ,includesMarkerTrait
+                       ,getFunctionNames
+                       ,findMethodWithEnvironment
                        ) where
 
 import Identifiers
@@ -63,7 +65,9 @@ import Control.Monad.State
 
 -- Module dependencies
 import Typechecker.TypeError
+import Typechecker.Backtrace
 import Typechecker.Environment
+import AST.Meta (Meta)
 
 -- Monadic versions of common functions
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
@@ -110,20 +114,20 @@ type TypecheckM a =
 -- | Convenience function for throwing an exception with the
 -- current backtrace
 tcError err =
-    do bt <- asks backtrace
-       throwError $ TCError err bt
+    do env <- ask
+       throwError $ TCError err env
 
 -- | Push the expression @expr@ and throw error err
 pushError expr err = local (pushBT expr) $ tcError err
 
 tcWarning wrn =
-    do bt <- asks backtrace
-       modify (TCWarning bt wrn:)
+    do env <- ask
+       modify (TCWarning wrn env:)
 
 pushWarning expr wrn = local (pushBT expr) $ tcWarning wrn
 
-checkValidUseOfBreak = Typechecker.TypeError.validUseOfBreak . bt
-checkValidUseOfContinue = Typechecker.TypeError.validUseOfContinue . bt
+checkValidUseOfBreak = validUseOfBreak . bt
+checkValidUseOfContinue = validUseOfContinue . bt
 
 -- | @matchTypeParameterLength ty1 ty2@ ensures that the type parameter
 -- lists of its arguments have the same length.
@@ -535,6 +539,59 @@ findField ty f = do
 
 findMethod :: Type -> Name -> TypecheckM FunctionHeader
 findMethod ty = liftM fst . findMethodWithCalledType ty
+
+getClassDecl :: Type -> Environment -> ClassDecl
+getClassDecl ty env
+    | isClassType ty =
+        case classLookup ty env of
+            Just [cls] -> cls
+            Just l ->
+                error $ "Util.hs: Class " ++ show ty ++ " is ambiguous."
+            Nothing ->
+                error $ "Util.hs: Class " ++ show ty ++ " is unresolved."
+    | otherwise =
+        error $ "Util.hs: Trying to get class declaration of " ++
+            Ty.showWithKind ty
+
+getTraitDecl :: Type -> Environment -> TraitDecl
+getTraitDecl ty env
+    | isTraitType ty =
+        case traitLookup ty env of
+            Just [trts] -> trts
+            Just l ->
+                error $ "Util.hs: Trait " ++ show ty ++ " is ambiguous."
+            Nothing ->
+                error $ "Util.hs: Trait " ++ show ty ++ " is unresolved."
+    | otherwise =
+        error $ "Util.hs: Trying to get trait declaration of " ++
+            Ty.showWithKind ty
+
+getMethods :: Type -> Environment -> [(Meta MethodDecl, FunctionHeader)]
+getMethods ty env
+  | isClassType ty = traitTy ++ (map (\x -> (mmeta x, mheader x)) $ cmethods $ getClassDecl ty env)
+  | isTraitType ty = map (\x -> (mmeta x, mheader x)) $ tmethods $ getTraitDecl ty env
+  | otherwise =
+      error $ "Util.hs: Trying to get methods of " ++
+              Ty.showWithKind ty
+  where
+    traitTy = concatMap (\ty -> getMethods ty env) $ typesFromTraitComposition $ ccomposition $ getClassDecl ty env
+
+-- Returns a tuple with all method names and all function names visible
+getFunctionNames :: Type -> Environment -> ([Name], [Name])
+getFunctionNames ty env =
+    let
+        methods = map (hname . snd) $ getMethods ty env
+        cleanMethods = Prelude.filter (not . (`elem` ["await", "suspend", "main", "init"]) . show) methods
+        functions = map (fst) $ visibleFunctions env
+    in
+        (cleanMethods, functions)
+
+findMethodWithEnvironment :: Name -> Type -> Environment -> Maybe (Meta MethodDecl, FunctionHeader)
+findMethodWithEnvironment name ty env = 
+    let
+        methods = getMethods ty env
+    in
+        find (\(_, h) -> name == (hname h)) methods
 
 findMethodWithCalledType :: Type -> Name -> TypecheckM (FunctionHeader, Type)
 findMethodWithCalledType ty name

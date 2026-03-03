@@ -1,0 +1,6 @@
+active class Main
+    def main(args : [String]) : unit
+        println("x = {}", (1+1) += 3)
+    end
+end
+
